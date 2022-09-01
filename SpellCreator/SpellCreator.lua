@@ -6,6 +6,8 @@ local MYADDON, MyAddOn = ...
 local addonVersion, addonAuthor, addonName = GetAddOnMetadata(MYADDON, "Version"), GetAddOnMetadata(MYADDON, "Author"), GetAddOnMetadata(MYADDON, "Title")
 local addonColor = "|cff".."7e1af0"
 
+sfCmd_ReplacerChar = "@N@"
+
 -- local utils = Epsilon.utils
 -- local messages = utils.messages
 -- local server = utils.server
@@ -320,43 +322,47 @@ local actionTypeDataList = {"SpellCast", "SpellTrig", "SpellAura", "Anim", "Stan
 local actionTypeData = {
 	["SpellCast"] = {
 		["name"] = "Cast Spell",							-- The Displayed Name in the UI
-		["command"] = "cast", 								-- The chat command, or Lua function to process
+		["command"] = "cast @N@", 								-- The chat command, or Lua function to process
 		["description"] = "Cast a spell using a Spell ID, to selected target, or self if no target.\n\rEnable the Self checkbox to cast always on yourself.\n\rRevert: Unaura", 	-- Description for on-mouse-over
-		["dataName"] = "Spell ID", 							-- Label for the ID Box, nil to disable the ID box
+		["dataName"] = "Spell ID(s)", 							-- Label for the ID Box, nil to disable the ID box
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.",							-- Description of the input for GameTooltip
 		["comTarget"] = "server", 							-- Server for commands, func for custom Lua function in 'command'
 		["revert"] = "unaura", 									-- The command that reverts it, i.e, 'unaura' for 'aura'
 		["selfAble"] = true,								-- True/False - if able to use the self-toggle checkbox
 		},
 	["SpellTrig"] = {
 		["name"] = "Cast Spell (Trig)",
-		["command"] = "cast",
+		["command"] = "cast @N@ trig",
 		["description"] = "Cast a spell using a Spell ID, to selected target, or self if no target, using the triggered flag.\n\rEnable the Self checkbox to cast always on yourself.\n\rRevert: Unaura",
-		["dataName"] = "Spell ID",
+		["dataName"] = "Spell ID(s)",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.",
 		["comTarget"] = "server",
 		["revert"] = "unaura",
 		["selfAble"] = true,
 		},
 	["SpellAura"] = {
 		["name"] = "Apply Aura",
-		["command"] = "aura",
+		["command"] = "aura @N@",
 		["description"] = "Applies an Aura from a Spell ID on your target, or yourself if no target selected.\n\rEnable the 'self' checkbox to always aura yourself.\n\rRevert: Unaura",
-		["dataName"] = "Spell ID",
+		["dataName"] = "Spell ID(s)",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to apply multiple auras at once.",
 		["comTarget"] = "server",
 		["revert"] = "unaura",
 		["selfAble"] = true,
 		},
 	["Anim"] = {
 		["name"] = "Emote",
-		["command"] = "mod anim",
+		["command"] = "mod anim @N@",
 		["description"] = "Modifies target's current animation.\n\rUse .lookup emote to find IDs.\n\rRevert: Reset to Anim 0 (none)",
 		["dataName"] = "Emote ID",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to do multiple anims at once -- but the second usually over-rides the first.",
 		["comTarget"] = "server",
 		["revert"] = "mod anim 0",
 		["selfAble"] = false,
 		},
 	["Morph"] = {
 		["name"] = "Morph",
-		["command"] = "morph",
+		["command"] = "morph @N@",
 		["description"] = "Morph into a Display ID.\n\rRevert: Demorph",
 		["dataName"] = "Display ID",
 		["comTarget"] = "server",
@@ -365,7 +371,7 @@ local actionTypeData = {
 		},
 	["Native"] = {
 		["name"] = "Native",
-		["command"] = "native",
+		["command"] = "native @N@",
 		["description"] = "Modifies your Native to specified Display ID.\n\rRevert: Demorph",
 		["dataName"] = "Display ID",
 		["comTarget"] = "server",
@@ -374,9 +380,10 @@ local actionTypeData = {
 		},
 	["Standstate"] = {
 		["name"] = "Standstate",
-		["command"] = "mod standstate",
+		["command"] = "mod standstate @N@",
 		["description"] = "Change the emote of your character while standing to an Emote ID.\n\rRevert: Standstate to 0 (none)",
 		["dataName"] = "Standstate ID",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to set multiple standstates at once.. but you can't have two, so probably don't try it.",
 		["comTarget"] = "server",
 		["revert"] = "",
 		["selfAble"] = true,
@@ -385,16 +392,18 @@ local actionTypeData = {
 		["name"] = "Equip Item",
 		["command"] = function(vars) EquipItemByName(vars) end,
 		["description"] = "Equip an Item by name or ID. Item must be in your inventory. Cannot be reverted directly.\n\rName is a search in your inventory by keyword - using ID is recommended.\n\ri.e., You want to equip 'Violet Guardian's Helm', ID: 141357, but have 'Guardian's Leather Belt', ID: 35156 in your inventory also, using 'Guardian' as the text will equip the belt, so you'll want to use the full name, or better off just use the actual item ID.",
-		["dataName"] = "Item ID or Name",
+		["dataName"] = "Item ID or Name(s)",
+		["inputDescription"] = "Accepts multiple IDs/Names, separated by commas, to equip multiple items at once.",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		["selfAble"] = false,
 		},
 	["RemoveAura"] = {
 		["name"] = "Remove Aura",
-		["command"] = "unaura",
+		["command"] = "unaura @N@",
 		["description"] = "Remove an Aura.\r\nRevert: Re-applies the same aura after the delay.",
-		["dataName"] = "Spell ID",
+		["dataName"] = "Spell ID(s)",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to remove multiple auras at once.",
 		["comTarget"] = "server",
 		["revert"] = "aura",
 		["selfAble"] = true,
@@ -419,22 +428,25 @@ local actionTypeData = {
 	["Unequip"] = {
 		["name"] = "Unequip Item",
 		["command"] = function(slotID) PickupInventoryItem(slotID); PutItemInBackpack(); end,
-		["description"] = "Unequips an item by item slot.\n\rIDs:\rHead: 1          Shoulders: 2\rShirt: 4          Chest: 5\rWaist: 6         Legs 6\rFeet: 8           Wrist: 9\rHands: 10       Back: 15\rRanged: 18      Tabard: 19\rMain-hand: 16\rOff-hand: 17\n\rCannot be reverted directly, use Equip.",
-		["dataName"] = "Item Slot ID",
+		["description"] = "Unequips an item by item slot.\n\rCommon IDs:\rHead: 1          Shoulders: 2\rShirt: 4          Chest: 5\rWaist: 6         Legs 6\rFeet: 8           Wrist: 9\rHands: 10       Back: 15\rRanged: 18      Tabard: 19\rMain-hand: 16\rOff-hand: 17\n\rCannot be reverted directly, use Equip.",
+		["dataName"] = "Item Slot ID(s)",
+		["inputDescription"] = "Common IDs:\rHead: 1          Shoulders: 2\rShirt: 4           Chest: 5\rWaist: 6         Legs 6\rFeet: 8            Wrist: 9\rHands: 10       Back: 15\rRanged: 18      Tabard: 19\rMain-hand: 16\rOff-hand: 17\n\rAccepts multiple slot ID's, separated by commas, to remove multiple slots at the same time.",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},
 	["Command"] = {
 		["name"] = "Other Command",
-		["command"] = "",
+		["command"] = cmd,
 		["description"] = "Any other command.\n\rType the full command you want, without the dot, in the input box.\n\ri.e., 'mod drunk 100'.",
 		["dataName"] = "Full Command",
-		["comTarget"] = "server",
+		["inputDescription"] = "You can use any server command here, without the '.', and it will run after the delay.\n\rTechnically accepts multiple commands, separated by commas.\n\rExample: 'mod drunk 100'.",
+		["comTarget"] = "func",
 		["revert"] = nil,
 		},
 }
 
 local function processAction(delay, actionType, revertTime, selfOnly, vars)
+	if not actionType then return; end
 	local actionData = actionTypeData[actionType]
 	if revertTime then revertTime = tonumber(revertTime) end
 	local varTable
@@ -442,22 +454,12 @@ local function processAction(delay, actionType, revertTime, selfOnly, vars)
 	if vars then
 		varTable = { strsplit(",", vars) }
 	end
-		
-	if actionType == "Equip" then
+	
+	if actionData.comTarget == "func" then
 		C_Timer.After(delay, function()
 			local varTable = varTable
 			for i = 1, #varTable do
 				local v = varTable[i]
-			--for k,v in ipairs(varTable) do
-				EquipItemByName(v)
-			end
-		end)
-	elseif actionData.comTarget == "func" then
-		C_Timer.After(delay, function()
-			local varTable = varTable
-			for i = 1, #varTable do
-				local v = varTable[i]
-			--for k,v in ipairs(varTable) do
 				actionData.command(v)
 			end
 		end)
@@ -465,19 +467,19 @@ local function processAction(delay, actionType, revertTime, selfOnly, vars)
 		if actionData.dataName then
 			C_Timer.After(delay, function()
 				local varTable = varTable
---				for k,v in ipairs(varTable) do
 				for i = 1, #varTable do
-					local v = varTable[i]
-					if selfOnly then
-						cmd(actionData.command.." "..v.." self")
-					else
-						cmd(actionData.command.." "..v)
-					end
+					local v = varTable[i] -- v = the ID or input.
+					--print(actionData.command)
+					local finalCommand = tostring(actionData.command)
+					finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
+					if selfOnly then finalCommand = finalCommand.." self" end
+					dprint(false, finalCommand)
+					cmd(finalCommand)
+					
 				end
-				if revertTime > 0 then
+				if revertTime and revertTime > 0 then
 					C_Timer.After(revertTime, function()
 						local varTable = varTable
---						for k,v in ipairs(varTable) do
 						for i = 1, #varTable do
 							local v = varTable[i]
 							if selfOnly then
@@ -499,10 +501,40 @@ local function processAction(delay, actionType, revertTime, selfOnly, vars)
 	end
 end
 
+local actionsToCommit = {}
+local function executeSpell(actionsToCommit)
+	for _,spell in pairs(actionsToCommit) do
+		processAction(spell.delay, spell.actionType, spell.revertTime, spell.selfOnly, spell.vars)
+	end
+end
 -------------------------------------------------------------------------------
--- UI Helper
+-- UI Helper & Definitions
 -------------------------------------------------------------------------------
 
+-- Row Sizing / Info
+local numberOfSpellRows = 0
+local maxNumberOfSpellRows = 8
+local rowHeight = 60
+local rowSpacing = 30
+
+local mainFrameSize = {
+	["x"] = 700,
+	["y"] = 700,
+	["Xmin"] = 500,
+	["Ymin"] = 500,
+	["Xmax"] = 1100,
+	["Ymax"] = 1100,
+}
+
+-- Column Widths
+local delayColumnWidth = 100
+local actionColumnWidth = 100
+local selfColumnWidth = 41
+local InputEntryColumnWidth = 100
+local revertCheckColumnWidth = 60
+local revertDelayColumnWidth = 100
+
+-- Drop Down Generator
 local function genStaticDropdownChild( parent, dropdownName, menuList, title, width )
 
 	if not parent or not dropdownName or not menuList then return end;
@@ -537,23 +569,28 @@ local function genStaticDropdownChild( parent, dropdownName, menuList, title, wi
 	newDropdown:GetParent():SetHeight(newDropdown:GetHeight())	
 end
 
+-- Resizing Functions to scale with main frame resizing
+local framesToResizeWithMainFrame = {}
+local function setResizeWithMainFrame(frame)
+	table.insert(framesToResizeWithMainFrame, frame)
+end
+
+local function updateFrameChildScales(frame)
+	local n = frame:GetWidth()
+	frame:SetHeight(n)
+	SCForgeMainFrame.DragBar:SetWidth(n)
+	local n = n / mainFrameSize.x
+	local childrens = {frame.Inset:GetChildren()}
+	for _,child in ipairs(childrens) do
+		child:SetScale(n)
+	end
+	for _,child in pairs(framesToResizeWithMainFrame) do
+		child:SetScale(n)
+	end
+end
 -------------------------------------------------------------------------------
 -- Main UI Frame
 -------------------------------------------------------------------------------
-
--- Row Sizing / Info
-local numberOfSpellRows = 0
-local maxNumberOfSpellRows = 8
-local rowHeight = 60
-local rowSpacing = 30
-
--- Column Widths
-local delayColumnWidth = 100
-local actionColumnWidth = 100
-local selfColumnWidth = 41
-local InputEntryColumnWidth = 100
-local revertCheckColumnWidth = 60
-local revertDelayColumnWidth = 100
 
 local function RemoveSpellRow()
 	if numberOfSpellRows <= 1 then return; end
@@ -655,10 +692,39 @@ local function AddSpellRow()
 		end)
 		
 		-- ID Entry Box (Input)
-		newRow.InputEntryBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."InputEntryBox", newRow, "InputBoxTemplate")
+		newRow.InputEntryBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."InputEntryBox", newRow, "InputBoxInstructionsTemplate")
+		newRow.InputEntryBox:SetFontObject(ChatFontNormal)
+		newRow.InputEntryBox.disabledColor = GRAY_FONT_COLOR
+		newRow.InputEntryBox.enabledColor = HIGHLIGHT_FONT_COLOR
+		newRow.InputEntryBox.Instructions:SetText("...")
+		newRow.InputEntryBox.Instructions:SetTextColor(0.5,0.5,0.5)
+		newRow.InputEntryBox.Description = ""
+		newRow.InputEntryBox.rowNumber = numberOfSpellRows
 		newRow.InputEntryBox:SetAutoFocus(false)
+		newRow.InputEntryBox:Disable()
 		newRow.InputEntryBox:SetSize(InputEntryColumnWidth,23)
 		newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 25, 0)
+		newRow.InputEntryBox:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			local row = self.rowNumber
+			self.Timer = C_Timer.NewTimer(0.7,function()
+				if _G["spellRow"..row.."SelectedAction"] and actionTypeData[_G["spellRow"..row.."SelectedAction"]].dataName then 
+					local actionData = actionTypeData[_G["spellRow"..row.."SelectedAction"]]
+					GameTooltip:SetText(actionData.dataName, nil, nil, nil, nil, true)
+					GameTooltip:AddLine(" ")
+					if actionData.inputDescription then
+						GameTooltip:AddLine(actionData.inputDescription, 1, 1, 1, true)
+						--GameTooltip:AddLine(" ")
+					end
+					GameTooltip:Show()
+				end
+			end)
+		end)
+		newRow.InputEntryBox:SetScript("OnLeave", function(self)
+			GameTooltip_Hide()
+			self.Timer:Cancel()
+		end)
+
 		
 		-- Revert Checkbox
 		newRow.RevertCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."RevertCheckbox", newRow, "UICheckButtonTemplate")
@@ -669,26 +735,33 @@ local function AddSpellRow()
 		newRow.RevertCheckbox:SetScript("OnShow", function(self)
 
 		end)
-		newRow.RevertCheckbox:SetScript("OnEnter", function()
-			GameTooltip:SetOwner(newRow.RevertCheckbox, "ANCHOR_LEFT")
-			newRow.RevertCheckbox.Timer = C_Timer.NewTimer(0.7,function()
+		newRow.RevertCheckbox:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			self.Timer = C_Timer.NewTimer(0.7,function()
 				GameTooltip:SetText("Enabling causes the action to revert after the specified Revert Delay time.\n\rSee actions tooltip info for what the revert action is.", nil, nil, nil, nil, true)
 				GameTooltip:Show()
 			end)
 		end)
-		newRow.RevertCheckbox:SetScript("OnLeave", function()
+		newRow.RevertCheckbox:SetScript("OnLeave", function(self)
 			GameTooltip_Hide()
-			newRow.RevertCheckbox.Timer:Cancel()
+			self.Timer:Cancel()
 		end)		
 		
 		-- Revert Delay Box
-		newRow.RevertDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."RevertDelayBox", newRow, "InputBoxTemplate")
+		
+		newRow.RevertDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."RevertDelayBox", newRow, "InputBoxInstructionsTemplate")
+		newRow.RevertDelayBox:SetFontObject(ChatFontNormal)
+		newRow.RevertDelayBox.disabledColor = GRAY_FONT_COLOR
+		newRow.RevertDelayBox.enabledColor = HIGHLIGHT_FONT_COLOR
+		newRow.RevertDelayBox.Instructions:SetText("Revert Delay")
+		newRow.RevertDelayBox.Instructions:SetTextColor(0.5,0.5,0.5)
 		newRow.RevertDelayBox:SetAutoFocus(false)
+		newRow.RevertDelayBox:Disable()
 		newRow.RevertDelayBox:SetSize(delayColumnWidth,23)
 		newRow.RevertDelayBox:SetPoint("LEFT", newRow.RevertCheckbox, "RIGHT", 25, 0)
 		newRow.RevertDelayBox:SetMaxLetters(9)
-		newRow.RevertDelayBox:Disable()
-		newRow.RevertDelayBox:SetScript("OnTextChanged", function(self)
+		
+		newRow.RevertDelayBox:HookScript("OnTextChanged", function(self)
 			if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
 				self:SetTextColor(255,255,255,1)
 			elseif self:GetText() == "" then
@@ -704,29 +777,37 @@ local function AddSpellRow()
 		newRow.RevertCheckbox:SetScript("OnClick", function(self)
 			local checked = self:GetChecked()
 			local rowID = self.RowID
-			print(checked)
 			if checked then _G["spellRow"..rowID.."RevertDelayBox"]:Enable() else _G["spellRow"..rowID.."RevertDelayBox"]:Disable() end
 		end)
 
 	end
+	updateFrameChildScales(SCForgeMainFrame)
 	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable() return; end -- hard cap
 end
 
 function updateSpellRowOptions(row, selectedAction) 
-	print("Row: "..row.." | Selected Action: "..selectedAction)
 	_G["spellRow"..row.."SelectedAction"] = selectedAction
 	if actionTypeData[selectedAction].selfAble then _G["spellRow"..row.."SelfCheckbox"]:Enable() else _G["spellRow"..row.."SelfCheckbox"]:Disable() end
-	if actionTypeData[selectedAction].dataName then _G["spellRow"..row.."SelfCheckbox"]:Enable() else _G["spellRow"..row.."SelfCheckbox"]:Disable() end
-	if actionTypeData[selectedAction].revert then _G["spellRow"..row.."RevertCheckbox"]:Enable() else _G["spellRow"..row.."RevertCheckbox"]:Disable() end
+	if actionTypeData[selectedAction].dataName then 
+		_G["spellRow"..row.."InputEntryBox"]:Enable()
+		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText(actionTypeData[selectedAction].dataName)
+		if actionTypeData[selectedAction].inputDescription then _G["spellRow"..row.."InputEntryBox"].Description = actionTypeData[selectedAction].inputDescription end
+	else
+		_G["spellRow"..row.."InputEntryBox"]:Disable()
+		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("n/a") 
+	end
+	if actionTypeData[selectedAction].revert then _G["spellRow"..row.."RevertCheckbox"]:Enable(); _G["spellRow"..row.."RevertDelayBox"]:Enable() else _G["spellRow"..row.."RevertCheckbox"]:Disable(); _G["spellRow"..row.."RevertDelayBox"]:Disable() end
 	-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
 end
 
 
 SCForgeMainFrame = CreateFrame("Frame", "SCForgeMainFrame", UIParent, "ButtonFrameTemplate")
 SCForgeMainFrame:SetPoint("CENTER")
-SCForgeMainFrame:SetSize(700, 600)
+SCForgeMainFrame:SetSize(mainFrameSize.x, mainFrameSize.y)
+SCForgeMainFrame:SetMaxResize(mainFrameSize.Xmax, mainFrameSize.Ymax)
+SCForgeMainFrame:SetMinResize(mainFrameSize.Xmin, mainFrameSize.Ymin)
 SCForgeMainFrame:SetMovable(true)
---SCForgeMainFrame:SetResizable(true)
+SCForgeMainFrame:SetResizable(true)
 SCForgeMainFrame:EnableMouse(true)
 SCForgeMainFrame:SetClampedToScreen(true)
 SCForgeMainFrame:SetClampRectInsets(300, -300, 0, 500)
@@ -763,8 +844,9 @@ background2:SetPoint("BOTTOMRIGHT", background, "BOTTOMRIGHT", 30, 0)
 
 SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame)
 SCForgeMainFrame.TitleBar:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 50, -10)
-SCForgeMainFrame.TitleBar:SetWidth(625)
-SCForgeMainFrame.TitleBar:SetHeight(20)
+SCForgeMainFrame.TitleBar:SetSize(625, 20)
+--SCForgeMainFrame.TitleBar:SetHeight(20)
+setResizeWithMainFrame(SCForgeMainFrame.TitleBar)
 
 SCForgeMainFrame.TitleBar.Background = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND")
 SCForgeMainFrame.TitleBar.Background:SetAllPoints()
@@ -810,8 +892,8 @@ SCForgeMainFrame.ResizeDragger = CreateFrame("BUTTON", nil, SCForgeMainFrame)
 SCForgeMainFrame.ResizeDragger:SetSize(16,16)
 SCForgeMainFrame.ResizeDragger:SetPoint("BOTTOMRIGHT", -2, 2)
 SCForgeMainFrame.ResizeDragger:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-SCForgeMainFrame.ResizeDragger:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
-SCForgeMainFrame.ResizeDragger:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+SCForgeMainFrame.ResizeDragger:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+SCForgeMainFrame.ResizeDragger:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
 SCForgeMainFrame.ResizeDragger:SetScript("OnMouseDown", function(self, button)
 	if button == "LeftButton" then
 		local parent = self:GetParent()
@@ -825,6 +907,10 @@ SCForgeMainFrame.ResizeDragger:SetScript("OnMouseUp", function(self, button)
 		self.isScaling = false
 		parent:StopMovingOrSizing()
 	end
+end)
+
+SCForgeMainFrame:SetScript("OnSizeChanged", function(self)
+	updateFrameChildScales(self)
 end)
 
 SCForgeMainFrame.AddSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
@@ -905,6 +991,42 @@ end)
 SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnClick", function(self)
 	RemoveSpellRow()
 end)
+
+SCForgeMainFrame.ExecuteSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
+SCForgeMainFrame.ExecuteSpellButton:SetPoint("BOTTOM", 0, 3)
+SCForgeMainFrame.ExecuteSpellButton:SetSize(24*4,24)
+SCForgeMainFrame.ExecuteSpellButton:SetText("Execute")
+SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
+	local actionsToCommit = {}
+	for i = 1, numberOfSpellRows do
+		if isNotDefined(_G["spellRow"..i.."MainDelayBox"]:GetText()) then 
+			cprint("Action Row "..i.." Invalid, Delay Not Set") 
+		else
+			local spell = {}
+			spell.actionType = (_G["spellRow"..i.."SelectedAction"])
+			spell.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())			
+			spell.revertTime = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
+			spell.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
+			spell.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
+			dprint(true, dump(spell))
+			table.insert(actionsToCommit, spell)
+		end
+	end
+	executeSpell(actionsToCommit)
+end)
+
+SCForgeMainFrame.SaveSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
+SCForgeMainFrame.SaveSpellButton:SetPoint("BOTTOMLEFT", 20, 3)
+SCForgeMainFrame.SaveSpellButton:SetSize(24*4,24)
+SCForgeMainFrame.SaveSpellButton:SetText("Save")
+
+SCForgeMainFrame.LoadSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
+SCForgeMainFrame.LoadSpellButton:SetPoint("LEFT", SCForgeMainFrame.SaveSpellButton, "RIGHT", 0, 0)
+SCForgeMainFrame.LoadSpellButton:SetSize(24*4,24)
+SCForgeMainFrame.LoadSpellButton:SetText("Load")
+
+
+-- Gen First Row, and a few since who's gonna want just one anyways
 
 AddSpellRow()
 AddSpellRow()
