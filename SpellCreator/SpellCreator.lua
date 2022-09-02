@@ -291,7 +291,7 @@ SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
 		--Quickly Show / Hide the Frame on Start-Up to initialize everything for key bindings & loading
 		C_Timer.After(1,function()
 			SCForgeMainFrame:Show();
-			if not SpellCreatorMasterTable.Options["debug"] then SCForgeMainFrame:Hide(); end
+			if not SpellCreatorMasterTable.Options["debug"] then SCForgeMainFrame:Hide(); --[[ SCForgeLoadFrame:Hide() ]] end
 		end)
 		
 		-- Adjust Radial Offset for Minimap Icon for alternate UI Overhaul Addons
@@ -1024,6 +1024,18 @@ SCForgeMainFrame.LoadSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, 
 SCForgeMainFrame.LoadSpellButton:SetPoint("LEFT", SCForgeMainFrame.SaveSpellButton, "RIGHT", 0, 0)
 SCForgeMainFrame.LoadSpellButton:SetSize(24*4,24)
 SCForgeMainFrame.LoadSpellButton:SetText("Load")
+SCForgeMainFrame.LoadSpellButton:SetScript("OnClick", function()
+	SCForgeMainFrame.LoadSpellFrame:Show()
+end)
+
+SCForgeMainFrame.LoadSpellFrame = CreateFrame("Frame", "SCForgeLoadFrame", SCForgeMainFrame)
+SCForgeMainFrame.LoadSpellFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 100)
+SCForgeMainFrame.LoadSpellFrame:SetSize(350,150)
+SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
+SCForgeMainFrame.LoadSpellFrame.Border = CreateFrame("Frame", nil, SCForgeLoadFrame, "DialogBorderTemplate") --DialogBorderDarkTemplate if we want it darker
+SCForgeMainFrame.LoadSpellFrame.Close = CreateFrame("Button", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelCloseButton")
+SCForgeMainFrame.LoadSpellFrame.Close:SetPoint("TOPRIGHT", -3, -3)
+SCForgeMainFrame.LoadSpellFrame:Hide()
 
 
 -- Gen First Row, and a few since who's gonna want just one anyways
