@@ -5,7 +5,7 @@
 ## Notes: Allows you to 'create' 'custom spells' by combining spells & animations on timers.
 ## Dependencies: Epsilon
 ## DefaultState: Enabled
-## SavedVariablesPerCharacter: SpellCreatorMasterTable, SpellCreatorSavedSpells
+## SavedVariables: SpellCreatorMasterTable, SpellCreatorSavedSpells
 ## X-Date: August, 2022
 ## X-Credits: MindScape
 ## X-MostRecentChanges: See Changelog.txt

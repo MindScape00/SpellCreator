@@ -66,6 +66,28 @@ local function dump(o)
    end
 end
 
+local function get_keys(t)
+	local keys={}
+	for key,_ in pairs(t) do
+		table.insert(keys, key)
+	end
+	return keys
+end
+
+local function orderedPairs (t, f) -- get keys & sort them - default sort is alphabetically
+	local keys = {}
+	for k in pairs(t) do keys[#keys+1] = k end
+	table.sort(keys, f)
+	local i = 0      -- iterator variable
+	local iter = function ()   -- iterator function
+		i = i + 1
+		if keys[i] == nil then return nil
+		else return keys[i], t[keys[i]]
+		end
+	end
+	return iter
+end
+
 -------------------------------------------------------------------------------
 -- Saved Variable Initialization
 -------------------------------------------------------------------------------
@@ -401,7 +423,7 @@ local actionTypeData = {
 	["RemoveAura"] = {
 		["name"] = "Remove Aura",
 		["command"] = "unaura @N@",
-		["description"] = "Remove an Aura.\r\nRevert: Re-applies the same aura after the delay.",
+		["description"] = "Remove an Aura by Spell ID.\n\rRevert: Re-applies the same aura after the delay.",
 		["dataName"] = "Spell ID(s)",
 		["inputDescription"] = "Accepts multiple IDs, separated by commas, to remove multiple auras at once.",
 		["comTarget"] = "server",
@@ -445,10 +467,10 @@ local actionTypeData = {
 		},
 }
 
-local function processAction(delay, actionType, revertTime, selfOnly, vars)
+local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	if not actionType then return; end
 	local actionData = actionTypeData[actionType]
-	if revertTime then revertTime = tonumber(revertTime) end
+	if revertDelay then revertDelay = tonumber(revertDelay) end
 	local varTable
 	
 	if vars then
@@ -477,8 +499,8 @@ local function processAction(delay, actionType, revertTime, selfOnly, vars)
 					cmd(finalCommand)
 					
 				end
-				if revertTime and revertTime > 0 then
-					C_Timer.After(revertTime, function()
+				if revertDelay and revertDelay > 0 then
+					C_Timer.After(revertDelay, function()
 						local varTable = varTable
 						for i = 1, #varTable do
 							local v = varTable[i]
@@ -504,7 +526,7 @@ end
 local actionsToCommit = {}
 local function executeSpell(actionsToCommit)
 	for _,spell in pairs(actionsToCommit) do
-		processAction(spell.delay, spell.actionType, spell.revertTime, spell.selfOnly, spell.vars)
+		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
 	end
 end
 -------------------------------------------------------------------------------
@@ -520,8 +542,8 @@ local rowSpacing = 30
 local mainFrameSize = {
 	["x"] = 700,
 	["y"] = 700,
-	["Xmin"] = 500,
-	["Ymin"] = 500,
+	["Xmin"] = 550,
+	["Ymin"] = 550,
 	["Xmax"] = 1100,
 	["Ymax"] = 1100,
 }
@@ -613,7 +635,7 @@ local function AddSpellRow()
 		else
 			newRow:SetPoint("TOPLEFT", 25, ((rowHeight+5)*-numberOfSpellRows)+30)
 		end
-		newRow:SetWidth(650)
+		newRow:SetWidth(mainFrameSize.x-50)
 		newRow:SetHeight(rowHeight)
 		
 		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND")
@@ -636,6 +658,18 @@ local function AddSpellRow()
 			else
 				self:SetTextColor(1,0,0,1)
 			end
+		end)
+		newRow.mainDelayBox:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			self.Timer = C_Timer.NewTimer(0.7,function()
+				GameTooltip:SetText("Main Action Delay", nil, nil, nil, nil, true)
+				GameTooltip:AddLine("How long after 'casting' the spell this action triggers.",1,1,1,true)
+				GameTooltip:Show()
+			end)
+		end)
+		newRow.mainDelayBox:SetScript("OnLeave", function(self)
+			GameTooltip_Hide()
+			self.Timer:Cancel()
 		end)
 		
 		-- Action Dropdown Menu
@@ -679,16 +713,17 @@ local function AddSpellRow()
 		newRow.SelfCheckbox:SetScript("OnClick", function(self)
 
 		end)
-		newRow.SelfCheckbox:SetScript("OnEnter", function()
-			GameTooltip:SetOwner(newRow.SelfCheckbox, "ANCHOR_LEFT")
-			newRow.SelfCheckbox.Timer = C_Timer.NewTimer(0.7,function()
-				GameTooltip:SetText("Enable to use the 'Self' flag for Cast & Aura actions.", nil, nil, nil, nil, true)
+		newRow.SelfCheckbox:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			self.Timer = C_Timer.NewTimer(0.7,function()
+				GameTooltip:SetText("Cast on Self", nil, nil, nil, nil, true)
+				GameTooltip:AddLine("Enable to use the 'Self' flag for Cast & Aura actions.", 1,1,1,true)
 				GameTooltip:Show()
 			end)
 		end)
-		newRow.SelfCheckbox:SetScript("OnLeave", function()
+		newRow.SelfCheckbox:SetScript("OnLeave", function(self)
 			GameTooltip_Hide()
-			newRow.SelfCheckbox.Timer:Cancel()
+			self.Timer:Cancel()
 		end)
 		
 		-- ID Entry Box (Input)
@@ -711,8 +746,8 @@ local function AddSpellRow()
 				if _G["spellRow"..row.."SelectedAction"] and actionTypeData[_G["spellRow"..row.."SelectedAction"]].dataName then 
 					local actionData = actionTypeData[_G["spellRow"..row.."SelectedAction"]]
 					GameTooltip:SetText(actionData.dataName, nil, nil, nil, nil, true)
-					GameTooltip:AddLine(" ")
 					if actionData.inputDescription then
+						GameTooltip:AddLine(" ")
 						GameTooltip:AddLine(actionData.inputDescription, 1, 1, 1, true)
 						--GameTooltip:AddLine(" ")
 					end
@@ -738,7 +773,8 @@ local function AddSpellRow()
 		newRow.RevertCheckbox:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			self.Timer = C_Timer.NewTimer(0.7,function()
-				GameTooltip:SetText("Enabling causes the action to revert after the specified Revert Delay time.\n\rSee actions tooltip info for what the revert action is.", nil, nil, nil, nil, true)
+				GameTooltip:SetText("Revert the Action", nil, nil, nil, nil, true)
+				GameTooltip:AddLine("Enabling causes the action to revert (reverse, undo) after the specified Revert Delay time.\n\rSee actions tooltip info for what the revert action is.", 1,1,1,true)
 				GameTooltip:Show()
 			end)
 		end)
@@ -771,6 +807,19 @@ local function AddSpellRow()
 			else
 				self:SetTextColor(1,0,0,1)
 			end
+		end)
+		newRow.RevertDelayBox:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			self.Timer = C_Timer.NewTimer(0.7,function()
+				GameTooltip:SetText("Revert Delay", nil, nil, nil, nil, true)
+				GameTooltip:AddLine("How long after the initial action before reverting.\n\rNote: This is RELATIVE to this lines main action delay.",1,1,1,true)
+				GameTooltip:AddLine("\n\rEx: Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting..",1,1,1,true)
+				GameTooltip:Show()
+			end)
+		end)
+		newRow.RevertDelayBox:SetScript("OnLeave", function(self)
+			GameTooltip_Hide()
+			self.Timer:Cancel()
 		end)
 		
 		--Sync Revert Delaybox & Checkbox Disable/Enable
@@ -816,11 +865,9 @@ SCForgeMainFrame:SetClampRectInsets(300, -300, 0, 500)
 SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait)
 SCForgeMainFrame:SetTitle("Arcanum - Spell Forge")
 
-SCForgeMainFrame.Inset:SetPoint("TOPLEFT", 4, -25)
-
 SCForgeMainFrame.DragBar = CreateFrame("Frame", nil, SCForgeMainFrame)
 SCForgeMainFrame.DragBar:SetPoint("TOPLEFT")
-SCForgeMainFrame.DragBar:SetSize(700, 20)
+SCForgeMainFrame.DragBar:SetSize(mainFrameSize.x, 20)
 SCForgeMainFrame.DragBar:EnableMouse(true)
 SCForgeMainFrame.DragBar:RegisterForDrag("LeftButton")
 SCForgeMainFrame.DragBar:SetScript("OnDragStart", function(self)
@@ -830,21 +877,72 @@ SCForgeMainFrame.DragBar:SetScript("OnDragStop", function(self)
     self:GetParent():StopMovingOrSizing()
   end)
 
+-- The top bar Spell Info Boxes
+SCForgeMainFrame.SpellInfoNameBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
+SCForgeMainFrame.SpellInfoNameBox:SetFontObject(ChatFontNormal)
+SCForgeMainFrame.SpellInfoNameBox.disabledColor = GRAY_FONT_COLOR
+SCForgeMainFrame.SpellInfoNameBox.enabledColor = HIGHLIGHT_FONT_COLOR
+SCForgeMainFrame.SpellInfoNameBox.Instructions:SetText("Spell Name")
+SCForgeMainFrame.SpellInfoNameBox.Instructions:SetTextColor(0.5,0.5,0.5)
+SCForgeMainFrame.SpellInfoNameBox:SetAutoFocus(false)
+SCForgeMainFrame.SpellInfoNameBox:SetSize(100,23)
+SCForgeMainFrame.SpellInfoNameBox:SetPoint("TOP", 0, -30)
+SCForgeMainFrame.SpellInfoNameBox:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Spell Name", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("The name you want to save this spell as.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+SCForgeMainFrame.SpellInfoNameBox:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+
+SCForgeMainFrame.SpellInfoCommandBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
+SCForgeMainFrame.SpellInfoCommandBox:SetFontObject(ChatFontNormal)
+SCForgeMainFrame.SpellInfoCommandBox.disabledColor = GRAY_FONT_COLOR
+SCForgeMainFrame.SpellInfoCommandBox.enabledColor = HIGHLIGHT_FONT_COLOR
+SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetText("Spell Command")
+SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetTextColor(0.5,0.5,0.5)
+SCForgeMainFrame.SpellInfoCommandBox:SetAutoFocus(false)
+SCForgeMainFrame.SpellInfoCommandBox:SetSize(100,23)
+SCForgeMainFrame.SpellInfoCommandBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoNameBox, "RIGHT", 15, 0)
+SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Spell Command", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("The slash command trigger you want to use to call this spell.",1,1,1,true)
+		GameTooltip:AddLine("This must be unique, otherwise you'll be unable to cast it.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+
+--- The Inner Frame
+
+SCForgeMainFrame.Inset.Bg:Hide() -- Get rid of the stock background - we're gonna replace it with our own
 local randomBackgroundID = fastrandom(#frameBackgroundOptions)
-local background = SCForgeMainFrame:CreateTexture(nil,"BACKGROUND")
+local background = SCForgeMainFrame.Inset:CreateTexture(nil,"BACKGROUND")
 background:SetTexture(frameBackgroundOptions[randomBackgroundID])
---background:SetAllPoints()
 background:SetTexCoord(0.05,1,0,1)
-background:SetPoint("TOPLEFT",0,-25)
-background:SetPoint("BOTTOMRIGHT",-30,5)
-local background2 = SCForgeMainFrame:CreateTexture(nil,"BACKGROUND")
+--background:SetAllPoints()
+background:SetPoint("TOPLEFT",0,0) -- 12, -66
+background:SetPoint("BOTTOMRIGHT", SCForgeMainFrameInset, "BOTTOMRIGHT", -20,-20)
+
+local background2 = SCForgeMainFrame.Inset:CreateTexture(nil,"BACKGROUND")
 background2:SetTexture(frameBackgroundOptionsEdge[randomBackgroundID])
 background2:SetPoint("TOPLEFT", background, "TOPRIGHT")
 background2:SetPoint("BOTTOMRIGHT", background, "BOTTOMRIGHT", 30, 0)
 
+--This is a sub-frame of the Main Frame.. Should it be? Idk..
 SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame)
-SCForgeMainFrame.TitleBar:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 50, -10)
-SCForgeMainFrame.TitleBar:SetSize(625, 20)
+SCForgeMainFrame.TitleBar:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 25, -10)
+SCForgeMainFrame.TitleBar:SetSize(mainFrameSize.x-50, 20)
 --SCForgeMainFrame.TitleBar:SetHeight(20)
 setResizeWithMainFrame(SCForgeMainFrame.TitleBar)
 
@@ -855,7 +953,7 @@ SCForgeMainFrame.TitleBar.Background:SetColorTexture(0,0,0,0.25)
 SCForgeMainFrame.TitleBar.MainDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
 SCForgeMainFrame.TitleBar.MainDelay:SetWidth(delayColumnWidth)
 SCForgeMainFrame.TitleBar.MainDelay:SetJustifyH("CENTER")
-SCForgeMainFrame.TitleBar.MainDelay:SetPoint("TOPLEFT", SCForgeMainFrame.TitleBar, "TOPLEFT", 13, 0)
+SCForgeMainFrame.TitleBar.MainDelay:SetPoint("TOPLEFT", SCForgeMainFrame.TitleBar, "TOPLEFT", 13+25, 0)
 SCForgeMainFrame.TitleBar.MainDelay:SetText("Delay")
 
 SCForgeMainFrame.TitleBar.Action = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
@@ -1002,23 +1100,78 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 		if isNotDefined(_G["spellRow"..i.."MainDelayBox"]:GetText()) then 
 			cprint("Action Row "..i.." Invalid, Delay Not Set") 
 		else
-			local spell = {}
-			spell.actionType = (_G["spellRow"..i.."SelectedAction"])
-			spell.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())			
-			spell.revertTime = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
-			spell.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
-			spell.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
-			dprint(true, dump(spell))
-			table.insert(actionsToCommit, spell)
+			local actionData = {}
+			actionData.actionType = (_G["spellRow"..i.."SelectedAction"])
+			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())			
+			actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
+			actionData.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
+			actionData.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
+			dprint(true, dump(actionData))
+			table.insert(actionsToCommit, actionData)
 		end
 	end
 	executeSpell(actionsToCommit)
 end)
 
+local function saveSpell(mousebutton)
+
+	local newSpellData = {}
+	newSpellData.commID = SCForgeMainFrame.SpellInfoCommandBox:GetText()
+	newSpellData.fullName = SCForgeMainFrame.SpellInfoNameBox:GetText()
+	newSpellData.actions = {}
+	if isNotDefined(newSpellData.fullName) or isNotDefined(newSpellData.commID) then
+		cprint("Spell Name and/or Spell Command cannot be blank.")
+		return;
+	end
+
+	for i = 1, #SpellCreatorSavedSpells do
+		local tabData = SpellCreatorSavedSpells[i]
+		if tabData.commID == newSpellData.commID then
+			if mousebutton and mousebutton == "RightButton" then
+				cprint("Duplicate Spell Command Detected.. And Over-written.")
+			else
+				cprint("Duplicate Spell Command Detected.. Press Save with right-click to over-write the old spell.")
+				return;
+			end
+		end
+	end
+
+	for i = 1, numberOfSpellRows do
+		
+			local actionData = {}
+			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())
+			if actionData.delay and actionData.delay >= 0 then
+				actionData.actionType = (_G["spellRow"..i.."SelectedAction"])
+				if actionTypeData[actionData.actionType] then
+					actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
+					actionData.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
+					actionData.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
+					table.insert(newSpellData.actions, actionData)
+					dprint(false,"Action Row "..i.." Captured successfully.. pending final save to data..")
+				else
+					dprint(false,"Action Row "..i.." Failed to save - invalid Action Type.")
+				end
+			else
+				dprint(false,"Action Row "..i.." Failed to save - invalid Main Delay.")
+			end
+	end
+	
+	if #newSpellData.actions >= 1 then
+		--table.insert(SpellCreatorSavedSpells, newSpellData)
+		SpellCreatorSavedSpells[newSpellData.commID] = newSpellData
+		cprint("Saved spell with name: "..newSpellData.fullName..", and command: '/sf "..newSpellData.commID.."' ("..#newSpellData.actions.." actions).")
+	else
+		cprint("Spell has no valid actions and was not saved. Please double check your actions & try again. You can turn on debug mode to see more information when trying to save (/sfdebug).")
+	end
+end
+
 SCForgeMainFrame.SaveSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
 SCForgeMainFrame.SaveSpellButton:SetPoint("BOTTOMLEFT", 20, 3)
 SCForgeMainFrame.SaveSpellButton:SetSize(24*4,24)
 SCForgeMainFrame.SaveSpellButton:SetText("Save")
+SCForgeMainFrame.SaveSpellButton:SetScript("OnClick", function(self, button)
+	saveSpell(button)
+end)
 
 SCForgeMainFrame.LoadSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
 SCForgeMainFrame.LoadSpellButton:SetPoint("LEFT", SCForgeMainFrame.SaveSpellButton, "RIGHT", 0, 0)
@@ -1036,6 +1189,29 @@ SCForgeMainFrame.LoadSpellFrame.Border = CreateFrame("Frame", nil, SCForgeLoadFr
 SCForgeMainFrame.LoadSpellFrame.Close = CreateFrame("Button", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelCloseButton")
 SCForgeMainFrame.LoadSpellFrame.Close:SetPoint("TOPRIGHT", -3, -3)
 SCForgeMainFrame.LoadSpellFrame:Hide()
+--[[
+for k,v in orderedPairs(SpellCreatorSavedSpells) do
+	-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
+	-- generate load lines here for each spell found. Re-use old lines if already made. See AddSpellRow() for copying it over.
+	-- Load frame design:
+	--	[Spell_1 Command]  [Spell_1 Name]  [Load_1 Button] | [Spell_2 Command]  [Spell_2 Name]  [Load_2 Button]
+	--	[Spell_3 Command]  [Spell_3 Name]  [Load_3 Button] | [Spell_4 Command]  [Spell_4 Name]  [Load_4 Button]
+	--	[Spell_5 Command]  [Spell_5 Name]  [Load_5 Button] | [Spell_6 Command]  [Spell_6 Name]  [Load_6 Button]
+	--	[Spell_7 Command]  [Spell_7 Name]  [Load_7 Button] | [Spell_8 Command]  [Spell_8 Name]  [Load_8 Button]
+	--	[Spell_9 Command]  [Spell_9 Name]  [Load_9 Button] | [Spell_10 Command] [Spell_10 Name] [Load_10 Button]
+	-- ... etc
+end
+--]]
+
+--[[
+SCForgeMainFrame.SpellActionButton = CreateFrame("CHECKBUTTON", nil, SCForgeMainFrame, "MacroButtonTemplate")
+SCForgeMainFrame.SpellActionButton:SetPoint("center")
+SCForgeMainFrame.SpellActionButton:SetSize(14,14)
+SCForgeMainFrame.SpellActionButton:SetScript("OnClick", function(self)
+	self:SetChecked(false);
+	--PickupMacro()
+end)
+--]]
 
 
 -- Gen First Row, and a few since who's gonna want just one anyways
@@ -1057,52 +1233,66 @@ function CreateSpellCreatorInterfaceOptions()
 	local SpellCreatorInterfaceOptionsHeader = SpellCreatorInterfaceOptions.panel:CreateFontString("HeaderString", "OVERLAY", "GameFontNormalLarge")
 	SpellCreatorInterfaceOptionsHeader:SetPoint("TOPLEFT", 15, -15)
 	SpellCreatorInterfaceOptionsHeader:SetText(addonName.." v"..addonVersion.." by "..addonAuthor)
+		
+	local scrollFrame = CreateFrame("ScrollFrame", nil, SpellCreatorInterfaceOptions.panel, "UIPanelScrollFrameTemplate")
+	scrollFrame:SetPoint("TOPLEFT", 3, -75)
+	scrollFrame:SetPoint("BOTTOMRIGHT", -30, 90)
 	
-	local SpellCreatorInterfaceOptionsSpellList = SpellCreatorInterfaceOptions.panel:CreateFontString("Inventory Slot IDs", "OVERLAY", "GameFontNormalLeft")
-	SpellCreatorInterfaceOptionsSpellList:SetPoint("BOTTOMLEFT", 20, 140)
-	SpellCreatorInterfaceOptionsSpellList:SetText("Inventory Slot IDs:")
-	SpellListHorizontalSpacing = 160
-		local SpellCreatorInterfaceOptionsSpellListRow1 = SpellCreatorInterfaceOptions.panel:CreateFontString("SpellRow1","OVERLAY",SpellCreatorInterfaceOptionsSpellList)
-		SpellCreatorInterfaceOptionsSpellListRow1:SetPoint("TOPLEFT",SpellCreatorInterfaceOptionsSpellList,"BOTTOMLEFT",9,-15)
-		local SpellCreatorInterfaceOptionsSpellListRow2 = SpellCreatorInterfaceOptions.panel:CreateFontString("SpellRow2","OVERLAY",SpellCreatorInterfaceOptionsSpellListRow1)
-		SpellCreatorInterfaceOptionsSpellListRow2:SetPoint("TOPLEFT",SpellCreatorInterfaceOptionsSpellListRow1,"BOTTOMLEFT",0,-25)
-			local SpellCreatorInterfaceOptionsSpellListSpell1 = SpellCreatorInterfaceOptions.panel:CreateFontString("Spell1","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsSpellListSpell1:SetPoint("LEFT",SpellCreatorInterfaceOptionsSpellListRow1,"RIGHT",SpellListHorizontalSpacing*0,0)
-				SpellCreatorInterfaceOptionsSpellListSpell1:SetText("Head: 1      Shoulders: 2      Shirt: 4      Chest: 5      Waist: 6      Legs 6      Feet: 8      Wrist: 9")
+	scrollFrame.backdrop = CreateFrame("FRAME", nil, scrollFrame)
+	scrollFrame.backdrop:SetPoint("TOPLEFT", scrollFrame, 3, 3)
+	scrollFrame.backdrop:SetPoint("BOTTOMRIGHT", scrollFrame, 26, -3)
+	scrollFrame.backdrop:SetBackdrop({
+    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+    edgeSize = 14,
+    insets = {
+        left = 4,
+        right = 4,
+        top = 4,
+        bottom = 4,
+    },
+})
+	scrollFrame.backdrop:SetBackdropColor(0, 0, 0, 0.25)
+	scrollFrame.backdrop:SetFrameLevel(2)
 
-			local SpellCreatorInterfaceOptionsSpellListSpell4 = SpellCreatorInterfaceOptions.panel:CreateFontString("Spell4","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsSpellListSpell4:SetPoint("LEFT",SpellCreatorInterfaceOptionsSpellListRow2,"RIGHT",SpellListHorizontalSpacing*0,0)
-				SpellCreatorInterfaceOptionsSpellListSpell4:SetText("Hands: 10      Back: 15      Main-hand: 16      Off-hand: 17      Ranged: 18      Tabard: 19 ")
+	scrollFrame.Title = scrollFrame.backdrop:CreateFontString(nil,'ARTWORK')
+	scrollFrame.Title:SetFont(STANDARD_TEXT_FONT,12,'OUTLINE')
+	scrollFrame.Title:SetTextColor(1,1,1)
+	scrollFrame.Title:SetText("Spells")
+	scrollFrame.Title:SetPoint('TOP',scrollFrame.backdrop,0,5)
+
+	-- Create the scrolling child frame, set its width to fit, and give it an arbitrary minimum height (such as 1)
+	local scrollChild = CreateFrame("Frame")
+	scrollFrame:SetScrollChild(scrollChild)
+	scrollChild:SetWidth(InterfaceOptionsFramePanelContainer:GetWidth()-18)
+	scrollChild:SetHeight(1) 
+
+	-- Add widgets to the scrolling child frame as desired
+
+
+--  -- Testing to force the scroll frame to have a bunch to scroll
+	local footer = scrollChild:CreateFontString("ARTWORK", nil, "GameFontNormal")
+	footer:SetPoint("TOP", 0, -5000)
+	footer:SetText("This is 5000 below the top, so the scrollChild automatically expanded.")
+--]]
 	
-	local SpellCreatorInterfaceOptionsEmoteList = SpellCreatorInterfaceOptions.panel:CreateFontString("EmoteList", "OVERLAY", "GameFontNormalLeft")
-	SpellCreatorInterfaceOptionsEmoteList:SetPoint("TOPLEFT", SpellCreatorInterfaceOptionsSpellList, "BOTTOMLEFT", 0, -70)
-	SpellCreatorInterfaceOptionsEmoteList:SetText("Common Emote IDs:")
-		local SpellCreatorInterfaceOptionsEmoteListRow1 = SpellCreatorInterfaceOptions.panel:CreateFontString("EmoteRow1","OVERLAY",SpellCreatorInterfaceOptionsEmoteList)
-		SpellCreatorInterfaceOptionsEmoteListRow1:SetPoint("TOPLEFT",SpellCreatorInterfaceOptionsEmoteList,"BOTTOMLEFT",9,-15)
-		local SpellCreatorInterfaceOptionsEmoteListRow2 = SpellCreatorInterfaceOptions.panel:CreateFontString("EmoteRow2","OVERLAY",SpellCreatorInterfaceOptionsEmoteListRow1)
-		SpellCreatorInterfaceOptionsEmoteListRow2:SetPoint("TOPLEFT",SpellCreatorInterfaceOptionsEmoteListRow1,"BOTTOMLEFT",0,-25)
-			local SpellCreatorInterfaceOptionsEmoteListEmote1 = SpellCreatorInterfaceOptions.panel:CreateFontString("Emote1","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsEmoteListEmote1:SetPoint("LEFT",SpellCreatorInterfaceOptionsEmoteListRow1,"RIGHT",SpellListHorizontalSpacing*0,0)
-				SpellCreatorInterfaceOptionsEmoteListEmote1:SetText("Talk: 396")
-			local SpellCreatorInterfaceOptionsEmoteListEmote2 = SpellCreatorInterfaceOptions.panel:CreateFontString("Emote2","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsEmoteListEmote2:SetPoint("LEFT",SpellCreatorInterfaceOptionsEmoteListRow1,"RIGHT",SpellListHorizontalSpacing*1,0)
-				SpellCreatorInterfaceOptionsEmoteListEmote2:SetText("Exclamation: 5")
-			local SpellCreatorInterfaceOptionsEmoteListEmote3 = SpellCreatorInterfaceOptions.panel:CreateFontString("Emote3","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsEmoteListEmote3:SetPoint("LEFT",SpellCreatorInterfaceOptionsEmoteListRow1,"RIGHT",SpellListHorizontalSpacing*2,0)
-				SpellCreatorInterfaceOptionsEmoteListEmote3:SetText("Question: 6")
-			local SpellCreatorInterfaceOptionsEmoteListEmote4 = SpellCreatorInterfaceOptions.panel:CreateFontString("Emote4","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsEmoteListEmote4:SetPoint("LEFT",SpellCreatorInterfaceOptionsEmoteListRow1,"RIGHT",SpellListHorizontalSpacing*3,0)
-				SpellCreatorInterfaceOptionsEmoteListEmote4:SetText("Working: 432")
-			local SpellCreatorInterfaceOptionsEmoteListEmote5 = SpellCreatorInterfaceOptions.panel:CreateFontString("Emote5","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsEmoteListEmote5:SetPoint("LEFT",SpellCreatorInterfaceOptionsEmoteListRow2,"RIGHT",SpellListHorizontalSpacing*0,0)
-				SpellCreatorInterfaceOptionsEmoteListEmote5:SetText("Read Book: 641")
-			local SpellCreatorInterfaceOptionsEmoteListEmote6 = SpellCreatorInterfaceOptions.panel:CreateFontString("Emote6","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsEmoteListEmote6:SetPoint("LEFT",SpellCreatorInterfaceOptionsEmoteListRow2,"RIGHT",SpellListHorizontalSpacing*1,0)
-				SpellCreatorInterfaceOptionsEmoteListEmote6:SetText("Read Map: 492")
-			local SpellCreatorInterfaceOptionsEmoteListEmote7 = SpellCreatorInterfaceOptions.panel:CreateFontString("Emote7","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsEmoteListEmote7:SetPoint("LEFT",SpellCreatorInterfaceOptionsEmoteListRow2,"RIGHT",SpellListHorizontalSpacing*2,0)
-				SpellCreatorInterfaceOptionsEmoteListEmote7:SetText("Read Map & Talk: 588")
 	
+	local SpellCreatorInterfaceOptionsInventoryIDsList = SpellCreatorInterfaceOptions.panel:CreateFontString("Inventory Slot IDs", "OVERLAY", "GameFontNormalLeft")
+	SpellCreatorInterfaceOptionsInventoryIDsList:SetPoint("BOTTOMLEFT", 20, 70)
+	SpellCreatorInterfaceOptionsInventoryIDsList:SetText("Inventory Slot IDs:")
+	SpellListHorizontalSpacing = 160
+		local SpellCreatorInterfaceOptionsInventoryIDsListRow1 = SpellCreatorInterfaceOptions.panel:CreateFontString("SpellRow1","OVERLAY",SpellCreatorInterfaceOptionsInventoryIDsList)
+		SpellCreatorInterfaceOptionsInventoryIDsListRow1:SetPoint("TOPLEFT",SpellCreatorInterfaceOptionsInventoryIDsList,"BOTTOMLEFT",9,-15)
+		local SpellCreatorInterfaceOptionsInventoryIDsListRow2 = SpellCreatorInterfaceOptions.panel:CreateFontString("SpellRow2","OVERLAY",SpellCreatorInterfaceOptionsInventoryIDsListRow1)
+		SpellCreatorInterfaceOptionsInventoryIDsListRow2:SetPoint("TOPLEFT",SpellCreatorInterfaceOptionsInventoryIDsListRow1,"BOTTOMLEFT",0,-25)
+			local SpellCreatorInterfaceOptionsInventoryIDsListSpell1 = SpellCreatorInterfaceOptions.panel:CreateFontString("Spell1","OVERLAY","GameFontNormalLeft")
+				SpellCreatorInterfaceOptionsInventoryIDsListSpell1:SetPoint("LEFT",SpellCreatorInterfaceOptionsInventoryIDsListRow1,"RIGHT",SpellListHorizontalSpacing*0,0)
+				SpellCreatorInterfaceOptionsInventoryIDsListSpell1:SetText("Head: 1      Shoulders: 2      Shirt: 4      Chest: 5      Waist: 6      Legs 6      Feet: 8      Wrist: 9")
+
+			local SpellCreatorInterfaceOptionsInventoryIDsListSpell4 = SpellCreatorInterfaceOptions.panel:CreateFontString("Spell4","OVERLAY","GameFontNormalLeft")
+				SpellCreatorInterfaceOptionsInventoryIDsListSpell4:SetPoint("LEFT",SpellCreatorInterfaceOptionsInventoryIDsListRow2,"RIGHT",SpellListHorizontalSpacing*0,0)
+				SpellCreatorInterfaceOptionsInventoryIDsListSpell4:SetText("Hands: 10      Back: 15      Main-hand: 16      Off-hand: 17      Ranged: 18      Tabard: 19 ")
+
 	--Minimap Icon Toggle
 	local SpellCreatorInterfaceOptionsMiniMapToggle = CreateFrame("CHECKBUTTON", "SC_ToggleMiniMapIconOption", SpellCreatorInterfaceOptions.panel, "InterfaceOptionsCheckButtonTemplate")
 	SC_ToggleMiniMapIconOption:SetPoint("TOPLEFT", 20, -40)
@@ -1178,6 +1368,26 @@ function SlashCmdList.SCFORGEHELP(msg, editbox) -- 4.
 		cprint(addonName.." | DEBUG LIST")
 		cprint("Version: "..addonVersion)
 		cprint("Portrait: "..SC_randomFramePortrait)
+	elseif #msg > 0 then
+		dprint(false,"Casting Arcaum Spell by CommID: "..msg)
+		if SpellCreatorSavedSpells[msg] then
+			executeSpell(SpellCreatorSavedSpells[msg].actions)
+		else
+			cprint("No spell with Command "..msg.." found.")
+		end
+		--[[ --Old Array-Based table parser.
+		local didWeCastSpell = false
+		for i = 1, #SpellCreatorSavedSpells do
+			spellData = SpellCreatorSavedSpells[i]
+			if spellData.commID == msg then
+				executeSpell(spellData.actions)
+				didWeCastSpell = true
+			end
+		end
+		if didWeCastSpell == false then
+			cprint("No spell with Command "..msg.." found.")
+		end
+		--]]
 	else
 		scforge_showhide(msg)
 	end
@@ -1185,8 +1395,22 @@ end
 
 SLASH_SCFORGEDEBUG1 = '/sfdebug';
 function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
-	SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
-	dprint(true, "SC-Forge Debug Set to: "..tostring(SpellCreatorMasterTable.Options["debug"]))
+	if SpellCreatorMasterTable.Options["debug"] and msg == "resetSpells" then
+		dprint(true, "All Arcaum Spells reset. #GoodBye #ThisCannotBeUndoneHopeYouDidn'tFuckUp!")
+		SpellCreatorSavedSpells = {}
+	elseif SpellCreatorMasterTable.Options["debug"] and msg == "listSpells" then
+		--print(dump(SpellCreatorSavedSpells))
+		for k,v in orderedPairs(SpellCreatorSavedSpells) do
+			print(k, dump(v))
+		end
+	elseif SpellCreatorMasterTable.Options["debug"] and msg == "listSpellKeys" then -- debug to list all spell keys by alphabetical order.
+		local newTable = get_keys(SpellCreatorSavedSpells)
+		table.sort(newTable)
+		print(dump(newTable))
+	else
+		SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
+		dprint(true, "SC-Forge Debug Set to: "..tostring(SpellCreatorMasterTable.Options["debug"]))
+	end
 end
 
 SLASH_SCFORGETEST1 = '/sftest';
