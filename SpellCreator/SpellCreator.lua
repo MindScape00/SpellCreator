@@ -535,7 +535,7 @@ end
 
 -- Row Sizing / Info
 local numberOfSpellRows = 0
-local maxNumberOfSpellRows = 8
+local maxNumberOfSpellRows = 69
 local rowHeight = 60
 local rowSpacing = 30
 
@@ -629,11 +629,11 @@ local function AddSpellRow()
 	if _G["spellRow"..numberOfSpellRows] then _G["spellRow"..numberOfSpellRows]:Show(); else
 
 		-- The main row frame
-		newRow = CreateFrame("Frame", "spellRow"..numberOfSpellRows, SCForgeMainFrameInset)
+		newRow = CreateFrame("Frame", "spellRow"..numberOfSpellRows, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
 		if numberOfSpellRows == 1 then
-			newRow:SetPoint("TOPLEFT", 25, (rowSpacing+5)*-numberOfSpellRows)
+			newRow:SetPoint("TOPLEFT", 25, 0)
 		else
-			newRow:SetPoint("TOPLEFT", 25, ((rowHeight+5)*-numberOfSpellRows)+30)
+			newRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows-1, "BOTTOMLEFT", 0, -5)
 		end
 		newRow:SetWidth(mainFrameSize.x-50)
 		newRow:SetHeight(rowHeight)
@@ -925,11 +925,13 @@ end)
 
 --- The Inner Frame
 
-SCForgeMainFrame.Inset.Bg:Hide() -- Get rid of the stock background - we're gonna replace it with our own
+--SCForgeMainFrame.Inset.Bg:Hide() -- Get rid of the stock background - we're gonna replace it with our own
 local randomBackgroundID = fastrandom(#frameBackgroundOptions)
-local background = SCForgeMainFrame.Inset:CreateTexture(nil,"BACKGROUND")
+local background = SCForgeMainFrame.Inset.Bg
 background:SetTexture(frameBackgroundOptions[randomBackgroundID])
 background:SetTexCoord(0.05,1,0,1)
+background:SetVertTile(false)
+background:SetHorizTile(false)
 --background:SetAllPoints()
 background:SetPoint("TOPLEFT",0,0) -- 12, -66
 background:SetPoint("BOTTOMRIGHT", SCForgeMainFrameInset, "BOTTOMRIGHT", -20,-20)
@@ -938,6 +940,19 @@ local background2 = SCForgeMainFrame.Inset:CreateTexture(nil,"BACKGROUND")
 background2:SetTexture(frameBackgroundOptionsEdge[randomBackgroundID])
 background2:SetPoint("TOPLEFT", background, "TOPRIGHT")
 background2:SetPoint("BOTTOMRIGHT", background, "BOTTOMRIGHT", 30, 0)
+
+	SCForgeMainFrame.Inset.scrollFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.Inset, "UIPanelScrollFrameTemplate")
+	local scrollFrame = SCForgeMainFrame.Inset.scrollFrame
+	scrollFrame:SetPoint("TOPLEFT", 0, -35)
+	scrollFrame:SetPoint("BOTTOMRIGHT", -20, 5)
+
+	SCForgeMainFrame.Inset.scrollFrame.scrollChild = CreateFrame("Frame")
+	local scrollChild = SCForgeMainFrame.Inset.scrollFrame.scrollChild
+	scrollFrame:SetScrollChild(scrollChild)
+	scrollChild:SetWidth(SCForgeMainFrame.Inset:GetWidth()-18)
+	scrollChild:SetHeight(1) 
+	
+	scrollFrame.ScrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, -16+30)
 
 --This is a sub-frame of the Main Frame.. Should it be? Idk..
 SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame)
