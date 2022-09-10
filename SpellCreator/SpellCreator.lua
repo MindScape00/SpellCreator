@@ -1602,44 +1602,6 @@ local function LoadMinimapPosition()
 end
 
 -------------------------------------------------------------------------------
--- Addon Loaded
--------------------------------------------------------------------------------
-
-local SC_Addon_OnLoad = CreateFrame("frame","SC_Addon_OnLoad");
-SC_Addon_OnLoad:RegisterEvent("ADDON_LOADED");
-SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
-	if name == "SpellCreator" then
-				
-		SC_loadMasterTable();
-		LoadMinimapPosition();
-	
-		--Quickly Show / Hide the Frame on Start-Up to initialize everything for key bindings & loading
-		C_Timer.After(1,function()
-			SCForgeMainFrame:Show();
-			if not SpellCreatorMasterTable.Options["debug"] then SCForgeMainFrame:Hide(); --[[ SCForgeLoadFrame:Hide() ]] end
-		end)
-		
-		-- Adjust Radial Offset for Minimap Icon for alternate UI Overhaul Addons
-		if IsAddOnLoaded("AzeriteUI") then
-			RadialOffset = 18;
-		elseif IsAddOnLoaded("DiabolicUI") then
-			RadialOffset = 12;
-		elseif IsAddOnLoaded("GoldieSix") then
-			--GoldpawUI
-			RadialOffset = 18;
-		elseif IsAddOnLoaded("GW2_UI") then
-			RadialOffset = 44;
-		elseif IsAddOnLoaded("SpartanUI") then
-			RadialOffset = 8;
-		else
-			RadialOffset = 10;
-		end
-		
-		CreateSpellCreatorInterfaceOptions()
-	end
-end);
-
--------------------------------------------------------------------------------
 -- Interface Options - Addon section
 -------------------------------------------------------------------------------
 
@@ -1766,6 +1728,46 @@ function updateSCInterfaceOptions()
 	if SpellCreatorMasterTable.Options["debug"] == true then SC_DebugToggleOption:SetChecked(true) else SC_DebugToggleOption:SetChecked(false) end
 end
 
+-------------------------------------------------------------------------------
+-- Addon Loaded
+-------------------------------------------------------------------------------
+
+local SC_Addon_OnLoad = CreateFrame("frame","SC_Addon_OnLoad");
+SC_Addon_OnLoad:RegisterEvent("ADDON_LOADED");
+SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
+	if name == "SpellCreator" then
+				
+		SC_loadMasterTable();
+		LoadMinimapPosition();
+	
+		--Quickly Show / Hide the Frame on Start-Up to initialize everything for key bindings & loading
+		C_Timer.After(1,function()
+			SCForgeMainFrame:Show();
+			if not SpellCreatorMasterTable.Options["debug"] then SCForgeMainFrame:Hide(); --[[ SCForgeLoadFrame:Hide() ]] end
+		end)
+		
+		-- Adjust Radial Offset for Minimap Icon for alternate UI Overhaul Addons
+		if IsAddOnLoaded("AzeriteUI") then
+			RadialOffset = 18;
+		elseif IsAddOnLoaded("DiabolicUI") then
+			RadialOffset = 12;
+		elseif IsAddOnLoaded("GoldieSix") then
+			--GoldpawUI
+			RadialOffset = 18;
+		elseif IsAddOnLoaded("GW2_UI") then
+			RadialOffset = 44;
+		elseif IsAddOnLoaded("SpartanUI") then
+			RadialOffset = 8;
+		else
+			RadialOffset = 10;
+		end
+		
+		CreateSpellCreatorInterfaceOptions()
+		
+		if SpellCreatorMasterTable.Options["minimapIcon"] then SC_ToggleMiniMapIconOption:SetChecked(true) end
+		
+	end
+end);
 -------------------------------------------------------------------------------
 -- Version / Help / Toggle
 -------------------------------------------------------------------------------
