@@ -273,7 +273,7 @@ local frameBackgroundOptions = {
 "interface/archeology/arch-bookitemleft",
 "interface/archeology/arch-bookitemleft",
 "interface/archeology/arch-bookitemleft",
-"interface/archeology/arch-bookitemleft",
+"interface/archeology/arch-bookcompletedleft",
 "interface/spellbook/spellbook-page-1",
 --[[
 "something",
@@ -291,11 +291,11 @@ local frameBackgroundOptions = {
 }
 
 local frameBackgroundOptionsEdge = {
-"interface/archeology/arch-bookitemright.blp",
-"interface/archeology/arch-bookitemright.blp",
-"interface/archeology/arch-bookitemright.blp",
-"interface/archeology/arch-bookitemright.blp",
-"interface/archeology/arch-bookitemright.blp",
+"interface/archeology/arch-bookitemright",
+"interface/archeology/arch-bookitemright",
+"interface/archeology/arch-bookitemright",
+"interface/archeology/arch-bookitemright",
+"interface/archeology/arch-bookcompletedright",
 "interface/spellbook/spellbook-page-2",
 }
 -------------------------------------------------------------------------------
@@ -340,7 +340,7 @@ end);
 -- Core Functions & Data
 -------------------------------------------------------------------------------
 
-local actionTypeDataList = {"SpellCast", "SpellTrig", "SpellAura", "Anim", "Standstate", "Morph", "Native", "Equip", "RemoveAura", "RemoveAllAuras", "Unmorph", "Unequip", "Command"}
+local actionTypeDataList = {"SpellCast", "SpellTrig", "SpellAura", "Anim", "Standstate", "Morph", "Native", "Equip", "RemoveAura", "RemoveAllAuras", "Unmorph", "Unequip", "DefaultEmote", "Command",}
 local actionTypeData = {
 	["SpellCast"] = {
 		["name"] = "Cast Spell",							-- The Displayed Name in the UI
@@ -456,6 +456,15 @@ local actionTypeData = {
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},
+	["DefaultEmote"] = {
+		["name"] = "Default Emote",
+		["command"] = function(emoteID) DoEmote(emoteID); end,
+		["description"] = "Any default emote.\n\rMust be a valid emote 'token', in all caps. i.e., 'WAVE'\n\rGoogle 'WoW Api DoEmote' for a full list.",
+		["dataName"] = "Emote Token",
+		["inputDescription"] = "You can use any server command here, without the '.', and it will run after the delay.\n\rTechnically accepts multiple commands, separated by commas.\n\rExample: 'mod drunk 100'.",
+		["comTarget"] = "func",
+		["revert"] = nil,
+		},
 	["Command"] = {
 		["name"] = "Other Command",
 		["command"] = cmd,
@@ -544,8 +553,8 @@ local mainFrameSize = {
 	["y"] = 700,
 	["Xmin"] = 550,
 	["Ymin"] = 550,
-	["Xmax"] = 1100,
-	["Ymax"] = 1100,
+	["Xmax"] = math.min(1100,UIParent:GetHeight()), -- Don't let them resize it bigger than their screen is.. then you can't resize it down w/o using hidden right-click on X button
+	["Ymax"] = math.min(1100,UIParent:GetHeight()), --
 }
 
 -- Column Widths
@@ -621,6 +630,7 @@ local function RemoveSpellRow()
 	numberOfSpellRows = numberOfSpellRows - 1
 	
 	if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Enable() end
+	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
 end
 
 local function AddSpellRow()
@@ -877,7 +887,7 @@ SCForgeMainFrame.DragBar:SetScript("OnDragStop", function(self)
     self:GetParent():StopMovingOrSizing()
   end)
 
--- The top bar Spell Info Boxes
+-- The top bar Spell Info Boxes - Needs some placement love later..
 SCForgeMainFrame.SpellInfoNameBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
 SCForgeMainFrame.SpellInfoNameBox:SetFontObject(ChatFontNormal)
 SCForgeMainFrame.SpellInfoNameBox.disabledColor = GRAY_FONT_COLOR
@@ -925,21 +935,22 @@ end)
 
 --- The Inner Frame
 
---SCForgeMainFrame.Inset.Bg:Hide() -- Get rid of the stock background - we're gonna replace it with our own
 local randomBackgroundID = fastrandom(#frameBackgroundOptions)
-local background = SCForgeMainFrame.Inset.Bg
+local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, save a frame texture
 background:SetTexture(frameBackgroundOptions[randomBackgroundID])
-background:SetTexCoord(0.05,1,0,1)
+background:SetTexCoord(0.05,1,0,0.96)
+--background:SetAllPoints()
 background:SetVertTile(false)
 background:SetHorizTile(false)
---background:SetAllPoints()
-background:SetPoint("TOPLEFT",0,0) -- 12, -66
-background:SetPoint("BOTTOMRIGHT", SCForgeMainFrameInset, "BOTTOMRIGHT", -20,-20)
+background:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 0,0) -- 12, -66
+background:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.Inset, "BOTTOMRIGHT", -20,0)
+
 
 local background2 = SCForgeMainFrame.Inset:CreateTexture(nil,"BACKGROUND")
 background2:SetTexture(frameBackgroundOptionsEdge[randomBackgroundID])
 background2:SetPoint("TOPLEFT", background, "TOPRIGHT")
 background2:SetPoint("BOTTOMRIGHT", background, "BOTTOMRIGHT", 30, 0)
+background2:SetTexCoord(0,1,0,0.96)
 
 	SCForgeMainFrame.Inset.scrollFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.Inset, "UIPanelScrollFrameTemplate")
 	local scrollFrame = SCForgeMainFrame.Inset.scrollFrame
@@ -953,6 +964,7 @@ background2:SetPoint("BOTTOMRIGHT", background, "BOTTOMRIGHT", 30, 0)
 	scrollChild:SetHeight(1) 
 	
 	scrollFrame.ScrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, -16+30)
+	scrollFrame.ScrollBar.scrollStep = rowHeight+5
 
 --This is a sub-frame of the Main Frame.. Should it be? Idk..
 SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame)
@@ -1016,6 +1028,20 @@ SCForgeMainFrame.ResizeDragger:SetScript("OnMouseDown", function(self, button)
 end)
 SCForgeMainFrame.ResizeDragger:SetScript("OnMouseUp", function(self, button)
 	if button == "LeftButton" then
+		local parent = self:GetParent()
+		self.isScaling = false
+		parent:StopMovingOrSizing()
+	end
+end)
+SCForgeMainFrame.CloseButton:HookScript("OnMouseDown", function(self, button)
+	if button == "RightButton" then
+		local parent = self:GetParent()
+		self.isScaling = true
+		parent:StartSizing("BOTTOMRIGHT")
+	end
+end)
+SCForgeMainFrame.CloseButton:HookScript("OnMouseUp", function(self, button)
+	if button == "RightButton" then
 		local parent = self:GetParent()
 		self.isScaling = false
 		parent:StopMovingOrSizing()
@@ -1196,29 +1222,76 @@ SCForgeMainFrame.LoadSpellButton:SetScript("OnClick", function()
 	SCForgeMainFrame.LoadSpellFrame:Show()
 end)
 
+local loadRowHeight = 30
+local function updateSpellLoadRows()
+	local spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
+	local spellLoadFrame = SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild
+	local rowNum = 0
+	local halfWay = (spellLoadFrame:GetWidth())/2
+	for k,v in orderedPairs(SpellCreatorSavedSpells) do
+		rowNum = rowNum+1
+		if spellLoadRows[rowNum] then
+			spellLoadRows[rowNum]:Show()
+			print("SCForge Load Row "..rowNum.." Already existed - showing & setting it")
+			--set all the row info here
+		else
+			print("SCForge Load Row "..rowNum.." Didn't exist - making it!")
+			spellLoadRows[rowNum] = CreateFrame("Frame", "scForgeLoadRow"..rowNum, spellLoadFrame)
+			-- Position the rows
+			if rowNum == 1 then
+				spellLoadRows[rowNum]:SetPoint("TOPLEFT", 15, -5)
+			elseif rowNum == 2 then
+				spellLoadRows[rowNum]:SetPoint("TOPLEFT", halfWay+15, -5)
+			else
+				spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-2], "BOTTOMLEFT", 0, -5)
+			end
+			spellLoadRows[rowNum]:SetWidth(halfWay-15)
+			spellLoadRows[rowNum]:SetHeight(loadRowHeight)
+			
+			spellLoadRows[rowNum].Background = spellLoadRows[rowNum]:CreateTexture(nil,"BACKGROUND")
+			spellLoadRows[rowNum].Background:SetAllPoints()
+			spellLoadRows[rowNum].Background:SetColorTexture(0,0,0,1)
+		end
+		
+		-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
+		-- generate load lines here for each spell found. Re-use old lines if already made. See AddSpellRow() for copying it over.
+		-- Load frame design:
+		--	[Spell_1 Command]  [Spell_1 Name]  [Load_1 Button] | [Spell_2 Command]  [Spell_2 Name]  [Load_2 Button]
+		--	[Spell_3 Command]  [Spell_3 Name]  [Load_3 Button] | [Spell_4 Command]  [Spell_4 Name]  [Load_4 Button]
+		--	[Spell_5 Command]  [Spell_5 Name]  [Load_5 Button] | [Spell_6 Command]  [Spell_6 Name]  [Load_6 Button]
+		--	[Spell_7 Command]  [Spell_7 Name]  [Load_7 Button] | [Spell_8 Command]  [Spell_8 Name]  [Load_8 Button]
+		--	[Spell_9 Command]  [Spell_9 Name]  [Load_9 Button] | [Spell_10 Command] [Spell_10 Name] [Load_10 Button]
+		-- ... etc
+	end
+end
+
 SCForgeMainFrame.LoadSpellFrame = CreateFrame("Frame", "SCForgeLoadFrame", SCForgeMainFrame)
 SCForgeMainFrame.LoadSpellFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 100)
-SCForgeMainFrame.LoadSpellFrame:SetSize(350,150)
+SCForgeMainFrame.LoadSpellFrame:SetSize(500,250)
 SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
 SCForgeMainFrame.LoadSpellFrame.Border = CreateFrame("Frame", nil, SCForgeLoadFrame, "DialogBorderTemplate") --DialogBorderDarkTemplate if we want it darker
 SCForgeMainFrame.LoadSpellFrame.Close = CreateFrame("Button", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelCloseButton")
 SCForgeMainFrame.LoadSpellFrame.Close:SetPoint("TOPRIGHT", -3, -3)
 SCForgeMainFrame.LoadSpellFrame:Hide()
---[[
-for k,v in orderedPairs(SpellCreatorSavedSpells) do
-	-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
-	-- generate load lines here for each spell found. Re-use old lines if already made. See AddSpellRow() for copying it over.
-	-- Load frame design:
-	--	[Spell_1 Command]  [Spell_1 Name]  [Load_1 Button] | [Spell_2 Command]  [Spell_2 Name]  [Load_2 Button]
-	--	[Spell_3 Command]  [Spell_3 Name]  [Load_3 Button] | [Spell_4 Command]  [Spell_4 Name]  [Load_4 Button]
-	--	[Spell_5 Command]  [Spell_5 Name]  [Load_5 Button] | [Spell_6 Command]  [Spell_6 Name]  [Load_6 Button]
-	--	[Spell_7 Command]  [Spell_7 Name]  [Load_7 Button] | [Spell_8 Command]  [Spell_8 Name]  [Load_8 Button]
-	--	[Spell_9 Command]  [Spell_9 Name]  [Load_9 Button] | [Spell_10 Command] [Spell_10 Name] [Load_10 Button]
-	-- ... etc
-end
---]]
+SCForgeMainFrame.LoadSpellFrame.Rows = {}
+SCForgeMainFrame.LoadSpellFrame:HookScript("OnShow", function()
+	print("Updating Spell Load Rows")
+	updateSpellLoadRows()
+end)
+
+	SCForgeMainFrame.LoadSpellFrame.scrollFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelScrollFrameTemplate")
+	local scrollFrame = SCForgeMainFrame.LoadSpellFrame.scrollFrame
+	scrollFrame:SetPoint("TOPLEFT", 0, -30)
+	scrollFrame:SetPoint("BOTTOMRIGHT", -35, 12)
+
+	SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild = CreateFrame("Frame")
+	local scrollChild = SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild
+	scrollFrame:SetScrollChild(scrollChild)
+	scrollChild:SetWidth(SCForgeMainFrame.LoadSpellFrame:GetWidth()-18)
+	scrollChild:SetHeight(1) 
 
 --[[
+
 SCForgeMainFrame.SpellActionButton = CreateFrame("CHECKBUTTON", nil, SCForgeMainFrame, "MacroButtonTemplate")
 SCForgeMainFrame.SpellActionButton:SetPoint("center")
 SCForgeMainFrame.SpellActionButton:SetSize(14,14)
