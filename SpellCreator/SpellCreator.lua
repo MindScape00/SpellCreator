@@ -6,6 +6,9 @@ local MYADDON, MyAddOn = ...
 local addonVersion, addonAuthor, addonName = GetAddOnMetadata(MYADDON, "Version"), GetAddOnMetadata(MYADDON, "Author"), GetAddOnMetadata(MYADDON, "Title")
 local addonColor = "|cff".."7e1af0"
 
+local clearSpellOnRowRemoved = false
+local cacheStyle = 2	-- 1 = pop-up window, 2 = attached tray
+
 sfCmd_ReplacerChar = "@N@"
 
 -- local utils = Epsilon.utils
@@ -32,12 +35,21 @@ local function cprint(text)
 end
 
 local function dprint(force, text, rest)
-	if force == true or SpellCreatorMasterTable.Options["debug"] then
-		local line = strmatch(debugstack(2),":(%d+):")
+	local line = strmatch(debugstack(2),":(%d+):")
+	if text then
+		if force == true or SpellCreatorMasterTable.Options["debug"] then
+			if line then
+				print(addonColor..addonName.." DEBUG "..line..": "..text..(rest and " | "..rest or "").." |r")
+			else
+				print(addonColor..addonName.." DEBUG: "..text..(rest and " | "..rest or "").." |r")
+				print(debugstack(2))
+			end
+		end
+	elseif SpellCreatorMasterTable.Options["debug"] then
 		if line then
-			print(addonColor..addonName.." DEBUG "..line..": "..text..(rest and " | "..rest or "").." |r")
+			print(addonColor..addonName.." DEBUG "..line..": "..force.." |r")
 		else
-			print(addonColor..addonName.." DEBUG: "..text..(rest and " | "..rest or "").." |r")
+			print(addonColor..addonName.." DEBUG: "..force.." |r")
 			print(debugstack(2))
 		end
 	end
@@ -110,120 +122,8 @@ local function SC_loadMasterTable()
 end
 
 -------------------------------------------------------------------------------
--- Minimap Icon
+-- UI Stuff
 -------------------------------------------------------------------------------
-
-local minimapButton = CreateFrame("Button", "SpellCreatorMinimapButton", Minimap)
-minimapButton:SetMovable(true)
-minimapButton:EnableMouse(true)
-minimapButton:SetSize(33,33)
-minimapButton:SetFrameStrata("MEDIUM"); 
-minimapButton:SetFrameLevel("62"); 
-minimapButton:SetClampedToScreen(true); 
-minimapButton:SetClampRectInsets(5,-5,-5,5)
-minimapButton:SetPoint("TOPLEFT")
-minimapButton:RegisterForDrag("LeftButton","RightButton")
-minimapButton:RegisterForClicks("LeftButtonUp","RightButtonUp")
-minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
-
-local minimapShapes = {
-	["ROUND"] = {true, true, true, true},
-	["SQUARE"] = {false, false, false, false},
-	["CORNER-TOPLEFT"] = {false, false, false, true},
-	["CORNER-TOPRIGHT"] = {false, false, true, false},
-	["CORNER-BOTTOMLEFT"] = {false, true, false, false},
-	["CORNER-BOTTOMRIGHT"] = {true, false, false, false},
-	["SIDE-LEFT"] = {false, true, false, true},
-	["SIDE-RIGHT"] = {true, false, true, false},
-	["SIDE-TOP"] = {false, false, true, true},
-	["SIDE-BOTTOM"] = {true, true, false, false},
-	["TRICORNER-TOPLEFT"] = {false, true, true, true},
-	["TRICORNER-TOPRIGHT"] = {true, false, true, true},
-	["TRICORNER-BOTTOMLEFT"] = {true, true, false, true},
-	["TRICORNER-BOTTOMRIGHT"] = {true, true, true, false},
-}
-
-local RadialOffset = 10;	--minimapbutton offset
-local function MinimapButton_UpdateAngle(radian)
-	local x, y, q = math.cos(radian), math.sin(radian), 1;
-	if x < 0 then q = q + 1 end
-	if y > 0 then q = q + 2 end
-	local minimapShape = GetMinimapShape and GetMinimapShape() or "ROUND";
-	local quadTable = minimapShapes[minimapShape];
-	local w = (Minimap:GetWidth() / 2) + RadialOffset	--10
-	local h = (Minimap:GetHeight() / 2) + RadialOffset
-	if quadTable[q] then
-		x, y = x*w, y*h
-	else
-		local diagRadiusW = sqrt(2*(w)^2) - RadialOffset	--  -10
-		local diagRadiusH = sqrt(2*(h)^2) - RadialOffset
-		x = max(-w, min(x*diagRadiusW, w));
-		y = max(-h, min(y*diagRadiusH, h));
-	end
-	minimapButton:ClearAllPoints()
-	minimapButton:SetPoint("CENTER", "Minimap", "CENTER", x, y);
-end
-
-local function minimap_OnUpdate()
-	local radian;
-
-	local mx, my = Minimap:GetCenter();
-	local px, py = GetCursorPosition();
-	local scale = Minimap:GetEffectiveScale();
-	px, py = px / scale, py / scale;
-	radian = math.atan2(py - my, px - mx);
-
-	MinimapButton_UpdateAngle(radian);
-	SpellCreatorMasterTable.Options["mmLoc"] = radian;
-end
-
-minimapButton:SetScript("OnDragStart", function(self)
-	self:LockHighlight()
-	self:SetScript("OnUpdate", minimap_OnUpdate)
-end)
-minimapButton:SetScript("OnDragStop", function(self)
-	self:UnlockHighlight()
-	self:SetScript("OnUpdate", nil)
-end)
-minimapButton:SetScript("OnClick", function(self)
-	-- show / hide the frame
-end)
-
-minimapButton:SetScript("OnEnter", function(self)
-	SetCursor("Interface/CURSOR/voidstorage.blp");
-	-- interface/cursor/argusteleporter.blp , interface/cursor/trainer.blp , 
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	GameTooltip:SetText(addonName)
-	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("/arcanum - Toggle UI",1,1,1,true)
-	GameTooltip:AddLine("/sfdebug - Toggle Debug",1,1,1,true)
-	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("|cffFFD700Left-Click|r to toggle the main UI!",1,1,1,true)
-	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options, Changelog, and the Help Manual!",1,1,1,true)
-	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("Mouse over most UI Elements to see tooltips for help! (Like this one!)",0.9,0.75,0.75,true)
-	GameTooltip:AddDoubleLine(" ", addonName.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
-	GameTooltip:AddDoubleLine(" ", "by "..addonAuthor, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
-	GameTooltip:Show()
-end)
-
-minimapButton:SetScript("OnLeave", function(self)
-	ResetCursor();
-	GameTooltip:Hide()
-end)
-minimapButton.icon = minimapButton:CreateTexture("$parentIcon", "ARTWORK")
-minimapButton.icon:SetTexture("interface\\icons\\inv_7xp_inscription_talenttome02")
-minimapButton.icon:SetSize(21,21)
-minimapButton.icon:SetPoint("CENTER")
-minimapButton.border = minimapButton:CreateTexture("$parentBorder", "OVERLAY")
-minimapButton.border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-minimapButton.border:SetSize(56,56)
-minimapButton.border:SetPoint("TOPLEFT")
-
-local function LoadMinimapPosition()
-	local radian = tonumber(SpellCreatorMasterTable.Options["mmLoc"]) or 2.7
-	MinimapButton_UpdateAngle(radian);
-end
 
 local frameIconOptions = {
 "interface/icons/70_professions_scroll_01",
@@ -298,56 +198,28 @@ local frameBackgroundOptionsEdge = {
 "interface/archeology/arch-bookcompletedright",
 "interface/spellbook/spellbook-page-2",
 }
--------------------------------------------------------------------------------
--- Addon Loaded
--------------------------------------------------------------------------------
 
-local SC_Addon_OnLoad = CreateFrame("frame","SC_Addon_OnLoad");
-SC_Addon_OnLoad:RegisterEvent("ADDON_LOADED");
-SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
-	if name == "SpellCreator" then
-				
-		SC_loadMasterTable();
-		LoadMinimapPosition();
-	
-		--Quickly Show / Hide the Frame on Start-Up to initialize everything for key bindings & loading
-		C_Timer.After(1,function()
-			SCForgeMainFrame:Show();
-			if not SpellCreatorMasterTable.Options["debug"] then SCForgeMainFrame:Hide(); --[[ SCForgeLoadFrame:Hide() ]] end
-		end)
-		
-		-- Adjust Radial Offset for Minimap Icon for alternate UI Overhaul Addons
-		if IsAddOnLoaded("AzeriteUI") then
-			RadialOffset = 18;
-		elseif IsAddOnLoaded("DiabolicUI") then
-			RadialOffset = 12;
-		elseif IsAddOnLoaded("GoldieSix") then
-			--GoldpawUI
-			RadialOffset = 18;
-		elseif IsAddOnLoaded("GW2_UI") then
-			RadialOffset = 44;
-		elseif IsAddOnLoaded("SpartanUI") then
-			RadialOffset = 8;
-		else
-			RadialOffset = 10;
-		end
-		
-		CreateSpellCreatorInterfaceOptions()
+local function get_Table_Position(str, tab)
+	for i = 1, #tab do
+		local v = tab[i] --cheaper ipairs as i,v
+		if v == str then return i; end
+		return nil;
 	end
-end);
+end
 
 -------------------------------------------------------------------------------
 -- Core Functions & Data
 -------------------------------------------------------------------------------
 
 local actionTypeDataList = {"SpellCast", "SpellTrig", "SpellAura", "Anim", "Standstate", "Morph", "Native", "Equip", "RemoveAura", "RemoveAllAuras", "Unmorph", "Unequip", "DefaultEmote", "Command",}
+
 local actionTypeData = {
 	["SpellCast"] = {
 		["name"] = "Cast Spell",							-- The Displayed Name in the UI
 		["command"] = "cast @N@", 								-- The chat command, or Lua function to process
 		["description"] = "Cast a spell using a Spell ID, to selected target, or self if no target.\n\rEnable the Self checkbox to cast always on yourself.\n\rRevert: Unaura", 	-- Description for on-mouse-over
 		["dataName"] = "Spell ID(s)", 							-- Label for the ID Box, nil to disable the ID box
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.",							-- Description of the input for GameTooltip
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\r'.look spell' for IDs.",							-- Description of the input for GameTooltip
 		["comTarget"] = "server", 							-- Server for commands, func for custom Lua function in 'command'
 		["revert"] = "unaura", 									-- The command that reverts it, i.e, 'unaura' for 'aura'
 		["selfAble"] = true,								-- True/False - if able to use the self-toggle checkbox
@@ -357,7 +229,7 @@ local actionTypeData = {
 		["command"] = "cast @N@ trig",
 		["description"] = "Cast a spell using a Spell ID, to selected target, or self if no target, using the triggered flag.\n\rEnable the Self checkbox to cast always on yourself.\n\rRevert: Unaura",
 		["dataName"] = "Spell ID(s)",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\r'.look spell' for IDs.",
 		["comTarget"] = "server",
 		["revert"] = "unaura",
 		["selfAble"] = true,
@@ -367,7 +239,7 @@ local actionTypeData = {
 		["command"] = "aura @N@",
 		["description"] = "Applies an Aura from a Spell ID on your target, or yourself if no target selected.\n\rEnable the 'self' checkbox to always aura yourself.\n\rRevert: Unaura",
 		["dataName"] = "Spell ID(s)",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to apply multiple auras at once.",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to apply multiple auras at once.\n\r'.look spell' for IDs.",
 		["comTarget"] = "server",
 		["revert"] = "unaura",
 		["selfAble"] = true,
@@ -377,7 +249,7 @@ local actionTypeData = {
 		["command"] = "mod anim @N@",
 		["description"] = "Modifies target's current animation.\n\rUse .lookup emote to find IDs.\n\rRevert: Reset to Anim 0 (none)",
 		["dataName"] = "Emote ID",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to do multiple anims at once -- but the second usually over-rides the first.",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to do multiple anims at once -- but the second usually over-rides the first.\n\r'.look emote' for IDs.",
 		["comTarget"] = "server",
 		["revert"] = "mod anim 0",
 		["selfAble"] = false,
@@ -387,6 +259,7 @@ local actionTypeData = {
 		["command"] = "morph @N@",
 		["description"] = "Morph into a Display ID.\n\rRevert: Demorph",
 		["dataName"] = "Display ID",
+		["inputDescription"] = "No, you can't put multiple to become a hybrid monster..\n\r'.look displayid' for IDs.",
 		["comTarget"] = "server",
 		["revert"] = "demorph",
 		["selfAble"] = false,
@@ -396,6 +269,7 @@ local actionTypeData = {
 		["command"] = "native @N@",
 		["description"] = "Modifies your Native to specified Display ID.\n\rRevert: Demorph",
 		["dataName"] = "Display ID",
+		["inputDescription"] = ".look displayid' for IDs.",
 		["comTarget"] = "server",
 		["revert"] = "demorph",
 		["selfAble"] = false,
@@ -405,7 +279,7 @@ local actionTypeData = {
 		["command"] = "mod standstate @N@",
 		["description"] = "Change the emote of your character while standing to an Emote ID.\n\rRevert: Standstate to 0 (none)",
 		["dataName"] = "Standstate ID",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to set multiple standstates at once.. but you can't have two, so probably don't try it.",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to set multiple standstates at once.. but you can't have two, so probably don't try it.\n\r'.look emote' for IDs.",
 		["comTarget"] = "server",
 		["revert"] = "",
 		["selfAble"] = true,
@@ -415,7 +289,7 @@ local actionTypeData = {
 		["command"] = function(vars) EquipItemByName(vars) end,
 		["description"] = "Equip an Item by name or ID. Item must be in your inventory. Cannot be reverted directly.\n\rName is a search in your inventory by keyword - using ID is recommended.\n\ri.e., You want to equip 'Violet Guardian's Helm', ID: 141357, but have 'Guardian's Leather Belt', ID: 35156 in your inventory also, using 'Guardian' as the text will equip the belt, so you'll want to use the full name, or better off just use the actual item ID.",
 		["dataName"] = "Item ID or Name(s)",
-		["inputDescription"] = "Accepts multiple IDs/Names, separated by commas, to equip multiple items at once.",
+		["inputDescription"] = "Accepts multiple IDs/Names, separated by commas, to equip multiple items at once.\n\r'.look item', or mouse-over an item in your inventory for IDs.",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		["selfAble"] = false,
@@ -461,7 +335,7 @@ local actionTypeData = {
 		["command"] = function(emoteID) DoEmote(emoteID); end,
 		["description"] = "Any default emote.\n\rMust be a valid emote 'token', in all caps. i.e., 'WAVE'\n\rGoogle 'WoW Api DoEmote' for a full list.",
 		["dataName"] = "Emote Token",
-		["inputDescription"] = "You can use any server command here, without the '.', and it will run after the delay.\n\rTechnically accepts multiple commands, separated by commas.\n\rExample: 'mod drunk 100'.",
+		["inputDescription"] = "Search Google for 'WoW Api DoEmote', and go to the WoWpedia page, and find the table of tokens..",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},
@@ -618,6 +492,7 @@ local function updateFrameChildScales(frame)
 	for _,child in pairs(framesToResizeWithMainFrame) do
 		child:SetScale(n)
 	end
+	return n;
 end
 -------------------------------------------------------------------------------
 -- Main UI Frame
@@ -626,6 +501,22 @@ end
 local function RemoveSpellRow()
 	if numberOfSpellRows <= 1 then return; end
 	_G["spellRow"..numberOfSpellRows]:Hide()
+	
+	if clearSpellOnRowRemoved then
+		_G["spellRow"..numberOfSpellRows.."MainDelayBox"]:SetText("")
+		
+		for k,v in pairs(_G["spellRow"..numberOfSpellRows].menuList) do
+			v.checked = false
+		end
+		UIDropDownMenu_SetSelectedID(_G["spellRow"..numberOfSpellRows.."ActionSelectButton"], 0)
+		_G["spellRow"..numberOfSpellRows.."ActionSelectButtonText"]:SetText("Action")
+		updateSpellRowOptions(numberOfSpellRows, nil)
+		
+		_G["spellRow"..numberOfSpellRows.."SelfCheckbox"]:SetChecked(false)
+		_G["spellRow"..numberOfSpellRows.."InputEntryBox"]:SetText("")
+		_G["spellRow"..numberOfSpellRows.."RevertCheckbox"]:SetChecked(false)
+		_G["spellRow"..numberOfSpellRows.."RevertDelayBox"]:SetText("")
+	end
 
 	numberOfSpellRows = numberOfSpellRows - 1
 	
@@ -683,7 +574,8 @@ local function AddSpellRow()
 		end)
 		
 		-- Action Dropdown Menu
-		local menuList = {}
+		newRow.menuList = {}
+		local menuList = newRow.menuList
 		
 		for i = 1, #actionTypeDataList do
 			local v = actionTypeDataList[i]
@@ -845,18 +737,27 @@ local function AddSpellRow()
 end
 
 function updateSpellRowOptions(row, selectedAction) 
-	_G["spellRow"..row.."SelectedAction"] = selectedAction
-	if actionTypeData[selectedAction].selfAble then _G["spellRow"..row.."SelfCheckbox"]:Enable() else _G["spellRow"..row.."SelfCheckbox"]:Disable() end
-	if actionTypeData[selectedAction].dataName then 
-		_G["spellRow"..row.."InputEntryBox"]:Enable()
-		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText(actionTypeData[selectedAction].dataName)
-		if actionTypeData[selectedAction].inputDescription then _G["spellRow"..row.."InputEntryBox"].Description = actionTypeData[selectedAction].inputDescription end
+		-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
+	if selectedAction then -- if we call it with no action, reset
+		_G["spellRow"..row.."SelectedAction"] = selectedAction
+		if actionTypeData[selectedAction].selfAble then _G["spellRow"..row.."SelfCheckbox"]:Enable() else _G["spellRow"..row.."SelfCheckbox"]:Disable() end
+		if actionTypeData[selectedAction].dataName then 
+			_G["spellRow"..row.."InputEntryBox"]:Enable()
+			_G["spellRow"..row.."InputEntryBox"].Instructions:SetText(actionTypeData[selectedAction].dataName)
+			if actionTypeData[selectedAction].inputDescription then _G["spellRow"..row.."InputEntryBox"].Description = actionTypeData[selectedAction].inputDescription end
+		else
+			_G["spellRow"..row.."InputEntryBox"]:Disable()
+			_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("n/a") 
+		end
+		if actionTypeData[selectedAction].revert then _G["spellRow"..row.."RevertCheckbox"]:Enable(); _G["spellRow"..row.."RevertDelayBox"]:Enable() else _G["spellRow"..row.."RevertCheckbox"]:Disable(); _G["spellRow"..row.."RevertDelayBox"]:Disable() end
 	else
+		_G["spellRow"..row.."SelectedAction"] = nil
+		_G["spellRow"..row.."SelfCheckbox"]:Disable()
+		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("...")
 		_G["spellRow"..row.."InputEntryBox"]:Disable()
-		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("n/a") 
+		_G["spellRow"..row.."RevertCheckbox"]:Disable();
+		_G["spellRow"..row.."RevertDelayBox"]:Disable()
 	end
-	if actionTypeData[selectedAction].revert then _G["spellRow"..row.."RevertCheckbox"]:Enable(); _G["spellRow"..row.."RevertDelayBox"]:Enable() else _G["spellRow"..row.."RevertCheckbox"]:Disable(); _G["spellRow"..row.."RevertDelayBox"]:Disable() end
-	-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
 end
 
 
@@ -894,9 +795,12 @@ SCForgeMainFrame.SpellInfoNameBox.disabledColor = GRAY_FONT_COLOR
 SCForgeMainFrame.SpellInfoNameBox.enabledColor = HIGHLIGHT_FONT_COLOR
 SCForgeMainFrame.SpellInfoNameBox.Instructions:SetText("Spell Name")
 SCForgeMainFrame.SpellInfoNameBox.Instructions:SetTextColor(0.5,0.5,0.5)
+SCForgeMainFrame.SpellInfoNameBox.Title = SCForgeMainFrame.SpellInfoNameBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
+SCForgeMainFrame.SpellInfoNameBox.Title:SetText("Name:")
+SCForgeMainFrame.SpellInfoNameBox.Title:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoNameBox, "LEFT", -10, 0)
 SCForgeMainFrame.SpellInfoNameBox:SetAutoFocus(false)
 SCForgeMainFrame.SpellInfoNameBox:SetSize(100,23)
-SCForgeMainFrame.SpellInfoNameBox:SetPoint("TOP", 0, -30)
+SCForgeMainFrame.SpellInfoNameBox:SetPoint("TOP", -100, -30)
 SCForgeMainFrame.SpellInfoNameBox:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
@@ -916,9 +820,12 @@ SCForgeMainFrame.SpellInfoCommandBox.disabledColor = GRAY_FONT_COLOR
 SCForgeMainFrame.SpellInfoCommandBox.enabledColor = HIGHLIGHT_FONT_COLOR
 SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetText("Spell Command")
 SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetTextColor(0.5,0.5,0.5)
+SCForgeMainFrame.SpellInfoCommandBox.Title = SCForgeMainFrame.SpellInfoCommandBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
+SCForgeMainFrame.SpellInfoCommandBox.Title:SetText("Command:")
+SCForgeMainFrame.SpellInfoCommandBox.Title:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoCommandBox, "LEFT", -10, 0)
 SCForgeMainFrame.SpellInfoCommandBox:SetAutoFocus(false)
 SCForgeMainFrame.SpellInfoCommandBox:SetSize(100,23)
-SCForgeMainFrame.SpellInfoCommandBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoNameBox, "RIGHT", 15, 0)
+SCForgeMainFrame.SpellInfoCommandBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoNameBox, "RIGHT", 100, 0)
 SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
@@ -1049,7 +956,12 @@ SCForgeMainFrame.CloseButton:HookScript("OnMouseUp", function(self, button)
 end)
 
 SCForgeMainFrame:SetScript("OnSizeChanged", function(self)
-	updateFrameChildScales(self)
+	local scale = updateFrameChildScales(self)
+	if cacheStyle == 2 then
+		local newHeight = self:GetHeight()
+		local ratio = newHeight/mainFrameSize.y
+		SCForgeLoadFrame:SetSize(280*ratio, self:GetHeight())
+	end
 end)
 
 SCForgeMainFrame.AddSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
@@ -1153,6 +1065,221 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 	end
 	executeSpell(actionsToCommit)
 end)
+SCForgeMainFrame.ExecuteSpellButton:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Execute the above Actions.", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Useful to test your spell before saving.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+SCForgeMainFrame.ExecuteSpellButton:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+
+local function loadSpell(spellKey)
+	print("Loading spell.. "..spellKey)
+	spellToLoad = SpellCreatorSavedSpells[spellKey]
+	
+	SCForgeMainFrame.SpellInfoCommandBox:SetText(spellToLoad.commID)
+	SCForgeMainFrame.SpellInfoNameBox:SetText(spellToLoad.fullName)
+	
+	numberOfActionsToLoad = #spellToLoad.actions
+	
+	-- Adjust the number of available Action Rows
+	if numberOfActionsToLoad > numberOfSpellRows then
+		for i = 1, numberOfActionsToLoad-numberOfSpellRows do
+			AddSpellRow()
+		end
+	elseif numberOfActionsToLoad < numberOfSpellRows then
+		for i = 1, numberOfSpellRows-numberOfActionsToLoad do
+			RemoveSpellRow()
+		end
+	end
+	
+	-- Loop thru actions & set their data
+	local rowNum, actionData
+	for rowNum, actionData in ipairs(spellToLoad.actions) do
+		for k,v in pairs(_G["spellRow"..rowNum].menuList) do
+			v.checked = false
+		end
+		UIDropDownMenu_SetSelectedID(_G["spellRow"..rowNum.."ActionSelectButton"], get_Table_Position(actionData.actionType, actionTypeDataList))
+		_G["spellRow"..rowNum.."ActionSelectButtonText"]:SetText(actionTypeData[actionData.actionType].name)
+		updateSpellRowOptions(rowNum, actionData.actionType)
+		
+		_G["spellRow"..rowNum.."MainDelayBox"]:SetText(tonumber(actionData.delay)) --delay
+		if actionData.selfOnly then _G["spellRow"..rowNum.."SelfCheckbox"]:SetChecked(true) else _G["spellRow"..rowNum.."SelfCheckbox"]:SetChecked(false) end --SelfOnly
+		if actionData.vars then _G["spellRow"..rowNum.."InputEntryBox"]:SetText(actionData.vars) else _G["spellRow"..rowNum.."InputEntryBox"]:SetText("") end --Input Entrybox
+		if actionData.revertDelay then
+			_G["spellRow"..rowNum.."RevertDelayBox"]:SetText(actionData.revertDelay) --revertDelay
+			_G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(true) --Revert Checkbox
+		else
+			_G["spellRow"..rowNum.."RevertDelayBox"]:SetText("") --revertDelay
+			_G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(false) --Revert Checkbox
+		end
+	end
+end
+
+local function deleteSpellConf(spellKey)
+	local dialog = StaticPopup_Show("SCFORGE_CONFIRM_DELETE", SpellCreatorSavedSpells[spellKey].fullName, SpellCreatorSavedSpells[spellKey].commID)
+	if dialog then dialog.data = spellKey end
+end
+
+local loadRowHeight = 30
+local loadRowSpacing = 10
+local function updateSpellLoadRows()
+	local spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
+	for i = 1, #spellLoadRows do
+		spellLoadRows[i]:Hide()
+	end
+	local spellLoadFrame = SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild
+	local rowNum = 0
+	local columnWidth = (spellLoadFrame:GetWidth())/2
+	if cacheStyle == 2 then 
+		columnWidth = columnWidth*2;
+		loadRowSpacing = 5
+	end
+	for k,v in orderedPairs(SpellCreatorSavedSpells) do
+		rowNum = rowNum+1
+		if spellLoadRows[rowNum] then
+			spellLoadRows[rowNum]:Show()
+			dprint(false,"SCForge Load Row "..rowNum.." Already existed - showing & setting it")
+			
+			-- make sure to set the data, otherwise it will still use old data if new spells have been saved since last.
+			spellLoadRows[rowNum].spellName:SetText(v.fullName)
+			spellLoadRows[rowNum].loadButton.commID = k
+			spellLoadRows[rowNum].deleteButton.commID = k
+		else
+			dprint(false,"SCForge Load Row "..rowNum.." Didn't exist - making it!")
+			spellLoadRows[rowNum] = CreateFrame("Frame", "scForgeLoadRow"..rowNum, spellLoadFrame)
+			
+			-- Position the Rows
+			if cacheStyle == 2 then
+				if rowNum == 1 then
+					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 10, -8)
+					setResizeWithMainFrame(spellLoadRows[rowNum])
+				else
+					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-1], "BOTTOMLEFT", 0, -loadRowSpacing)
+					setResizeWithMainFrame(spellLoadRows[rowNum])
+				end
+				spellLoadRows[rowNum]:SetWidth(columnWidth-20)
+			else
+				if rowNum == 1 then
+					spellLoadRows[rowNum]:SetPoint("TOPRIGHT", spellLoadFrame, "TOP", -5, -5)
+				elseif rowNum == 2 then
+					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOP", 5, -5)
+				else
+					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-2], "BOTTOMLEFT", 0, -loadRowSpacing)
+				end
+				spellLoadRows[rowNum]:SetWidth(columnWidth-15)
+			end
+			spellLoadRows[rowNum]:SetHeight(loadRowHeight)
+			
+			-- A nice lil background to make them easier to tell apart			
+			spellLoadRows[rowNum].Background = spellLoadRows[rowNum]:CreateTexture(nil,"BACKGROUND")
+			spellLoadRows[rowNum].Background:SetAllPoints()
+			spellLoadRows[rowNum].Background:SetColorTexture(1,1,1,0.25)
+			
+			-- Make the Spell Name Text
+			spellLoadRows[rowNum].spellName = spellLoadRows[rowNum]:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
+			spellLoadRows[rowNum].spellName:SetWidth(columnWidth/2)
+			spellLoadRows[rowNum].spellName:SetJustifyH("LEFT")
+			spellLoadRows[rowNum].spellName:SetPoint("LEFT", 1, 0)
+			spellLoadRows[rowNum].spellName:SetText(v.fullName)
+			spellLoadRows[rowNum].spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
+			
+			-- Make the delete saved spell button
+			spellLoadRows[rowNum].deleteButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum], "UIPanelButtonTemplate")
+			local button = spellLoadRows[rowNum].deleteButton
+			button.commID = k
+			button:SetPoint("RIGHT", 0, 0)
+			button:SetSize(20,20)
+			button:SetText("x")
+			button:SetScript("OnClick", function(self)
+				deleteSpellConf(self.commID)
+			end)
+			button:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					GameTooltip:SetText("Delete '"..self.commID.."'", nil, nil, nil, nil, true)
+					GameTooltip:Show()
+				end)
+			end)
+			button:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
+			
+						
+			-- Make the load button
+			spellLoadRows[rowNum].loadButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum], "UIPanelButtonTemplate")
+			local button = spellLoadRows[rowNum].loadButton
+			button.commID = k
+			button:SetPoint("RIGHT", spellLoadRows[rowNum].deleteButton, "LEFT", 0, 0)
+			button:SetSize(60,24)
+			button:SetText("Edit")
+			button:SetScript("OnClick", function(self)
+				loadSpell(self.commID)
+				if cacheStyle ~= 2 then SCForgeMainFrame.LoadSpellFrame:Hide(); end
+			end)
+			button:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					GameTooltip:SetText("Load spell '"..self.commID.."' into the forge, where you can edit it.", nil, nil, nil, nil, true)
+					GameTooltip:Show()
+				end)
+			end)
+			button:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
+			
+		end
+		
+		-- Limit our Spell Name to 2 lines - but by downsizing the text instead of truncating..
+		do
+			local fontName,fontHeight,fontFlags = spellLoadRows[rowNum].spellName:GetFont()
+			spellLoadRows[rowNum].spellName:SetFont(fontName, 14, fontFlags) -- reset the font to default first, then test if we need to scale it down.
+			while spellLoadRows[rowNum].spellName:GetNumLines() > 2 do
+				fontName,fontHeight,fontFlags = spellLoadRows[rowNum].spellName:GetFont()
+				spellLoadRows[rowNum].spellName:SetFont(fontName, fontHeight-1, fontFlags)
+				if fontHeight-1 <= 8 then break end
+			end
+		end
+
+		-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
+		-- generate load lines here for each spell found. Re-use old lines if already made. See AddSpellRow() for copying it over.
+		-- Load frame design:
+		--	[Spell_1 Command]  [Spell_1 Name]  [Load_1 Button] | [Spell_2 Command]  [Spell_2 Name]  [Load_2 Button]
+		--	[Spell_3 Command]  [Spell_3 Name]  [Load_3 Button] | [Spell_4 Command]  [Spell_4 Name]  [Load_4 Button]
+		--	[Spell_5 Command]  [Spell_5 Name]  [Load_5 Button] | [Spell_6 Command]  [Spell_6 Name]  [Load_6 Button]
+		--	[Spell_7 Command]  [Spell_7 Name]  [Load_7 Button] | [Spell_8 Command]  [Spell_8 Name]  [Load_8 Button]
+		--	[Spell_9 Command]  [Spell_9 Name]  [Load_9 Button] | [Spell_10 Command] [Spell_10 Name] [Load_10 Button]
+		-- ... etc
+	end
+	updateFrameChildScales(SCForgeMainFrame)
+end
+
+local function deleteSpell(spellKey)
+	SpellCreatorSavedSpells[spellKey] = nil
+	updateSpellLoadRows()
+end
+
+StaticPopupDialogs["SCFORGE_CONFIRM_DELETE"] = {
+  text = "Are you sure you want to delete the spell?\n\rName: %s\nCommand: /sf %s\r",
+  showAlert = true,
+  button1 = "Delete",
+  button2 = "Cancel",
+  OnAccept = function(self, data)
+      deleteSpell(data)
+  end,
+  timeout = 0,
+  cancels = true,
+  whileDead = true,
+  hideOnEscape = true,
+  preferredIndex = 3,
+}
 
 local function saveSpell(mousebutton)
 
@@ -1204,85 +1331,79 @@ local function saveSpell(mousebutton)
 	else
 		cprint("Spell has no valid actions and was not saved. Please double check your actions & try again. You can turn on debug mode to see more information when trying to save (/sfdebug).")
 	end
+	updateSpellLoadRows()
 end
 
 SCForgeMainFrame.SaveSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
 SCForgeMainFrame.SaveSpellButton:SetPoint("BOTTOMLEFT", 20, 3)
 SCForgeMainFrame.SaveSpellButton:SetSize(24*4,24)
-SCForgeMainFrame.SaveSpellButton:SetText("Save")
+SCForgeMainFrame.SaveSpellButton:SetText("Create")
 SCForgeMainFrame.SaveSpellButton:SetScript("OnClick", function(self, button)
 	saveSpell(button)
 end)
+SCForgeMainFrame.SaveSpellButton:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Create your spell!", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Finish your spell & save it to your cache.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+SCForgeMainFrame.SaveSpellButton:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+
 
 SCForgeMainFrame.LoadSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
 SCForgeMainFrame.LoadSpellButton:SetPoint("LEFT", SCForgeMainFrame.SaveSpellButton, "RIGHT", 0, 0)
 SCForgeMainFrame.LoadSpellButton:SetSize(24*4,24)
-SCForgeMainFrame.LoadSpellButton:SetText("Load")
+SCForgeMainFrame.LoadSpellButton:SetText("Cache")
 SCForgeMainFrame.LoadSpellButton:SetScript("OnClick", function()
-	SCForgeMainFrame.LoadSpellFrame:Show()
+	if SCForgeMainFrame.LoadSpellFrame:IsShown() then
+		SCForgeMainFrame.LoadSpellFrame:Hide()
+	else
+		SCForgeMainFrame.LoadSpellFrame:Show()
+	end
+end)
+SCForgeMainFrame.LoadSpellButton:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Access your Cache", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("All of your created & saved spells are stored here.\n\rYou can load & manage your spells from the cache.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+SCForgeMainFrame.LoadSpellButton:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
 end)
 
-local loadRowHeight = 30
-local function updateSpellLoadRows()
-	local spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
-	local spellLoadFrame = SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild
-	local rowNum = 0
-	local halfWay = (spellLoadFrame:GetWidth())/2
-	for k,v in orderedPairs(SpellCreatorSavedSpells) do
-		rowNum = rowNum+1
-		if spellLoadRows[rowNum] then
-			spellLoadRows[rowNum]:Show()
-			print("SCForge Load Row "..rowNum.." Already existed - showing & setting it")
-			--set all the row info here
-		else
-			print("SCForge Load Row "..rowNum.." Didn't exist - making it!")
-			spellLoadRows[rowNum] = CreateFrame("Frame", "scForgeLoadRow"..rowNum, spellLoadFrame)
-			-- Position the rows
-			if rowNum == 1 then
-				spellLoadRows[rowNum]:SetPoint("TOPLEFT", 15, -5)
-			elseif rowNum == 2 then
-				spellLoadRows[rowNum]:SetPoint("TOPLEFT", halfWay+15, -5)
-			else
-				spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-2], "BOTTOMLEFT", 0, -5)
-			end
-			spellLoadRows[rowNum]:SetWidth(halfWay-15)
-			spellLoadRows[rowNum]:SetHeight(loadRowHeight)
-			
-			spellLoadRows[rowNum].Background = spellLoadRows[rowNum]:CreateTexture(nil,"BACKGROUND")
-			spellLoadRows[rowNum].Background:SetAllPoints()
-			spellLoadRows[rowNum].Background:SetColorTexture(0,0,0,1)
-		end
-		
-		-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
-		-- generate load lines here for each spell found. Re-use old lines if already made. See AddSpellRow() for copying it over.
-		-- Load frame design:
-		--	[Spell_1 Command]  [Spell_1 Name]  [Load_1 Button] | [Spell_2 Command]  [Spell_2 Name]  [Load_2 Button]
-		--	[Spell_3 Command]  [Spell_3 Name]  [Load_3 Button] | [Spell_4 Command]  [Spell_4 Name]  [Load_4 Button]
-		--	[Spell_5 Command]  [Spell_5 Name]  [Load_5 Button] | [Spell_6 Command]  [Spell_6 Name]  [Load_6 Button]
-		--	[Spell_7 Command]  [Spell_7 Name]  [Load_7 Button] | [Spell_8 Command]  [Spell_8 Name]  [Load_8 Button]
-		--	[Spell_9 Command]  [Spell_9 Name]  [Load_9 Button] | [Spell_10 Command] [Spell_10 Name] [Load_10 Button]
-		-- ... etc
-	end
-end
+--------- Load Spell Frame - aka the Cache
 
-SCForgeMainFrame.LoadSpellFrame = CreateFrame("Frame", "SCForgeLoadFrame", SCForgeMainFrame)
-SCForgeMainFrame.LoadSpellFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 100)
-SCForgeMainFrame.LoadSpellFrame:SetSize(500,250)
-SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
-SCForgeMainFrame.LoadSpellFrame.Border = CreateFrame("Frame", nil, SCForgeLoadFrame, "DialogBorderTemplate") --DialogBorderDarkTemplate if we want it darker
-SCForgeMainFrame.LoadSpellFrame.Close = CreateFrame("Button", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelCloseButton")
-SCForgeMainFrame.LoadSpellFrame.Close:SetPoint("TOPRIGHT", -3, -3)
+SCForgeMainFrame.LoadSpellFrame = CreateFrame("Frame", "SCForgeLoadFrame", SCForgeMainFrame, "UIPanelDialogTemplate")
+if cacheStyle == 2 then 
+	SCForgeMainFrame.LoadSpellFrame:SetPoint("TOPLEFT", SCForgeMainFrame, "TOPRIGHT", -3, 0)
+	SCForgeMainFrame.LoadSpellFrame:SetSize(280,SCForgeMainFrame:GetHeight())
+	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("MEDIUM")
+else
+	SCForgeMainFrame.LoadSpellFrame:SetPoint("CENTER", UIParent, 0, 100)
+	SCForgeMainFrame.LoadSpellFrame:SetSize(500,250)
+	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
+end
+SCForgeMainFrame.LoadSpellFrame.Title:SetText("Arcanum - Spell Cache")
 SCForgeMainFrame.LoadSpellFrame:Hide()
 SCForgeMainFrame.LoadSpellFrame.Rows = {}
 SCForgeMainFrame.LoadSpellFrame:HookScript("OnShow", function()
-	print("Updating Spell Load Rows")
+	dprint("Updating Spell Load Rows")
 	updateSpellLoadRows()
 end)
 
 	SCForgeMainFrame.LoadSpellFrame.scrollFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelScrollFrameTemplate")
 	local scrollFrame = SCForgeMainFrame.LoadSpellFrame.scrollFrame
-	scrollFrame:SetPoint("TOPLEFT", 0, -30)
-	scrollFrame:SetPoint("BOTTOMRIGHT", -35, 12)
+	scrollFrame:SetPoint("TOPLEFT", 0, -27)
+	scrollFrame:SetPoint("BOTTOMRIGHT", -28, 8)
+	scrollFrame.ScrollBar.scrollStep = loadRowHeight+5
 
 	SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild = CreateFrame("Frame")
 	local scrollChild = SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild
@@ -1290,6 +1411,42 @@ end)
 	scrollChild:SetWidth(SCForgeMainFrame.LoadSpellFrame:GetWidth()-18)
 	scrollChild:SetHeight(1) 
 
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelCloseButtonNoScripts")
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetPoint("RIGHT", SCForgeLoadFrameClose,"LEFT", 3, 0)
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetSize(24,24)
+--SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetSize(24,20)
+--SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetText("P")
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetNormalTexture("Interface/Buttons/UI-SquareButton-Up")
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetPushedTexture("Interface/Buttons/UI-SquareButton-Down")
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetHighlightTexture("Interface/Buttons/UI-Common-MouseHilight")
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton.Icon = SCForgeMainFrame.LoadSpellFrame.moreCacheButton:CreateTexture(nil, "OVERLAY")
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton.Icon:SetPoint("CENTER")
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton.Icon:SetSize(16,16)
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton.Icon:SetTexture("interface/cursor/argusteleporter")
+	-- Interface/CURSOR/voidstorage.blp
+	-- interface/cursor/argusteleporter.blp , interface/cursor/trainer.blp , 
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetScript("OnClick", function(self, button)
+	InterfaceOptionsFrame_OpenToCategory(addonName);
+	InterfaceOptionsFrame_OpenToCategory(addonName);
+end)
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Void Cache", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Open the virtual cache, where you can pull spells from your current phase.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetScript("OnMouseDown", function(self)
+	self.Icon:SetPoint("CENTER", self, "CENTER", -2, -1)
+end)
+SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetScript("OnMouseUp", function(self)
+	self.Icon:SetPoint("CENTER", self, "CENTER", 0, 0)
+end)
 --[[
 
 SCForgeMainFrame.SpellActionButton = CreateFrame("CHECKBUTTON", nil, SCForgeMainFrame, "MacroButtonTemplate")
@@ -1308,6 +1465,179 @@ AddSpellRow()
 AddSpellRow()
 AddSpellRow()
 AddSpellRow()
+
+
+-------------------------------------------------------------------------------
+-- Mini-Map Icon
+-------------------------------------------------------------------------------
+
+local function scforge_showhide(where)
+	if where == "options" then
+		InterfaceOptionsFrame_OpenToCategory(addonName);
+		InterfaceOptionsFrame_OpenToCategory(addonName);
+	else
+		if not SCForgeMainFrame:IsShown() then
+			SCForgeMainFrame:Show()
+		else
+			SCForgeMainFrame:Hide()
+		end
+	end
+end
+
+local minimapButton = CreateFrame("Button", "SpellCreatorMinimapButton", Minimap)
+minimapButton:SetMovable(true)
+minimapButton:EnableMouse(true)
+minimapButton:SetSize(33,33)
+minimapButton:SetFrameStrata("MEDIUM"); 
+minimapButton:SetFrameLevel("62"); 
+minimapButton:SetClampedToScreen(true); 
+minimapButton:SetClampRectInsets(5,-5,-5,5)
+minimapButton:SetPoint("TOPLEFT")
+minimapButton:RegisterForDrag("LeftButton","RightButton")
+minimapButton:RegisterForClicks("LeftButtonUp","RightButtonUp")
+minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+local minimapShapes = {
+	["ROUND"] = {true, true, true, true},
+	["SQUARE"] = {false, false, false, false},
+	["CORNER-TOPLEFT"] = {false, false, false, true},
+	["CORNER-TOPRIGHT"] = {false, false, true, false},
+	["CORNER-BOTTOMLEFT"] = {false, true, false, false},
+	["CORNER-BOTTOMRIGHT"] = {true, false, false, false},
+	["SIDE-LEFT"] = {false, true, false, true},
+	["SIDE-RIGHT"] = {true, false, true, false},
+	["SIDE-TOP"] = {false, false, true, true},
+	["SIDE-BOTTOM"] = {true, true, false, false},
+	["TRICORNER-TOPLEFT"] = {false, true, true, true},
+	["TRICORNER-TOPRIGHT"] = {true, false, true, true},
+	["TRICORNER-BOTTOMLEFT"] = {true, true, false, true},
+	["TRICORNER-BOTTOMRIGHT"] = {true, true, true, false},
+}
+
+local RadialOffset = 10;	--minimapbutton offset
+local function MinimapButton_UpdateAngle(radian)
+	local x, y, q = math.cos(radian), math.sin(radian), 1;
+	if x < 0 then q = q + 1 end
+	if y > 0 then q = q + 2 end
+	local minimapShape = GetMinimapShape and GetMinimapShape() or "ROUND";
+	local quadTable = minimapShapes[minimapShape];
+	local w = (Minimap:GetWidth() / 2) + RadialOffset	--10
+	local h = (Minimap:GetHeight() / 2) + RadialOffset
+	if quadTable[q] then
+		x, y = x*w, y*h
+	else
+		local diagRadiusW = sqrt(2*(w)^2) - RadialOffset	--  -10
+		local diagRadiusH = sqrt(2*(h)^2) - RadialOffset
+		x = max(-w, min(x*diagRadiusW, w));
+		y = max(-h, min(y*diagRadiusH, h));
+	end
+	minimapButton:ClearAllPoints()
+	minimapButton:SetPoint("CENTER", "Minimap", "CENTER", x, y);
+end
+
+local function minimap_OnUpdate()
+	local radian;
+
+	local mx, my = Minimap:GetCenter();
+	local px, py = GetCursorPosition();
+	local scale = Minimap:GetEffectiveScale();
+	px, py = px / scale, py / scale;
+	radian = math.atan2(py - my, px - mx);
+
+	MinimapButton_UpdateAngle(radian);
+	SpellCreatorMasterTable.Options["mmLoc"] = radian;
+end
+
+minimapButton:SetScript("OnDragStart", function(self)
+	self:LockHighlight()
+	self:SetScript("OnUpdate", minimap_OnUpdate)
+end)
+minimapButton:SetScript("OnDragStop", function(self)
+	self:UnlockHighlight()
+	self:SetScript("OnUpdate", nil)
+end)
+minimapButton:SetScript("OnClick", function(self, button)
+	if button == "LeftButton" then
+		scforge_showhide()
+	elseif button == "RightButton" then
+		scforge_showhide("options")
+	end
+end)
+
+minimapButton:SetScript("OnEnter", function(self)
+	SetCursor("Interface/CURSOR/voidstorage.blp");
+	-- interface/cursor/argusteleporter.blp , interface/cursor/trainer.blp , 
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	GameTooltip:SetText(addonName)
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine("/arcanum - Toggle UI",1,1,1,true)
+	GameTooltip:AddLine("/sfdebug - Toggle Debug",1,1,1,true)
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine("|cffFFD700Left-Click|r to toggle the main UI!",1,1,1,true)
+	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options, Changelog, and the Help Manual!",1,1,1,true)
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine("Mouse over most UI Elements to see tooltips for help! (Like this one!)",0.9,0.75,0.75,true)
+	GameTooltip:AddDoubleLine(" ", addonName.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
+	GameTooltip:AddDoubleLine(" ", "by "..addonAuthor, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
+	GameTooltip:Show()
+end)
+
+minimapButton:SetScript("OnLeave", function(self)
+	ResetCursor();
+	GameTooltip:Hide()
+end)
+minimapButton.icon = minimapButton:CreateTexture("$parentIcon", "ARTWORK")
+minimapButton.icon:SetTexture("interface\\icons\\inv_7xp_inscription_talenttome02")
+minimapButton.icon:SetSize(21,21)
+minimapButton.icon:SetPoint("CENTER")
+minimapButton.border = minimapButton:CreateTexture("$parentBorder", "OVERLAY")
+minimapButton.border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+minimapButton.border:SetSize(56,56)
+minimapButton.border:SetPoint("TOPLEFT")
+
+local function LoadMinimapPosition()
+	local radian = tonumber(SpellCreatorMasterTable.Options["mmLoc"]) or 2.7
+	MinimapButton_UpdateAngle(radian);
+	if not SpellCreatorMasterTable.Options["minimapIcon"] then minimapButton:Hide() end
+end
+
+-------------------------------------------------------------------------------
+-- Addon Loaded
+-------------------------------------------------------------------------------
+
+local SC_Addon_OnLoad = CreateFrame("frame","SC_Addon_OnLoad");
+SC_Addon_OnLoad:RegisterEvent("ADDON_LOADED");
+SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
+	if name == "SpellCreator" then
+				
+		SC_loadMasterTable();
+		LoadMinimapPosition();
+	
+		--Quickly Show / Hide the Frame on Start-Up to initialize everything for key bindings & loading
+		C_Timer.After(1,function()
+			SCForgeMainFrame:Show();
+			if not SpellCreatorMasterTable.Options["debug"] then SCForgeMainFrame:Hide(); --[[ SCForgeLoadFrame:Hide() ]] end
+		end)
+		
+		-- Adjust Radial Offset for Minimap Icon for alternate UI Overhaul Addons
+		if IsAddOnLoaded("AzeriteUI") then
+			RadialOffset = 18;
+		elseif IsAddOnLoaded("DiabolicUI") then
+			RadialOffset = 12;
+		elseif IsAddOnLoaded("GoldieSix") then
+			--GoldpawUI
+			RadialOffset = 18;
+		elseif IsAddOnLoaded("GW2_UI") then
+			RadialOffset = 44;
+		elseif IsAddOnLoaded("SpartanUI") then
+			RadialOffset = 8;
+		else
+			RadialOffset = 10;
+		end
+		
+		CreateSpellCreatorInterfaceOptions()
+	end
+end);
 
 -------------------------------------------------------------------------------
 -- Interface Options - Addon section
@@ -1390,23 +1720,26 @@ function CreateSpellCreatorInterfaceOptions()
 			self:SetChecked(true)
 		else
 			self:SetChecked(false)
-			DisableOptions(true)
 		end
 	end)
 	SC_ToggleMiniMapIconOption:SetScript("OnClick", function(self)
 		SpellCreatorMasterTable.Options["minimapIcon"] = not SpellCreatorMasterTable.Options["minimapIcon"]
-		-- do the work here
+		if SpellCreatorMasterTable.Options["minimapIcon"] then
+			minimapButton:Show()
+		else
+			minimapButton:Hide()
+		end
 	end)
-	SC_ToggleMiniMapIconOption:SetScript("OnEnter", function()
-		GameTooltip:SetOwner(SC_ToggleMiniMapIconOption, "ANCHOR_LEFT")
-		SC_ToggleMiniMapIconOption.Timer = C_Timer.NewTimer(0.7,function()
+	SC_ToggleMiniMapIconOption:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		self.Timer = C_Timer.NewTimer(0.7,function()
 			GameTooltip:SetText("Toggle the mini map icon on / off.", nil, nil, nil, nil, true)
 			GameTooltip:Show()
 		end)
 	end)
-	SC_ToggleMiniMapIconOption:SetScript("OnLeave", function()
+	SC_ToggleMiniMapIconOption:SetScript("OnLeave", function(self)
 		GameTooltip_Hide()
-		SC_ToggleMiniMapIconOption.Timer:Cancel()
+		self.Timer:Cancel()
 	end)
 	
 	local SpellCreatorInterfaceOptionsDebug = CreateFrame("CHECKBUTTON", "SC_DebugToggleOption", SpellCreatorInterfaceOptions.panel, "OptionsSmallCheckButtonTemplate")
@@ -1436,19 +1769,6 @@ end
 -------------------------------------------------------------------------------
 -- Version / Help / Toggle
 -------------------------------------------------------------------------------
-
-local function scforge_showhide(where)
-	if where == "options" then
-		InterfaceOptionsFrame_OpenToCategory(addonName);
-		InterfaceOptionsFrame_OpenToCategory(addonName);
-	else
-		if not SCForgeMainFrame:IsShown() then
-			SCForgeMainFrame:Show()
-		else
-			SCForgeMainFrame:Hide()
-		end
-	end
-end
 
 SLASH_SCFORGEHELP1, SLASH_SCFORGEHELP2 = '/arcanum', '/sf'; -- 3.
 function SlashCmdList.SCFORGEHELP(msg, editbox) -- 4.
@@ -1486,6 +1806,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 	if SpellCreatorMasterTable.Options["debug"] and msg == "resetSpells" then
 		dprint(true, "All Arcaum Spells reset. #GoodBye #ThisCannotBeUndoneHopeYouDidn'tFuckUp!")
 		SpellCreatorSavedSpells = {}
+		updateSpellLoadRows()
 	elseif SpellCreatorMasterTable.Options["debug"] and msg == "listSpells" then
 		--print(dump(SpellCreatorSavedSpells))
 		for k,v in orderedPairs(SpellCreatorSavedSpells) do
