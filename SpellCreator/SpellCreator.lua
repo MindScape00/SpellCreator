@@ -4,10 +4,11 @@
 
 local MYADDON, MyAddOn = ...
 local addonVersion, addonAuthor, addonName = GetAddOnMetadata(MYADDON, "Version"), GetAddOnMetadata(MYADDON, "Author"), GetAddOnMetadata(MYADDON, "Title")
-local addonColor = "|cff".."7e1af0"
+local addonColor = "|cff".."ce2eff"
+-- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
 
 local clearSpellOnRowRemoved = false
-local cacheStyle = 2	-- 1 = pop-up window, 2 = attached tray
+local vaultStyle = 2	-- 1 = pop-up window, 2 = attached tray
 
 sfCmd_ReplacerChar = "@N@"
 
@@ -266,7 +267,7 @@ local actionTypeData = {
 		},
 	["Native"] = {
 		["name"] = "Native",
-		["command"] = "native @N@",
+		["command"] = "mod native @N@",
 		["description"] = "Modifies your Native to specified Display ID.\n\rRevert: Demorph",
 		["dataName"] = "Display ID",
 		["inputDescription"] = ".look displayid' for IDs.",
@@ -398,9 +399,9 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 			end)
 		else
 			if selfOnly then
-				C_Timer.After(delay, cmd(actionData.command))
+				C_Timer.After(delay, function() cmd(actionData.command.." self") end)
 			else
-				C_Timer.After(delay, cmd(actionData.command))
+				C_Timer.After(delay, function() cmd(actionData.command) end)
 			end
 		end
 	end
@@ -409,6 +410,7 @@ end
 local actionsToCommit = {}
 local function executeSpell(actionsToCommit)
 	for _,spell in pairs(actionsToCommit) do
+		dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
 		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
 	end
 end
@@ -805,7 +807,7 @@ SCForgeMainFrame.SpellInfoNameBox:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Spell Name", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("The name you want to save this spell as.",1,1,1,true)
+		GameTooltip:AddLine("The name of the spell.\rThis can be anything and is only used for identifying the spell in the Vault & Chat Links.\n\rYes, you can have two spells with the same name.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -830,8 +832,9 @@ SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Spell Command", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("The slash command trigger you want to use to call this spell.",1,1,1,true)
-		GameTooltip:AddLine("This must be unique, otherwise you'll be unable to cast it.",1,1,1,true)
+		GameTooltip:AddLine("The slash command trigger you want to use to call this spell.\n\rCast it using '/arcanum $command'.",1,1,1,true)
+		GameTooltip:AddLine(" ",1,1,1,true)
+		GameTooltip:AddLine("This must be unique. Saving a spell with the same command name as another will over-write the old spell.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -957,7 +960,7 @@ end)
 
 SCForgeMainFrame:SetScript("OnSizeChanged", function(self)
 	local scale = updateFrameChildScales(self)
-	if cacheStyle == 2 then
+	if vaultStyle == 2 then
 		local newHeight = self:GetHeight()
 		local ratio = newHeight/mainFrameSize.y
 		SCForgeLoadFrame:SetSize(280*ratio, self:GetHeight())
@@ -1050,16 +1053,16 @@ SCForgeMainFrame.ExecuteSpellButton:SetText("Execute")
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 	local actionsToCommit = {}
 	for i = 1, numberOfSpellRows do
-		if isNotDefined(_G["spellRow"..i.."MainDelayBox"]:GetText()) then 
+		if isNotDefined(tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())) then 
 			cprint("Action Row "..i.." Invalid, Delay Not Set") 
 		else
 			local actionData = {}
 			actionData.actionType = (_G["spellRow"..i.."SelectedAction"])
-			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())			
+			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())
 			actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
 			actionData.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
 			actionData.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
-			dprint(true, dump(actionData))
+			dprint(false, dump(actionData))
 			table.insert(actionsToCommit, actionData)
 		end
 	end
@@ -1136,7 +1139,7 @@ local function updateSpellLoadRows()
 	local spellLoadFrame = SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild
 	local rowNum = 0
 	local columnWidth = (spellLoadFrame:GetWidth())/2
-	if cacheStyle == 2 then 
+	if vaultStyle == 2 then 
 		columnWidth = columnWidth*2;
 		loadRowSpacing = 5
 	end
@@ -1155,9 +1158,9 @@ local function updateSpellLoadRows()
 			spellLoadRows[rowNum] = CreateFrame("Frame", "scForgeLoadRow"..rowNum, spellLoadFrame)
 			
 			-- Position the Rows
-			if cacheStyle == 2 then
+			if vaultStyle == 2 then
 				if rowNum == 1 then
-					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 10, -8)
+					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
 					setResizeWithMainFrame(spellLoadRows[rowNum])
 				else
 					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-1], "BOTTOMLEFT", 0, -loadRowSpacing)
@@ -1176,6 +1179,20 @@ local function updateSpellLoadRows()
 			end
 			spellLoadRows[rowNum]:SetHeight(loadRowHeight)
 			
+			spellLoadRows[rowNum]:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					GameTooltip:SetText("Spell: "..v.fullName, nil, nil, nil, nil, true)
+					GameTooltip:AddLine("Command: '/sf "..v.commID.."'", 1, 1, 1, 1)
+					GameTooltip:AddLine("Actions: "..#v.actions, 1, 1, 1, 1)
+					GameTooltip:Show()
+				end)
+			end)
+			spellLoadRows[rowNum]:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
+			
 			-- A nice lil background to make them easier to tell apart			
 			spellLoadRows[rowNum].Background = spellLoadRows[rowNum]:CreateTexture(nil,"BACKGROUND")
 			spellLoadRows[rowNum].Background:SetAllPoints()
@@ -1188,7 +1205,7 @@ local function updateSpellLoadRows()
 			spellLoadRows[rowNum].spellName:SetPoint("LEFT", 1, 0)
 			spellLoadRows[rowNum].spellName:SetText(v.fullName)
 			spellLoadRows[rowNum].spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
-			
+
 			-- Make the delete saved spell button
 			spellLoadRows[rowNum].deleteButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum], "UIPanelButtonTemplate")
 			local button = spellLoadRows[rowNum].deleteButton
@@ -1221,7 +1238,7 @@ local function updateSpellLoadRows()
 			button:SetText("Edit")
 			button:SetScript("OnClick", function(self)
 				loadSpell(self.commID)
-				if cacheStyle ~= 2 then SCForgeMainFrame.LoadSpellFrame:Hide(); end
+				if vaultStyle ~= 2 then SCForgeMainFrame.LoadSpellFrame:Hide(); end
 			end)
 			button:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -1327,7 +1344,7 @@ local function saveSpell(mousebutton)
 	if #newSpellData.actions >= 1 then
 		--table.insert(SpellCreatorSavedSpells, newSpellData)
 		SpellCreatorSavedSpells[newSpellData.commID] = newSpellData
-		cprint("Saved spell with name: "..newSpellData.fullName..", and command: '/sf "..newSpellData.commID.."' ("..#newSpellData.actions.." actions).")
+		cprint("Saved spell with name: "..newSpellData.fullName..". Use command: '/sf "..newSpellData.commID.."' to cast it! ("..#newSpellData.actions.." actions).")
 	else
 		cprint("Spell has no valid actions and was not saved. Please double check your actions & try again. You can turn on debug mode to see more information when trying to save (/sfdebug).")
 	end
@@ -1345,7 +1362,8 @@ SCForgeMainFrame.SaveSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Create your spell!", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Finish your spell & save it to your cache.",1,1,1,true)
+		GameTooltip:AddLine("Finish your spell & save it to your vault.",1,1,1,true)
+		GameTooltip:AddLine("Right-click save to over-write a previous spell with the same command name without confirmation.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -1358,7 +1376,7 @@ end)
 SCForgeMainFrame.LoadSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
 SCForgeMainFrame.LoadSpellButton:SetPoint("LEFT", SCForgeMainFrame.SaveSpellButton, "RIGHT", 0, 0)
 SCForgeMainFrame.LoadSpellButton:SetSize(24*4,24)
-SCForgeMainFrame.LoadSpellButton:SetText("Cache")
+SCForgeMainFrame.LoadSpellButton:SetText("Vault")
 SCForgeMainFrame.LoadSpellButton:SetScript("OnClick", function()
 	if SCForgeMainFrame.LoadSpellFrame:IsShown() then
 		SCForgeMainFrame.LoadSpellFrame:Hide()
@@ -1369,8 +1387,8 @@ end)
 SCForgeMainFrame.LoadSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Access your Cache", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("All of your created & saved spells are stored here.\n\rYou can load & manage your spells from the cache.",1,1,1,true)
+		GameTooltip:SetText("Access your Vault", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("All of your created & saved spells are stored here.\n\rYou can load & manage your spells from the vault.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -1379,11 +1397,12 @@ SCForgeMainFrame.LoadSpellButton:SetScript("OnLeave", function(self)
 	self.Timer:Cancel()
 end)
 
---------- Load Spell Frame - aka the Cache
+--------- Load Spell Frame - aka the Vault
 
-SCForgeMainFrame.LoadSpellFrame = CreateFrame("Frame", "SCForgeLoadFrame", SCForgeMainFrame, "UIPanelDialogTemplate")
-if cacheStyle == 2 then 
-	SCForgeMainFrame.LoadSpellFrame:SetPoint("TOPLEFT", SCForgeMainFrame, "TOPRIGHT", -3, 0)
+SCForgeMainFrame.LoadSpellFrame = CreateFrame("Frame", "SCForgeLoadFrame", SCForgeMainFrame, "ButtonFrameTemplate")
+ButtonFrameTemplate_HidePortrait(SCForgeMainFrame.LoadSpellFrame)
+if vaultStyle == 2 then 
+	SCForgeMainFrame.LoadSpellFrame:SetPoint("TOPLEFT", SCForgeMainFrame, "TOPRIGHT", 0, 0)
 	SCForgeMainFrame.LoadSpellFrame:SetSize(280,SCForgeMainFrame:GetHeight())
 	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("MEDIUM")
 else
@@ -1391,7 +1410,7 @@ else
 	SCForgeMainFrame.LoadSpellFrame:SetSize(500,250)
 	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
 end
-SCForgeMainFrame.LoadSpellFrame.Title:SetText("Arcanum - Spell Cache")
+SCForgeMainFrame.LoadSpellFrame:SetTitle("Arcanum - Spell Vault")
 SCForgeMainFrame.LoadSpellFrame:Hide()
 SCForgeMainFrame.LoadSpellFrame.Rows = {}
 SCForgeMainFrame.LoadSpellFrame:HookScript("OnShow", function()
@@ -1399,10 +1418,10 @@ SCForgeMainFrame.LoadSpellFrame:HookScript("OnShow", function()
 	updateSpellLoadRows()
 end)
 
-	SCForgeMainFrame.LoadSpellFrame.scrollFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelScrollFrameTemplate")
+	SCForgeMainFrame.LoadSpellFrame.scrollFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.LoadSpellFrame.Inset, "UIPanelScrollFrameTemplate")
 	local scrollFrame = SCForgeMainFrame.LoadSpellFrame.scrollFrame
-	scrollFrame:SetPoint("TOPLEFT", 0, -27)
-	scrollFrame:SetPoint("BOTTOMRIGHT", -28, 8)
+	scrollFrame:SetPoint("TOPLEFT", 0, -3)
+	scrollFrame:SetPoint("BOTTOMRIGHT", -24, 0)
 	scrollFrame.ScrollBar.scrollStep = loadRowHeight+5
 
 	SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild = CreateFrame("Frame")
@@ -1411,40 +1430,40 @@ end)
 	scrollChild:SetWidth(SCForgeMainFrame.LoadSpellFrame:GetWidth()-18)
 	scrollChild:SetHeight(1) 
 
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelCloseButtonNoScripts")
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetPoint("RIGHT", SCForgeLoadFrameClose,"LEFT", 3, 0)
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetSize(24,24)
---SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetSize(24,20)
---SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetText("P")
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetNormalTexture("Interface/Buttons/UI-SquareButton-Up")
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetPushedTexture("Interface/Buttons/UI-SquareButton-Down")
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetHighlightTexture("Interface/Buttons/UI-Common-MouseHilight")
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton.Icon = SCForgeMainFrame.LoadSpellFrame.moreCacheButton:CreateTexture(nil, "OVERLAY")
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton.Icon:SetPoint("CENTER")
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton.Icon:SetSize(16,16)
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton.Icon:SetTexture("interface/cursor/argusteleporter")
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelCloseButtonNoScripts")
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetPoint("RIGHT", SCForgeLoadFrameCloseButton,"LEFT", 1, 0)
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetSize(24,24)
+--SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetSize(24,20)
+--SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetText("P")
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetNormalTexture("Interface/Buttons/UI-SquareButton-Up")
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetPushedTexture("Interface/Buttons/UI-SquareButton-Down")
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetHighlightTexture("Interface/Buttons/UI-Common-MouseHilight")
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton.Icon = SCForgeMainFrame.LoadSpellFrame.moreVaultButton:CreateTexture(nil, "OVERLAY")
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton.Icon:SetPoint("CENTER")
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton.Icon:SetSize(16,16)
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton.Icon:SetTexture("interface/cursor/argusteleporter")
 	-- Interface/CURSOR/voidstorage.blp
 	-- interface/cursor/argusteleporter.blp , interface/cursor/trainer.blp , 
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetScript("OnClick", function(self, button)
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetScript("OnClick", function(self, button)
 	InterfaceOptionsFrame_OpenToCategory(addonName);
 	InterfaceOptionsFrame_OpenToCategory(addonName);
 end)
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetScript("OnEnter", function(self)
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Void Cache", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Open the virtual cache, where you can pull spells from your current phase.",1,1,1,true)
+		GameTooltip:SetText("Phase Vault", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Open the phases' spell vault, where you can pull spells from your current phase.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetScript("OnLeave", function(self)
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetScript("OnMouseDown", function(self)
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetScript("OnMouseDown", function(self)
 	self.Icon:SetPoint("CENTER", self, "CENTER", -2, -1)
 end)
-SCForgeMainFrame.LoadSpellFrame.moreCacheButton:SetScript("OnMouseUp", function(self)
+SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetScript("OnMouseUp", function(self)
 	self.Icon:SetPoint("CENTER", self, "CENTER", 0, 0)
 end)
 --[[
@@ -1826,6 +1845,9 @@ end
 
 SLASH_SCFORGETEST1 = '/sftest';
 function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
+	
+	print("|cff"..msg.."Color Test - Arcanum - Spell Forge: "..msg)
+	--[[
 	if msg == "newport" then
 		SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)]
 		SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait)
@@ -1838,4 +1860,5 @@ function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
 		delay, actionType, revertTime, selfOnly, vars = 1, "Equip", 0, nil, "125539,160175"
 		processAction(delay, actionType, revertTime, selfOnly, vars)
 	end
+	--]]
 end
