@@ -5,7 +5,34 @@
 local MYADDON, MyAddOn = ...
 local addonVersion, addonAuthor, addonName = GetAddOnMetadata(MYADDON, "Version"), GetAddOnMetadata(MYADDON, "Author"), GetAddOnMetadata(MYADDON, "Title")
 local addonColor = "|cff".."ce2eff"
+local addonMsgPrefix = "SCFORGE"
+
+C_ChatInfo.RegisterAddonMessagePrefix(addonMsgPrefix)
 -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
+
+local LibDeflate
+if LibStub then
+	LibDeflate = LibStub:GetLibrary("LibDeflate")
+else
+	LibDeflate = require("LibDeflate")
+end
+
+local function compressForChat(str)
+	str = LibDeflate:CompressDeflate(str, {level = 9})
+	str = LibDeflate:EncodeForPrint(str)
+	return str;
+end
+
+local function decompressForChat(str)
+	str = LibDeflate:DecodeForPrint(str)
+	str = LibDeflate:DecompressDeflate(str)
+	return str;
+end
+	--- Compress using raw deflate format
+	--local compress_deflate = LibDeflate:CompressDeflate(example_input)
+
+	-- decompress
+	--local decompress_deflate = LibDeflate:DecompressDeflate(compress_deflate)
 
 local clearSpellOnRowRemoved = false
 local vaultStyle = 2	-- 1 = pop-up window, 2 = attached tray
@@ -27,7 +54,7 @@ local function cmdNoDot(text)
   SendChatMessage(text, "GUILD");
 end
 
-local function msg(text)
+local function sendchat(text)
   SendChatMessage(text, "SAY");
 end
 
@@ -212,9 +239,97 @@ end
 -- Core Functions & Data
 -------------------------------------------------------------------------------
 
-local actionTypeDataList = {"SpellCast", "SpellTrig", "SpellAura", "Anim", "Standstate", "Morph", "Native", "Equip", "RemoveAura", "RemoveAllAuras", "Unmorph", "Unequip", "DefaultEmote", "Command",}
+-- the functions to actuall process & cast the spells
 
-local actionTypeData = {
+local actionTypeData = {} -- Defined here, but actually set below. Weird hack to bypass that they technically rely on each other..
+local actionTypeDataList = {}
+
+local function processAction(delay, actionType, revertDelay, selfOnly, vars)
+	if not actionType then return; end
+	local actionData = actionTypeData[actionType]
+	if revertDelay then revertDelay = tonumber(revertDelay) end
+	local varTable
+	
+	if vars then
+		varTable = { strsplit(",", vars) }
+	end
+	
+	if actionData.comTarget == "func" then
+		C_Timer.After(delay, function()
+			local varTable = varTable
+			for i = 1, #varTable do
+				local v = varTable[i]
+				actionData.command(v)
+			end
+		end)
+	else
+		if actionData.dataName then
+			C_Timer.After(delay, function()
+				local varTable = varTable
+				for i = 1, #varTable do
+					local v = varTable[i] -- v = the ID or input.
+					--print(actionData.command)
+					local finalCommand = tostring(actionData.command)
+					finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
+					if selfOnly then finalCommand = finalCommand.." self" end
+					dprint(false, finalCommand)
+					cmd(finalCommand)
+					
+				end
+				if revertDelay and revertDelay > 0 then
+					C_Timer.After(revertDelay, function()
+						local varTable = varTable
+						for i = 1, #varTable do
+							local v = varTable[i]
+							if selfOnly then
+								cmd(actionData.revert.." "..v.." self")
+							else
+								cmd(actionData.revert.." "..v)
+							end
+						end
+					end)
+				end
+			end)
+		else
+			if selfOnly then
+				C_Timer.After(delay, function() cmd(actionData.command.." self") end)
+			else
+				C_Timer.After(delay, function() cmd(actionData.command) end)
+			end
+		end
+	end
+end
+
+local actionsToCommit = {}
+local function executeSpell(actionsToCommit)
+	for _,spell in pairs(actionsToCommit) do
+		dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
+		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
+	end
+end
+
+-- Action Types & Data Info
+
+actionTypeDataList = { -- formatted for easier sorting - whatever order they are here is the order they show up in dropdown as.
+"SpellCast", 
+"SpellTrig", 
+"SpellAura", 
+"Anim", 
+"Standstate", 
+"Morph", 
+"Native", 
+"Equip", 
+"EquipSet",
+"MogitEquip", 
+"RemoveAura", 
+"RemoveAllAuras", 
+"Unmorph", 
+"Unequip", 
+"DefaultEmote", 
+"ArcSpell",
+"Command",}
+
+actionTypeData = {
 	["SpellCast"] = {
 		["name"] = "Cast Spell",							-- The Displayed Name in the UI
 		["command"] = "cast @N@", 								-- The chat command, or Lua function to process
@@ -333,87 +448,51 @@ local actionTypeData = {
 		},
 	["DefaultEmote"] = {
 		["name"] = "Default Emote",
-		["command"] = function(emoteID) DoEmote(emoteID); end,
-		["description"] = "Any default emote.\n\rMust be a valid emote 'token', in all caps. i.e., 'WAVE'\n\rGoogle 'WoW Api DoEmote' for a full list.",
+		["command"] = function(emoteID) DoEmote(string.upper(emoteID)); end,
+		["description"] = "Any default emote.\n\rMust be a valid emote 'token', i.e., 'WAVE'\n\rGoogle 'WoWpedia DoEmote' for a full list - most match their /command, but some don't.",
 		["dataName"] = "Emote Token",
-		["inputDescription"] = "Search Google for 'WoW Api DoEmote', and go to the WoWpedia page, and find the table of tokens..",
+		["inputDescription"] = "Usually just the text from the /command, i.e., /wave = wave.\n\rIf not working: Search Google for 'WoWpedia DoEmote', and go to the WoWpedia page, and find the table of tokens - some don't exactly match their command.",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},
 	["Command"] = {
 		["name"] = "Other Command",
 		["command"] = cmd,
-		["description"] = "Any other command.\n\rType the full command you want, without the dot, in the input box.\n\ri.e., 'mod drunk 100'.",
+		["description"] = "Any other server command.\n\rType the full command you want, without the dot, in the input box.\n\ri.e., 'mod drunk 100'.",
 		["dataName"] = "Full Command",
 		["inputDescription"] = "You can use any server command here, without the '.', and it will run after the delay.\n\rTechnically accepts multiple commands, separated by commas.\n\rExample: 'mod drunk 100'.",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},
+	["MogitEquip"] = {
+		["name"] = "Equip Mogit Set",
+		["command"] = function(vars) SlashCmdList["MOGITE"](vars); end,
+		["description"] = "Equip a saved Mogit Wishlist set.\n\rMust specify the character name (profile) it's saved under first, then the set name.",
+		["dataName"] = "Profile & Set",
+		["inputDescription"] = "The Mogit Profile, and set name, just as if using the /moge chat command.\n\rExample: "..GetUnitName("player", false).." Cool Armor Set 1",
+		["comTarget"] = "func",
+		["revert"] = nil,
+		},
+	["EquipSet"] = {
+		["name"] = "Equip Set",
+		["command"] = function(vars) C_EquipmentSet.UseEquipmentSet(C_EquipmentSet.GetEquipmentSetID(vars)) end,
+		["description"] = "Equip a saved Equipment Manager set by name.",
+		["dataName"] = "Set Name",
+		["inputDescription"] = "Set name from Equipment Manager (Blizzard's built in set manager).",
+		["comTarget"] = "func",
+		["revert"] = nil,
+		},
+	["ArcSpell"] = {
+		["name"] = "Arcanum Spell",
+		["command"] = function(commID) executeSpell(SpellCreatorSavedSpells[commID].actions) end,
+		["description"] = "Cast another Arcanum spell from your vault.",
+		["dataName"] = "Spell Command",
+		["inputDescription"] = "The Command key used to cast the spell\n\rExample: '/sf MySpell', where MySpell is the command key to input here.",
+		["comTarget"] = "func",
+		["revert"] = nil,
+		},
 }
 
-local function processAction(delay, actionType, revertDelay, selfOnly, vars)
-	if not actionType then return; end
-	local actionData = actionTypeData[actionType]
-	if revertDelay then revertDelay = tonumber(revertDelay) end
-	local varTable
-	
-	if vars then
-		varTable = { strsplit(",", vars) }
-	end
-	
-	if actionData.comTarget == "func" then
-		C_Timer.After(delay, function()
-			local varTable = varTable
-			for i = 1, #varTable do
-				local v = varTable[i]
-				actionData.command(v)
-			end
-		end)
-	else
-		if actionData.dataName then
-			C_Timer.After(delay, function()
-				local varTable = varTable
-				for i = 1, #varTable do
-					local v = varTable[i] -- v = the ID or input.
-					--print(actionData.command)
-					local finalCommand = tostring(actionData.command)
-					finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
-					if selfOnly then finalCommand = finalCommand.." self" end
-					dprint(false, finalCommand)
-					cmd(finalCommand)
-					
-				end
-				if revertDelay and revertDelay > 0 then
-					C_Timer.After(revertDelay, function()
-						local varTable = varTable
-						for i = 1, #varTable do
-							local v = varTable[i]
-							if selfOnly then
-								cmd(actionData.revert.." "..v.." self")
-							else
-								cmd(actionData.revert.." "..v)
-							end
-						end
-					end)
-				end
-			end)
-		else
-			if selfOnly then
-				C_Timer.After(delay, function() cmd(actionData.command.." self") end)
-			else
-				C_Timer.After(delay, function() cmd(actionData.command) end)
-			end
-		end
-	end
-end
-
-local actionsToCommit = {}
-local function executeSpell(actionsToCommit)
-	for _,spell in pairs(actionsToCommit) do
-		dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
-		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
-	end
-end
 -------------------------------------------------------------------------------
 -- UI Helper & Definitions
 -------------------------------------------------------------------------------
@@ -496,6 +575,16 @@ local function updateFrameChildScales(frame)
 	end
 	return n;
 end
+
+local function generateSpellChatLink(commID)
+	local spellName = SpellCreatorSavedSpells[commID].fullName
+	local spellComm = SpellCreatorSavedSpells[commID].commID
+	local characterName = GetUnitName("player",false)
+	local numActions = #SpellCreatorSavedSpells[commID].actions
+	local chatLink = addonColor.."|HarcSpell:"..spellComm..":"..characterName..":"..spellName..":"..numActions.."|h["..spellName.."]|h|r"
+	return chatLink;
+end
+
 -------------------------------------------------------------------------------
 -- Main UI Frame
 -------------------------------------------------------------------------------
@@ -566,7 +655,7 @@ local function AddSpellRow()
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			self.Timer = C_Timer.NewTimer(0.7,function()
 				GameTooltip:SetText("Main Action Delay", nil, nil, nil, nil, true)
-				GameTooltip:AddLine("How long after 'casting' the spell this action triggers.",1,1,1,true)
+				GameTooltip:AddLine("How long after 'casting' the spell this action triggers.\rCan be '0' for instant.",1,1,1,true)
 				GameTooltip:Show()
 			end)
 		end)
@@ -823,11 +912,11 @@ SCForgeMainFrame.SpellInfoCommandBox.enabledColor = HIGHLIGHT_FONT_COLOR
 SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetText("Spell Command")
 SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetTextColor(0.5,0.5,0.5)
 SCForgeMainFrame.SpellInfoCommandBox.Title = SCForgeMainFrame.SpellInfoCommandBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-SCForgeMainFrame.SpellInfoCommandBox.Title:SetText("Command:")
+SCForgeMainFrame.SpellInfoCommandBox.Title:SetText("Command (ID):")
 SCForgeMainFrame.SpellInfoCommandBox.Title:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoCommandBox, "LEFT", -10, 0)
 SCForgeMainFrame.SpellInfoCommandBox:SetAutoFocus(false)
 SCForgeMainFrame.SpellInfoCommandBox:SetSize(100,23)
-SCForgeMainFrame.SpellInfoCommandBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoNameBox, "RIGHT", 100, 0)
+SCForgeMainFrame.SpellInfoCommandBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoNameBox, "RIGHT", 120, 0)
 SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
@@ -1161,10 +1250,8 @@ local function updateSpellLoadRows()
 			if vaultStyle == 2 then
 				if rowNum == 1 then
 					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
-					setResizeWithMainFrame(spellLoadRows[rowNum])
 				else
 					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-1], "BOTTOMLEFT", 0, -loadRowSpacing)
-					setResizeWithMainFrame(spellLoadRows[rowNum])
 				end
 				spellLoadRows[rowNum]:SetWidth(columnWidth-20)
 			else
@@ -1192,11 +1279,55 @@ local function updateSpellLoadRows()
 				GameTooltip_Hide()
 				self.Timer:Cancel()
 			end)
+			spellLoadRows[rowNum]:SetScript("OnMouseDown", function(self)
+				if IsModifiedClick("CHATLINK") then
+					ChatEdit_InsertLink(generateSpellChatLink(v.commID))
+				end
+			end)
 			
 			-- A nice lil background to make them easier to tell apart			
 			spellLoadRows[rowNum].Background = spellLoadRows[rowNum]:CreateTexture(nil,"BACKGROUND")
-			spellLoadRows[rowNum].Background:SetAllPoints()
-			spellLoadRows[rowNum].Background:SetColorTexture(1,1,1,0.25)
+			--spellLoadRows[rowNum].Background:SetAllPoints()
+			spellLoadRows[rowNum].Background:SetPoint("TOPLEFT",-9,5)
+			spellLoadRows[rowNum].Background:SetPoint("BOTTOMRIGHT",10,-5)
+			spellLoadRows[rowNum].Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
+			--SetDesaturation(spellLoadRows[rowNum].Background, true)
+			spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
+			--spellLoadRows[rowNum].Background:SetColorTexture(1,1,1,0.25)
+			
+			spellLoadRows[rowNum].spellNameBackground = spellLoadRows[rowNum]:CreateTexture(nil, "BACKGROUND")
+			spellLoadRows[rowNum].spellNameBackground:SetPoint("TOPLEFT", spellLoadRows[rowNum].Background, "TOPLEFT")
+			spellLoadRows[rowNum].spellNameBackground:SetPoint("BOTTOMRIGHT", spellLoadRows[rowNum].Background, "BOTTOM", 10, 0)
+			--spellLoadRows[rowNum].spellNameBackground:SetAtlas("parchmentpopup-hide-left")
+			spellLoadRows[rowNum].spellNameBackground:SetColorTexture(1,1,1,0.25)
+			spellLoadRows[rowNum].spellNameBackground:SetGradient("HORIZONTAL", 0.5,0.5,0.5,1,1,1)
+			spellLoadRows[rowNum].spellNameBackground:SetBlendMode("MOD")
+			
+			--[[
+			Atlas Ideas:
+			islands-queue-card-namescroll
+			AdventureMap_TileBg_Parchment
+			parchmentpopup-top
+			_AllianceFrame_Title-Tile
+			UI-Frame-Alliance-CardParchment
+			UI-Frame-Marine-CardParchment
+			UI-Frame-Horde-CardParchment
+			UI-Frame-Neutral-CardParchment
+			
+			UI-Frame-Alliance-CardParchmentWider 	--maybe
+			Legionfall_Background					--meh
+			store-card-splash1-nobanner				-- no
+			FontStyle_Parchment						-- too plain?
+			parchmentpopup-hide-left				-- maybe?
+			loottab-background						-- okayish
+			QuestBG-Legionfall						-- nope
+			challenges-timerbg						-- usable with offset (TL -5, 2 | BR 3, -2)
+			islands-queue-card2						-- could work ish
+			TalkingHeads-Neutral-TextBackground		-- yes
+			shop-card-full-15thAnniversary			-- no
+			store-card-horizontalfull				
+			shop-card-bundle
+			--]]
 			
 			-- Make the Spell Name Text
 			spellLoadRows[rowNum].spellName = spellLoadRows[rowNum]:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
@@ -1204,6 +1335,8 @@ local function updateSpellLoadRows()
 			spellLoadRows[rowNum].spellName:SetJustifyH("LEFT")
 			spellLoadRows[rowNum].spellName:SetPoint("LEFT", 1, 0)
 			spellLoadRows[rowNum].spellName:SetText(v.fullName)
+			--spellLoadRows[rowNum].spellName:SetTextColor(1, 1, 1)
+			spellLoadRows[rowNum].spellName:SetShadowColor(0, 0, 0)
 			spellLoadRows[rowNum].spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
 
 			-- Make the delete saved spell button
@@ -1300,6 +1433,7 @@ StaticPopupDialogs["SCFORGE_CONFIRM_DELETE"] = {
 
 local function saveSpell(mousebutton)
 
+	local wasOverwritten = false
 	local newSpellData = {}
 	newSpellData.commID = SCForgeMainFrame.SpellInfoCommandBox:GetText()
 	newSpellData.fullName = SCForgeMainFrame.SpellInfoNameBox:GetText()
@@ -1309,17 +1443,23 @@ local function saveSpell(mousebutton)
 		return;
 	end
 
-	for i = 1, #SpellCreatorSavedSpells do
-		local tabData = SpellCreatorSavedSpells[i]
-		if tabData.commID == newSpellData.commID then
+		if SpellCreatorSavedSpells[newSpellData.commID] then
 			if mousebutton and mousebutton == "RightButton" then
-				cprint("Duplicate Spell Command Detected.. And Over-written.")
+				wasOverwritten = true
 			else
-				cprint("Duplicate Spell Command Detected.. Press Save with right-click to over-write the old spell.")
+				--cprint("Duplicate Spell Command Detected.. Press Save with right-click to over-write the old spell.")
+				StaticPopupDialogs["SCFORGE_CONFIRM_OVERWRITE"] = {
+					text = "Spell '"..newSpellData.commID.."' Already exists.\n\rDo you want to overwrite the spell ("..newSpellData.fullName..")".."?",
+					OnAccept = function() saveSpell("RightButton") end,
+					button1 = "Overwrite",
+					button2 = "Cancel",
+					hideOnEscape = true,
+					whileDead = true,
+				}
+				StaticPopup_Show("SCFORGE_CONFIRM_OVERWRITE")
 				return;
 			end
 		end
-	end
 
 	for i = 1, numberOfSpellRows do
 		
@@ -1344,7 +1484,11 @@ local function saveSpell(mousebutton)
 	if #newSpellData.actions >= 1 then
 		--table.insert(SpellCreatorSavedSpells, newSpellData)
 		SpellCreatorSavedSpells[newSpellData.commID] = newSpellData
-		cprint("Saved spell with name: "..newSpellData.fullName..". Use command: '/sf "..newSpellData.commID.."' to cast it! ("..#newSpellData.actions.." actions).")
+		if wasOverwritten then
+			cprint("Over-wrote spell with name: "..newSpellData.fullName..". Use command: '/sf "..newSpellData.commID.."' to cast it! ("..#newSpellData.actions.." actions).")
+		else
+			cprint("Saved spell with name: "..newSpellData.fullName..". Use command: '/sf "..newSpellData.commID.."' to cast it! ("..#newSpellData.actions.." actions).")
+		end
 	else
 		cprint("Spell has no valid actions and was not saved. Please double check your actions & try again. You can turn on debug mode to see more information when trying to save (/sfdebug).")
 	end
@@ -1355,6 +1499,7 @@ SCForgeMainFrame.SaveSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, 
 SCForgeMainFrame.SaveSpellButton:SetPoint("BOTTOMLEFT", 20, 3)
 SCForgeMainFrame.SaveSpellButton:SetSize(24*4,24)
 SCForgeMainFrame.SaveSpellButton:SetText("Create")
+SCForgeMainFrame.SaveSpellButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 SCForgeMainFrame.SaveSpellButton:SetScript("OnClick", function(self, button)
 	saveSpell(button)
 end)
@@ -1362,8 +1507,8 @@ SCForgeMainFrame.SaveSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Create your spell!", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Finish your spell & save it to your vault.",1,1,1,true)
-		GameTooltip:AddLine("Right-click save to over-write a previous spell with the same command name without confirmation.",1,1,1,true)
+		GameTooltip:AddLine("Finish your spell & save to the vault.\nIt can then be casted using '/sf commandID' for quick use!\n\r",1,1,1,true)
+		GameTooltip:AddLine("Right-click to over-write a previous spell with the same Command ID without confirmation.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -1405,12 +1550,13 @@ if vaultStyle == 2 then
 	SCForgeMainFrame.LoadSpellFrame:SetPoint("TOPLEFT", SCForgeMainFrame, "TOPRIGHT", 0, 0)
 	SCForgeMainFrame.LoadSpellFrame:SetSize(280,SCForgeMainFrame:GetHeight())
 	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("MEDIUM")
+	setResizeWithMainFrame(SCForgeMainFrame.LoadSpellFrame.Inset)
 else
 	SCForgeMainFrame.LoadSpellFrame:SetPoint("CENTER", UIParent, 0, 100)
 	SCForgeMainFrame.LoadSpellFrame:SetSize(500,250)
 	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
 end
-SCForgeMainFrame.LoadSpellFrame:SetTitle("Arcanum - Spell Vault")
+SCForgeMainFrame.LoadSpellFrame:SetTitle("Spell Vault")
 SCForgeMainFrame.LoadSpellFrame:Hide()
 SCForgeMainFrame.LoadSpellFrame.Rows = {}
 SCForgeMainFrame.LoadSpellFrame:HookScript("OnShow", function()
@@ -1427,9 +1573,10 @@ end)
 	SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild = CreateFrame("Frame")
 	local scrollChild = SCForgeMainFrame.LoadSpellFrame.scrollFrame.scrollChild
 	scrollFrame:SetScrollChild(scrollChild)
-	scrollChild:SetWidth(SCForgeMainFrame.LoadSpellFrame:GetWidth()-18)
+	scrollChild:SetWidth(SCForgeMainFrame.LoadSpellFrame.Inset:GetWidth()-12)
 	scrollChild:SetHeight(1) 
 
+--[[ -- Disabled button - Replacing with Tabbed Vault Experience
 SCForgeMainFrame.LoadSpellFrame.moreVaultButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelCloseButtonNoScripts")
 SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetPoint("RIGHT", SCForgeLoadFrameCloseButton,"LEFT", 1, 0)
 SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetSize(24,24)
@@ -1466,6 +1613,8 @@ end)
 SCForgeMainFrame.LoadSpellFrame.moreVaultButton:SetScript("OnMouseUp", function(self)
 	self.Icon:SetPoint("CENTER", self, "CENTER", 0, 0)
 end)
+--]]
+
 --[[
 
 SCForgeMainFrame.SpellActionButton = CreateFrame("CHECKBUTTON", nil, SCForgeMainFrame, "MacroButtonTemplate")
@@ -1485,6 +1634,63 @@ AddSpellRow()
 AddSpellRow()
 AddSpellRow()
 
+-------------------------------------------------------------------------------
+-- Custom Chat Link Stuff
+-------------------------------------------------------------------------------
+
+local function requestSpellFromPlayer(playerName, commID)
+	dprint("Request Spell '"..commID.."' from "..playerName)
+	C_ChatInfo.SendAddonMessage(addonMsgPrefix, commID, "WHISPER", playerName)
+end
+
+local function sendSpellToPlayer(playerName, commID)
+	dprint("Sending Spell '"..commID.."' to "..playerName)
+end
+
+local function generateSpellChatLink(commID)
+	local spellName = SpellCreatorSavedSpells[commID].fullName
+	local spellComm = SpellCreatorSavedSpells[commID].commID
+	local characterName = GetUnitName("player",false)
+	local numActions = #SpellCreatorSavedSpells[commID].actions
+	local chatLink = addonColor.."|HarcSpell:"..spellComm..":"..characterName..":"..spellName..":"..numActions.."|h["..spellName.."]|h|r"
+	return chatLink;
+end
+
+local _ChatFrame_OnHyperlinkShow = ChatFrame_OnHyperlinkShow
+function ChatFrame_OnHyperlinkShow(...)
+	pcall(_ChatFrame_OnHyperlinkShow, ...)
+	if IsModifiedClick() then return end
+	local linkType, linkData, displayText = LinkUtil.ExtractLink(select(3, ...))
+	if linkType == "arcSpell" then
+		spellComm, charName, spellName, numActions = strsplit(":", linkData)
+		GameTooltip_SetTitle(ItemRefTooltip, addonColor..spellName)
+		ItemRefTooltip:AddLine("Command: "..spellComm, 1, 1, 1, 1)
+		ItemRefTooltip:AddLine("Actions: "..numActions, 1, 1, 1, 1 )
+		ItemRefTooltip:AddDoubleLine( "Arcanum Spell", charName, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75 )
+		ItemRefTooltip:AddLine(" ")
+		C_Timer.After(0, function()
+			local button
+            if SCForgeSpellRefTooltipButton then
+				button = SCForgeSpellRefTooltipButton
+			else
+				button = CreateFrame("BUTTON", "SCForgeSpellRefTooltipButton", ItemRefTooltip, "UIPanelButtonTemplate")
+				button:SetScript("OnClick", function(self)
+					requestSpellFromPlayer(self.playerName, self.commID)
+				end)
+				button:SetText("Request Spell")
+			end
+			button:SetHeight(GameTooltip_InsertFrame(ItemRefTooltip, button))
+			button:SetPoint("RIGHT", -10, 0)
+			button.playerName = charName
+			button.commID = spellComm
+			--
+			ItemRefTooltip:Show()
+			if ItemRefTooltipTextLeft1:GetRight() > ItemRefCloseButton:GetLeft() then
+				ItemRefTooltip:SetPadding(16, 0)
+			end
+		end)
+	end
+end
 
 -------------------------------------------------------------------------------
 -- Mini-Map Icon
@@ -1748,8 +1954,21 @@ function updateSCInterfaceOptions()
 end
 
 -------------------------------------------------------------------------------
--- Addon Loaded
+-- Addon Loaded & Communication
 -------------------------------------------------------------------------------
+
+local function onCommReceived(message, channel, sender)
+	sendSpellToPlayer(sender, message)
+end
+
+local SCForge_OnEvent = CreateFrame("frame","SCForge_OnEvent");
+SCForge_OnEvent:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
+	if event == "CHAT_MSG_ADDON" and prefix == addonMsgPrefix then
+		onCommReceived(message, channel, sender)
+	end
+end)
+SCForge_OnEvent:RegisterEvent("CHAT_MSG_ADDON")
+
 
 local SC_Addon_OnLoad = CreateFrame("frame","SC_Addon_OnLoad");
 SC_Addon_OnLoad:RegisterEvent("ADDON_LOADED");
@@ -1846,7 +2065,17 @@ end
 SLASH_SCFORGETEST1 = '/sftest';
 function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
 	
-	print("|cff"..msg.."Color Test - Arcanum - Spell Forge: "..msg)
+	--[[
+	local spellName = SpellCreatorSavedSpells[msg].fullName
+	local printableTable = compressForChat(dump(SpellCreatorSavedSpells[msg]))
+	print(printableTable)
+	print(" ")
+	local decodedTable = decompressForChat(printableTable)
+	print(decodedTable)
+	--]]
+	sendchat(generateSpellChatLink(msg))
+	
+	
 	--[[
 	if msg == "newport" then
 		SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)]
