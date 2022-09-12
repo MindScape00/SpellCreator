@@ -11,6 +11,8 @@ local localization = {}
 localization.SPELLNAME = STAT_CATEGORY_SPELL.." "..NAME
 localization.SPELLCOMM = STAT_CATEGORY_SPELL.." "..COMMAND
 
+local savedSpellFromVault = {}
+
 --C_ChatInfo.RegisterAddonMessagePrefix(addonMsgPrefix)
 
 local LibDeflate
@@ -132,6 +134,9 @@ end
 
 local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
+local isSavingOrLoadingPhaseAddonData = false
+
+
 
 -------------------------------------------------------------------------------
 -- Saved Variable Initialization
@@ -581,12 +586,17 @@ local function updateFrameChildScales(frame)
 	return n;
 end
 
-local function generateSpellChatLink(commID)
-	local spellName = SpellCreatorSavedSpells[commID].fullName
-	local spellComm = SpellCreatorSavedSpells[commID].commID
-	local characterName = GetUnitName("player",false)
-	local numActions = #SpellCreatorSavedSpells[commID].actions
-	local chatLink = addonColor.."|HarcSpell:"..spellComm..":"..characterName..":"..spellName..":"..numActions.."|h["..spellName.."]|h|r"
+local function generateSpellChatLink(commID, vaultType)
+	local spellName = savedSpellFromVault[commID].fullName
+	local spellComm = savedSpellFromVault[commID].commID
+	local charOrPhase
+	if vaultType == "PHASE" then
+		charOrPhase = C_Epsilon.GetPhaseId()
+	else
+		charOrPhase = GetUnitName("player",false)
+	end
+	local numActions = #savedSpellFromVault[commID].actions
+	local chatLink = addonColor.."|HarcSpell:"..spellComm..":"..charOrPhase..":"..spellName..":"..numActions.."|h["..spellName.."]|h|r"
 	return chatLink;
 end
 
@@ -1176,7 +1186,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnLeave", function(self)
 end)
 
 local function loadSpell(spellToLoad)
-	print("Loading spell.. "..spellToLoad.commID)
+	dprint("Loading spell.. "..spellToLoad.commID)
 	
 	SCForgeMainFrame.SpellInfoCommandBox:SetText(spellToLoad.commID)
 	SCForgeMainFrame.SpellInfoNameBox:SetText(spellToLoad.fullName)
@@ -1217,41 +1227,51 @@ local function loadSpell(spellToLoad)
 	end
 end
 
+local phaseVaultKeys
+local SCForge_PhaseVaultSpells = {}
+
 local function deleteSpellConf(spellKey, where)
-	local dialog = StaticPopup_Show("SCFORGE_CONFIRM_DELETE", SpellCreatorSavedSpells[spellKey].fullName, SpellCreatorSavedSpells[spellKey].commID)
+	local dialog = StaticPopup_Show("SCFORGE_CONFIRM_DELETE", savedSpellFromVault[spellKey].fullName, savedSpellFromVault[spellKey].commID)
 	if dialog then dialog.data = spellKey; dialog.data2 = where end
 end
 
-local phaseVaultKeys
-local SCForge_PhaseVaultSpells = {}
 local function getSpellForgePhaseVault(callback)
 	SCForge_PhaseVaultSpells = {} -- reset the table
-	cprint("Phase Spell Vault Loading...")
+	dprint("Phase Spell Vault Loading...")
 	
+	local function noSpellsToLoad()
+		dprint("Phase Has No Spells to load.");
+		phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" ); 
+		SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty");
+		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Enable();
+		isSavingOrLoadingPhaseAddonData = false;
+	end
+	
+	
+	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now."); return; end
 	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
-	--print(messageTicketID)
+	isSavingOrLoadingPhaseAddonData = true
+	
 	phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
 	phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
-		--print("PhaseAddonDataListener got something?", self, event, prefix, text, channel, sender, ...)
 		if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 			phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
-			if (#text < 1 or text == "") then cprint("Phase Has No Spells to load."); phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" ); return; end
+			
+			if (#text < 1 or text == "") then noSpellsToLoad(); return; end
 			phaseVaultKeys = serialDecompressForAddonMsg(text)
-			if #phaseVaultKeys < 1 then dprint("Phase Has No Spells to load."); phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" ); return; end
+			if #phaseVaultKeys < 1 then noSpellsToLoad(); return; end
 			dprint("Phase spell keys: "..dump(phaseVaultKeys))
 			local phaseVaultLoadingCount = 0
 			
 			local messageTicketQueue = {}
 			for k,v in ipairs(phaseVaultKeys) do
 				local phaseVaultLoadingExpected = k
-				-- Get Each Spell from Addon Data
 				dprint("Trying to load spell from phase: "..v)
 				messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S"..v)
 				messageTicketQueue[messageTicketID] = true -- add it to a fake queue table so we can watch for multiple prefixes...
 				
 				phaseAddonDataListener2:RegisterEvent("CHAT_MSG_ADDON")
 				phaseAddonDataListener2:SetScript("OnEvent", function (self, event, prefix, text, channel, sender, ...)
-					print(self, event, prefix, text, channel, sender, ...)
 					if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
 						messageTicketQueue[prefix] = nil -- remove it from the queue.. We'll reset the table next time anyways but whatever.
 						phaseVaultLoadingCount = phaseVaultLoadingCount+1
@@ -1261,6 +1281,7 @@ local function getSpellForgePhaseVault(callback)
 						if phaseVaultLoadingCount == phaseVaultLoadingExpected then
 							callback(true);
 							phaseAddonDataListener2:UnregisterEvent("CHAT_MSG_ADDON")
+							isSavingOrLoadingPhaseAddonData = false
 						end
 					end
 				end)
@@ -1269,8 +1290,32 @@ local function getSpellForgePhaseVault(callback)
 	end)
 end
 
-local function deleteSpellFromPhaseVault(commID)
-	-- get the phase spells, remove the one we want to kill, then re-save both..
+local function deleteSpellFromPhaseVault(commID, callback)
+	-- get the phase spell keys, remove the one we want to delete, then re-save it, and then over-ride the PhaseAddonData for it's key with nothing..
+	
+	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now."); return; end
+	
+	isSavingOrLoadingPhaseAddonData = true
+	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
+
+	phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
+	
+	phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
+		if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
+			phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
+			phaseVaultKeys = serialDecompressForAddonMsg(text)
+			table.remove(phaseVaultKeys, commID)
+			phaseVaultKeys = serialCompressForAddonMsg(phaseVaultKeys)
+			
+			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
+			local realCommID = savedSpellFromVault[commID].commID
+			dprint("Removing PhaseAddonData for SCFORGE_S"..realCommID)
+			C_Epsilon.SetPhaseAddonData("SCFORGE_S"..realCommID, "")
+			
+			isSavingOrLoadingPhaseAddonData = false
+			if callback then callback(); end
+		end
+	end)
 end
 
 local function saveSpellToPhaseVault(commID)
@@ -1280,17 +1325,18 @@ local function saveSpellToPhaseVault(commID)
 	else 
 		phaseSpellKey = commID
 	end
+	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now."); return; end
 	if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 		dprint("Trying to save spell to phase vault.")
 
 		local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
-		
+		isSavingOrLoadingPhaseAddonData = true
 		phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
 		phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 			if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 				phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" );
 				
-				print(text)
+				--print(text)
 				if (text ~= "" and #text > 0) then phaseVaultKeys = serialDecompressForAddonMsg(text) else phaseVaultKeys = {} end
 
 				dprint("Phase spell keys: "..dump(phaseVaultKeys))
@@ -1314,8 +1360,11 @@ local function saveSpellToPhaseVault(commID)
 				C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
 				
 				cprint("Spell '"..phaseSpellKey.."' saved to the Phase Vault.")
+				isSavingOrLoadingPhaseAddonData = false
 			end
 		end)
+	else
+		eprint("You must be a member, officer, or owner in order to save spells to the phase.")
 	end
 
 end
@@ -1327,15 +1376,17 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	for i = 1, #spellLoadRows do
 		spellLoadRows[i]:Hide()
 	end
-	local savedSpellFromVault = {}
+	savedSpellFromVault = {}
 	local currentVault
+	local currentVaultTab = PanelTemplates_GetSelectedTab(SCForgeMainFrame.LoadSpellFrame)
 	
-	if PanelTemplates_GetSelectedTab(SCForgeMainFrame.LoadSpellFrame) == 1 then
+	if currentVaultTab == 1 then
 		--personal vault is shown
 		currentVault = "PERSONAL"
 		savedSpellFromVault = SpellCreatorSavedSpells
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Hide()
-	elseif PanelTemplates_GetSelectedTab(SCForgeMainFrame.LoadSpellFrame) == 2 then
+		SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("")
+	elseif currentVaultTab == 2 then
 		--phase vault is shown
 		currentVault = "PHASE"
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Show()
@@ -1343,11 +1394,13 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		if fromPhaseDataLoaded then 
 			-- called from getSpellForgePhaseVault() - that means our saved spell from Vault is ready
 			savedSpellFromVault = SCForge_PhaseVaultSpells
-			cprint("Phase Spell Vault Loaded.")
+			dprint("Phase Spell Vault Loaded.")
 			SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Enable()
+			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("")
 		else
 			getSpellForgePhaseVault(updateSpellLoadRows)
 			SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Disable()
+			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Loading...")
 		end
 	end
 	
@@ -1396,7 +1449,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum].Background:SetPoint("TOPLEFT",-9,5)
 			spellLoadRows[rowNum].Background:SetPoint("BOTTOMRIGHT",10,-5)
 			spellLoadRows[rowNum].Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
-			spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
+			--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
+			spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
 			
 			spellLoadRows[rowNum].spellNameBackground = spellLoadRows[rowNum]:CreateTexture(nil, "BACKGROUND")
 			spellLoadRows[rowNum].spellNameBackground:SetPoint("TOPLEFT", spellLoadRows[rowNum].Background, "TOPLEFT", 5, -2)
@@ -1410,7 +1464,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 			-- Make the Spell Name Text
 			spellLoadRows[rowNum].spellName = spellLoadRows[rowNum]:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
-			spellLoadRows[rowNum].spellName:SetWidth(columnWidth*(0.6))
+			spellLoadRows[rowNum].spellName:SetWidth(columnWidth/2)
 			spellLoadRows[rowNum].spellName:SetJustifyH("LEFT")
 			spellLoadRows[rowNum].spellName:SetPoint("LEFT", 1, 0)
 			spellLoadRows[rowNum].spellName:SetText(v.fullName) -- initial text, reset later when it needs updated
@@ -1425,9 +1479,6 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetPoint("RIGHT", 0, 0)
 			button:SetSize(20,20)
 			button:SetText("x")
-			button:SetScript("OnClick", function(self)
-				deleteSpellConf(self.commID, currentVault)
-			end)
 			button:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
@@ -1440,7 +1491,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				self.Timer:Cancel()
 			end)
 			
-						
+
 			-- Make the load button
 			spellLoadRows[rowNum].loadButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum], "UIPanelButtonTemplate")
 			local button = spellLoadRows[rowNum].loadButton
@@ -1449,7 +1500,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetSize(60,24)
 			button:SetText(EDIT)
 			button:SetScript("OnClick", function(self)
-				loadSpell(savedSpellFromVault[k])
+				print()
+				loadSpell(savedSpellFromVault[self.commID])
 				if vaultStyle ~= 2 then SCForgeMainFrame.LoadSpellFrame:Hide(); end
 			end)
 			button:SetScript("OnEnter", function(self)
@@ -1495,15 +1547,28 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum].loadButton.commID = k
 			spellLoadRows[rowNum].deleteButton.commID = k
 			
+			spellLoadRows[rowNum].deleteButton:SetScript("OnClick", function(self)
+				deleteSpellConf(self.commID, currentVault)
+			end)
+			
 			-- NEED TO UPDATE THE ROWS IF WE ARE IN PHASE VAULT
 			if currentVault == "PERSONAL" then
 				spellLoadRows[rowNum].loadButton:SetText(EDIT)
 				spellLoadRows[rowNum].saveToPhaseButton.commID = k
-				spellLoadRows[rowNum].saveToPhaseButton:Show()
+				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
+					spellLoadRows[rowNum].saveToPhaseButton:Show()
+				else
+					spellLoadRows[rowNum].saveToPhaseButton:Hide()
+				end
 				
 			elseif currentVault == "PHASE" then
 				spellLoadRows[rowNum].loadButton:SetText("Load")
 				spellLoadRows[rowNum].saveToPhaseButton:Hide()
+				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
+					spellLoadRows[rowNum].deleteButton:Show()
+				else
+					spellLoadRows[rowNum].deleteButton:Hide()
+				end
 			end		
 			
 			-- Update the main row frame for mouse over - this allows us to hover & shift-click for links
@@ -1524,7 +1589,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			end)
 			spellLoadRows[rowNum]:SetScript("OnMouseDown", function(self)
 				if IsModifiedClick("CHATLINK") then
-					ChatEdit_InsertLink(generateSpellChatLink(v.commID))
+					ChatEdit_InsertLink(generateSpellChatLink(k, currentVault))
 				end
 			end)
 			
@@ -1560,7 +1625,8 @@ StaticPopupDialogs["SCFORGE_CONFIRM_DELETE"] = {
 		if data2 == "PERSONAL" then
 			deleteSpell(data)
 		elseif data2 == "PHASE" then
-			deleteSpellFromPhaseVault(data)
+			dprint("Deleting '"..data.."' from Phase Vault.")
+			deleteSpellFromPhaseVault(data, updateSpellLoadRows)
 		end
 	end,
 	timeout = 0,
@@ -1709,6 +1775,10 @@ end)
 	scrollFrame:SetPoint("TOPLEFT", 0, -3)
 	scrollFrame:SetPoint("BOTTOMRIGHT", -24, 0)
 	scrollFrame.ScrollBar.scrollStep = loadRowHeight+5
+	
+	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetPoint("TOP", 0, -100)
+	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Loading...")
 
 	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.scrollChild = CreateFrame("Frame")
 	local scrollChild = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.scrollChild
@@ -1726,10 +1796,10 @@ local function SpellForgeLoadFrame_Update()
 end
 
 SCForgeMainFrame.LoadSpellFrame.TabButton1 = CreateFrame("BUTTON", "$parentTab1", SCForgeMainFrame.LoadSpellFrame, "TabButtonTemplate")
-button = SCForgeMainFrame.LoadSpellFrame.TabButton1
+local button = SCForgeMainFrame.LoadSpellFrame.TabButton1
 button.text = "Personal"
 button.id = 1
-button:SetPoint("TOPLEFT", 60, -32)
+button:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.Inset, "TOP", 0, 0)
 --PanelTemplates_TabResize(button, 0)
 button.HighlightTexture:SetWidth(button:GetTextWidth()+31)
 button:SetScript("OnClick", function(self)
@@ -1743,7 +1813,7 @@ button:SetScript("OnShow", function(self)
 end)
 
 SCForgeMainFrame.LoadSpellFrame.TabButton2 = CreateFrame("BUTTON", "$parentTab2", SCForgeMainFrame.LoadSpellFrame, "TabButtonTemplate")
-button = SCForgeMainFrame.LoadSpellFrame.TabButton2
+local button = SCForgeMainFrame.LoadSpellFrame.TabButton2
 button.text = "Phase"
 button.id = 2
 button:SetPoint("LEFT", SCForgeMainFrame.LoadSpellFrame.TabButton1, "RIGHT", 0, 0)
@@ -1764,7 +1834,7 @@ PanelTemplates_SetTab(SCForgeMainFrame.LoadSpellFrame, 1)
 
 -- Disabled button - Replacing with Tabbed Vault Experience
 SCForgeMainFrame.LoadSpellFrame.refreshVaultButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame)
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetPoint("TOPRIGHT", SCForgeLoadFrameCloseButton,"BOTTOMLEFT", 1, -5)
+SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.Inset,"TOPRIGHT", -5, 2)
 SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetSize(24,24)
 
 SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetNormalAtlas("UI-RefreshButton")
@@ -1774,13 +1844,14 @@ SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetHighlightTexture("Interfac
 
 
 SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnClick", function(self, button)
-	getSpellForgePhaseVault(updateSpellLoadRows)
+	updateSpellLoadRows();
 end)
+
 SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Refresh Vault", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Refresh the Phase Vault.",1,1,1,true)
+		GameTooltip:SetText("Refresh Phase Vault", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Reload the Phase Vault from the server, getting any updates since opened.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -1841,9 +1912,6 @@ end
 
 local function savedReceivedSpell(msg, charName)
 	SpellCreatorSavedSpells[msg.commID] = msg
-	if charName == "EPSILON" then
-		charName = "Phase Vault"
-	end
 	cprint("Saved Spell from "..charName..": "..msg.commID)
 	updateSpellLoadRows()
 end
@@ -1869,16 +1937,6 @@ local function receiveSpellData(msg, charName)
 	end
 end
 
-local function generateSpellChatLink(commID)
-	local spellName = SpellCreatorSavedSpells[commID].fullName
-	local spellComm = SpellCreatorSavedSpells[commID].commID
-	local characterName = GetUnitName("player",false)
-	local numActions = #SpellCreatorSavedSpells[commID].actions
-	local chatLink = addonColor.."|HarcSpell:"..spellComm..":"..characterName..":"..spellName..":"..numActions.."|h["..spellName.."]|h|r"
-	print(chatLink)
-	return chatLink;
-end
-
 local _ChatFrame_OnHyperlinkShow = ChatFrame_OnHyperlinkShow
 function ChatFrame_OnHyperlinkShow(...)
 	pcall(_ChatFrame_OnHyperlinkShow, ...)
@@ -1887,31 +1945,40 @@ function ChatFrame_OnHyperlinkShow(...)
 	if linkType == "arcSpell" then
 		spellComm, charName, spellName, numActions = strsplit(":", linkData)
 		GameTooltip_SetTitle(ItemRefTooltip, addonColor..spellName)
+		ItemRefTooltip:AddDoubleLine( "Arcanum Spell", charName, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75 )
 		ItemRefTooltip:AddLine("Command: "..spellComm, 1, 1, 1, 1)
 		ItemRefTooltip:AddLine("Actions: "..numActions, 1, 1, 1, 1 )
-		ItemRefTooltip:AddDoubleLine( "Arcanum Spell", charName, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75 )
 		ItemRefTooltip:AddLine(" ")
-		C_Timer.After(0, function()
-			local button
-            if SCForgeSpellRefTooltipButton then
-				button = SCForgeSpellRefTooltipButton
-			else
-				button = CreateFrame("BUTTON", "SCForgeSpellRefTooltipButton", ItemRefTooltip, "UIPanelButtonTemplate")
-				button:SetScript("OnClick", function(self)
-					requestSpellFromPlayer(self.playerName, self.commID)
-				end)
-				button:SetText("Request Spell")
-			end
-			button:SetHeight(GameTooltip_InsertFrame(ItemRefTooltip, button))
-			button:SetPoint("RIGHT", -10, 0)
-			button.playerName = charName
-			button.commID = spellComm
-			--
-			ItemRefTooltip:Show()
-			if ItemRefTooltipTextLeft1:GetRight() > ItemRefCloseButton:GetLeft() then
-				ItemRefTooltip:SetPadding(16, 0)
-			end
-		end)
+			C_Timer.After(0, function()
+				local button
+				if tonumber(charName) then -- is a phase, not a character
+					if charName == "169" then
+						ItemRefTooltip:AddLine("Get it from the Main Phase Vault")
+					else
+						ItemRefTooltip:AddLine("Get it from Phase "..charName.."'s Vault")
+					end
+				else
+					if SCForgeSpellRefTooltipButton then
+						button = SCForgeSpellRefTooltipButton
+					else
+						button = CreateFrame("BUTTON", "SCForgeSpellRefTooltipButton", ItemRefTooltip, "UIPanelButtonTemplate")
+						button:SetScript("OnClick", function(self)
+							requestSpellFromPlayer(self.playerName, self.commID)
+						end)
+						button:SetText("Request Spell")
+					end
+					button:SetHeight(GameTooltip_InsertFrame(ItemRefTooltip, button))
+					button:SetPoint("RIGHT", -10, 0)
+					button.playerName = charName
+					button.commID = spellComm
+				end
+				--
+				ItemRefTooltip:Show()
+				if ItemRefTooltipTextLeft1:GetRight() > ItemRefCloseButton:GetLeft() then
+					ItemRefTooltip:SetPadding(16, 0)
+				end
+			end)
+			
 	end
 end
 
@@ -2195,8 +2262,16 @@ end
 
 local SC_Addon_OnLoad = CreateFrame("frame","SC_Addon_OnLoad");
 SC_Addon_OnLoad:RegisterEvent("ADDON_LOADED");
+SC_Addon_OnLoad:RegisterEvent("SCENARIO_UPDATE")
+
 SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
-	if name == "SpellCreator" then
+	if event == "SCENARIO_UPDATE" then
+		dprint("Caught Phase Change - Refreshing Load Rows")
+		updateSpellLoadRows();
+		return;
+	end
+	
+	if event == "ADDON_LOADED" and name == "SpellCreator" then
 				
 		SC_loadMasterTable();
 		LoadMinimapPosition();
@@ -2236,30 +2311,15 @@ end);
 
 SLASH_SCFORGEHELP1, SLASH_SCFORGEHELP2 = '/arcanum', '/sf'; -- 3.
 function SlashCmdList.SCFORGEHELP(msg, editbox) -- 4.
-	if SpellCreatorMasterTable.Options["debug"] and msg == "debug" then
-		cprint(addonName.." | DEBUG LIST")
-		cprint("Version: "..addonVersion)
-		cprint("Portrait: "..SC_randomFramePortrait)
-	elseif #msg > 0 then
+	if #msg > 0 then
 		dprint(false,"Casting Arcaum Spell by CommID: "..msg)
 		if SpellCreatorSavedSpells[msg] then
 			executeSpell(SpellCreatorSavedSpells[msg].actions)
+		elseif msg == "options" then
+			scforge_showhide("options")
 		else
 			cprint("No spell with Command "..msg.." found.")
 		end
-		--[[ --Old Array-Based table parser.
-		local didWeCastSpell = false
-		for i = 1, #SpellCreatorSavedSpells do
-			spellData = SpellCreatorSavedSpells[i]
-			if spellData.commID == msg then
-				executeSpell(spellData.actions)
-				didWeCastSpell = true
-			end
-		end
-		if didWeCastSpell == false then
-			cprint("No spell with Command "..msg.." found.")
-		end
-		--]]
 	else
 		scforge_showhide(msg)
 	end
@@ -2267,19 +2327,27 @@ end
 
 SLASH_SCFORGEDEBUG1 = '/sfdebug';
 function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
-	if SpellCreatorMasterTable.Options["debug"] and msg == "resetSpells" then
-		dprint(true, "All Arcaum Spells reset. #GoodBye #ThisCannotBeUndoneHopeYouDidn'tFuckUp!")
-		SpellCreatorSavedSpells = {}
-		updateSpellLoadRows()
-	elseif SpellCreatorMasterTable.Options["debug"] and msg == "listSpells" then
-		--print(dump(SpellCreatorSavedSpells))
-		for k,v in orderedPairs(SpellCreatorSavedSpells) do
-			print(k, dump(v))
+	if SpellCreatorMasterTable.Options["debug"] and msg ~= "" then
+		if msg == "debug" then
+			cprint(addonName.." | DEBUG LIST")
+			cprint("Version: "..addonVersion)
+			cprint("Portrait: "..SC_randomFramePortrait)
+		elseif msg == "resetSpells" then
+			dprint(true, "All Arcaum Spells reset. #GoodBye #ThisCannotBeUndoneHopeYouDidn'tFuckUp!")
+			SpellCreatorSavedSpells = {}
+			updateSpellLoadRows()
+		elseif msg == "listSpells" then
+			for k,v in orderedPairs(SpellCreatorSavedSpells) do
+				print(k, dump(v))
+			end
+		elseif msg == "listSpellKeys" then -- debug to list all spell keys by alphabetical order.
+			local newTable = get_keys(SpellCreatorSavedSpells)
+			table.sort(newTable)
+			print(dump(newTable))
+		elseif msg == "resetPhaseSpellKeys" then
+			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", "")
+			dprint(true, "Wiped all Spell Keys from Phase Vault memory. This does not wipe the data itself of the spells, so they can technically be recovered by manually adding the key back, or begging Azar/Raz to give you the data and then running it thru libDeflate/AceSerializer/Decode. Yeah..")
 		end
-	elseif SpellCreatorMasterTable.Options["debug"] and msg == "listSpellKeys" then -- debug to list all spell keys by alphabetical order.
-		local newTable = get_keys(SpellCreatorSavedSpells)
-		table.sort(newTable)
-		print(dump(newTable))
 	else
 		SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
 		dprint(true, "SC-Forge Debug Set to: "..tostring(SpellCreatorMasterTable.Options["debug"]))
@@ -2288,30 +2356,5 @@ end
 
 SLASH_SCFORGETEST1 = '/sftest';
 function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
-	
-	--[[
-	local spellName = SpellCreatorSavedSpells[msg].fullName
-	local printableTable = compressForChat(dump(SpellCreatorSavedSpells[msg]))
-	print(printableTable)
-	print(" ")
-	local decodedTable = decompressForChat(printableTable)
-	print(decodedTable)
-	--]]
-	sendchat(generateSpellChatLink(msg))
-	
-	
-	--[[
-	if msg == "newport" then
-		SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)]
-		SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait)
-		cprint("Portrait: "..SC_randomFramePortrait)
-	elseif msg == "addrow" then
-		AddSpellRow()
-	elseif msg == "removerow" then
-		RemoveSpellRow()
-	else
-		delay, actionType, revertTime, selfOnly, vars = 1, "Equip", 0, nil, "125539,160175"
-		processAction(delay, actionType, revertTime, selfOnly, vars)
-	end
-	--]]
+	print(isCharOnline(msg))
 end
