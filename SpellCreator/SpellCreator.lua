@@ -136,8 +136,6 @@ local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
 local isSavingOrLoadingPhaseAddonData = false
 
-
-
 -------------------------------------------------------------------------------
 -- Saved Variable Initialization
 -------------------------------------------------------------------------------
@@ -153,7 +151,6 @@ local function SC_loadMasterTable()
 	if isNotDefined(SpellCreatorMasterTable.Options["locked"]) then SpellCreatorMasterTable.Options["locked"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["minimapIcon"]) then SpellCreatorMasterTable.Options["minimapIcon"] = true end
 	if isNotDefined(SpellCreatorMasterTable.Options["mmLoc"]) then SpellCreatorMasterTable.Options["mmLoc"] = 2.7 end
-	if isNotDefined(SpellCreatorMasterTable.Options["fadePanel"]) then SpellCreatorMasterTable.Options["fadePanel"] = true end
 	if isNotDefined(SpellCreatorMasterTable.Options["showTooltips"]) then SpellCreatorMasterTable.Options["showTooltips"] = true end
 	
 	if not SpellCreatorSavedSpells then SpellCreatorSavedSpells = {} end
@@ -1449,8 +1446,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum].Background:SetPoint("TOPLEFT",-9,5)
 			spellLoadRows[rowNum].Background:SetPoint("BOTTOMRIGHT",10,-5)
 			spellLoadRows[rowNum].Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
-			--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
-			spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
+			spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
+			--spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
 			
 			spellLoadRows[rowNum].spellNameBackground = spellLoadRows[rowNum]:CreateTexture(nil, "BACKGROUND")
 			spellLoadRows[rowNum].spellNameBackground:SetPoint("TOPLEFT", spellLoadRows[rowNum].Background, "TOPLEFT", 5, -2)
@@ -1555,6 +1552,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			if currentVault == "PERSONAL" then
 				spellLoadRows[rowNum].loadButton:SetText(EDIT)
 				spellLoadRows[rowNum].saveToPhaseButton.commID = k
+				spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					spellLoadRows[rowNum].saveToPhaseButton:Show()
 				else
@@ -1564,6 +1562,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			elseif currentVault == "PHASE" then
 				spellLoadRows[rowNum].loadButton:SetText("Load")
 				spellLoadRows[rowNum].saveToPhaseButton:Hide()
+				spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					spellLoadRows[rowNum].deleteButton:Show()
 				else
@@ -2010,7 +2009,6 @@ minimapButton:SetClampRectInsets(5,-5,-5,5)
 minimapButton:SetPoint("TOPLEFT")
 minimapButton:RegisterForDrag("LeftButton","RightButton")
 minimapButton:RegisterForClicks("LeftButtonUp","RightButtonUp")
-minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
 local minimapShapes = {
 	["ROUND"] = {true, true, true, true},
@@ -2101,15 +2099,42 @@ minimapButton:SetScript("OnLeave", function(self)
 	ResetCursor();
 	GameTooltip:Hide()
 end)
+
+
+-- icon ideas:
+local mmIcons = {
+"interface/cursor/voidstorage",
+"interface/icons/70_inscription_vantus_rune_suramar",
+"interface/icons/inv_inscription_tradeskill01",
+"interface/icons/inv_7xp_inscription_talenttome02",
+}
+
+local mmIcon = mmIcons[2]
 minimapButton.icon = minimapButton:CreateTexture("$parentIcon", "ARTWORK")
-minimapButton.icon:SetTexture("interface\\icons\\inv_7xp_inscription_talenttome02")
+minimapButton.icon:SetTexture(mmIcon)
 minimapButton.icon:SetSize(21,21)
 minimapButton.icon:SetPoint("CENTER")
-minimapButton.border = minimapButton:CreateTexture("$parentBorder", "OVERLAY")
-minimapButton.border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-minimapButton.border:SetSize(56,56)
-minimapButton.border:SetPoint("TOPLEFT")
 
+-- Border Ideas (Atlas):
+local mmBorders = {
+	{name = "Artifacts-PerkRing-Final", size=0.58, posx=1, posy=-1 },	-- 1 -- Thin Gold Border with gloss over the icon area like glass
+	{name = "auctionhouse-itemicon-border-purple", size=0.62, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
+	{name = "legionmission-portraitring-epicplus", size=0.65, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- thicker purple ring w/ gold edges & decor
+}
+
+local mmBorder = mmBorders[2]	-- put your table choice here
+minimapButton.border = minimapButton:CreateTexture("$parentBorder", "OVERLAY")
+minimapButton.border:SetAtlas(mmBorder.name, false)
+minimapButton.border:SetSize(56*mmBorder.size,56*mmBorder.size)
+minimapButton.border:SetPoint("TOPLEFT",mmBorder.posx,mmBorder.posy)
+if mmBorder.hilight then minimapButton:SetHighlightAtlas(mmBorder.hilight) else minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight") end
+--[[
+SpellCreatorMinimapButton.border:SetSize(56*0.6,56*0.6)
+SpellCreatorMinimapButton.border:SetPoint("TOPLEFT",2,-1)
+minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+		-- kept these here for ez copy-paste in-game lol
+--]]
+		
 local function LoadMinimapPosition()
 	local radian = tonumber(SpellCreatorMasterTable.Options["mmLoc"]) or 2.7
 	MinimapButton_UpdateAngle(radian);
@@ -2354,7 +2379,9 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 	end
 end
 
+
 SLASH_SCFORGETEST1 = '/sftest';
 function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
-	print(isCharOnline(msg))
+	
+	
 end
