@@ -210,19 +210,8 @@ local frameBackgroundOptions = {
 "interface/archeology/arch-bookitemleft",
 "interface/archeology/arch-bookcompletedleft",
 "interface/spellbook/spellbook-page-1",
---[[
-"something",
-"something",
-"something",
-"something",
-"something",
-"something",
-"something",
-"something",
-"something",
-"something",
-"something",
---]]
+-------- enter single background territory
+"Interface/AddOns/SpellCreator/assets/bookbackground_full"
 }
 
 local frameBackgroundOptionsEdge = {
@@ -233,6 +222,8 @@ local frameBackgroundOptionsEdge = {
 "interface/archeology/arch-bookcompletedright",
 "interface/spellbook/spellbook-page-2",
 }
+
+local load_row_background_parchment = "Interface/AddOns/SpellCreator/assets/row_parchment"
 
 local function get_Table_Position(str, tab)
 	for i = 1, #tab do
@@ -874,6 +865,30 @@ SCForgeMainFrame:SetResizable(true)
 SCForgeMainFrame:EnableMouse(true)
 SCForgeMainFrame:SetClampedToScreen(true)
 SCForgeMainFrame:SetClampRectInsets(300, -300, 0, 500)
+--SCForgeMainFrame.TitleBg:SetVertexColor(0.302,0.102,0.204,1)
+SCForgeMainFrame.TitleBgColor = SCForgeMainFrame:CreateTexture(nil, "BACKGROUND")
+SCForgeMainFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.TitleBg)
+SCForgeMainFrame.TitleBgColor:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.TitleBg)
+SCForgeMainFrame.TitleBgColor:SetColorTexture(0.30,0.10,0.40,0.5)
+--NineSliceUtil.ApplyLayout(SCForgeMainFrame, "BFAMissionAlliance")
+
+local myNineSliceFile_corners = "interface/addons/SpellCreator/assets/frame_border_corners"
+local myNineSliceFile_vert = "interface/addons/SpellCreator/assets/frame_border_vertical"
+local myNineSliceFile_horz = "interface/addons/SpellCreator/assets/frame_border_horizontal"
+local newNineSliceOverride = {
+    TopLeftCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.263672, txb = 0.521484, }, --0.263672, 0.521484, 0.263672, 0.521484
+    TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.263672, txb = 0.521484, }, -- 0.00195312, 0.259766, 0.263672, 0.521484
+    BottomLeftCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.00195312, txb = 0.259766, }, -- 0.00195312, 0.259766, 0.00195312, 0.259766
+    BottomRightCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.00195312, txb = 0.259766, }, -- 0.263672, 0.521484, 0.00195312, 0.259766
+    TopEdge = { tex = myNineSliceFile_horz, txl = 0, txr = 1, txt = 0.263672, txb = 0.521484, }, -- 0, 1, 0.263672, 0.521484
+    BottomEdge = { tex = myNineSliceFile_horz, txl = 0, txr = 1, txt = 0.00195312, txb = 0.259766, }, -- 0, 1, 0.00195312, 0.259766
+    LeftEdge = { tex = myNineSliceFile_vert, txl = 0.00195312, txr = 0.259766, txt = 0, txb = 1, }, -- 0.00195312, 0.259766, 0, 1
+    RightEdge = { tex = myNineSliceFile_vert, txl = 0.263672, txr = 0.521484, txt = 0, txb = 1, }, -- 0.263672, 0.521484, 0, 1
+}
+for k,v in pairs(newNineSliceOverride) do
+	SCForgeMainFrame.NineSlice[k]:SetTexture(v.tex)
+	SCForgeMainFrame.NineSlice[k]:SetTexCoord(v.txl, v.txr, v.txt, v.txb)
+end
 
 	SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)]
 SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait)
@@ -945,23 +960,31 @@ SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnLeave", function(self)
 end)
 
 --- The Inner Frame
+local isDualBackgroundRequired = false
 
-local randomBackgroundID = fastrandom(#frameBackgroundOptions)
+--local randomBackgroundID = fastrandom(#frameBackgroundOptions)
+local randomBackgroundID = 7 	-- Forced to 7 for now for dev
+if randomBackgroundID < 7 then isDualBackgroundRequired = true end
+
 local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, save a frame texture
-background:SetTexture(frameBackgroundOptions[randomBackgroundID])
-background:SetTexCoord(0.05,1,0,0.96)
---background:SetAllPoints()
-background:SetVertTile(false)
-background:SetHorizTile(false)
-background:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 0,0) -- 12, -66
-background:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.Inset, "BOTTOMRIGHT", -20,0)
+	background:SetTexture(frameBackgroundOptions[randomBackgroundID])
+	background:SetVertTile(false)
+	background:SetHorizTile(false)
+if isDualBackgroundRequired then 
+	background:SetTexCoord(0.05,1,0,0.96)
+	background:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 0,0) -- 12, -66
+	background:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.Inset, "BOTTOMRIGHT", -20,0)
+else
+	background:SetAllPoints()
+end
 
-
-local background2 = SCForgeMainFrame.Inset:CreateTexture(nil,"BACKGROUND")
-background2:SetTexture(frameBackgroundOptionsEdge[randomBackgroundID])
-background2:SetPoint("TOPLEFT", background, "TOPRIGHT")
-background2:SetPoint("BOTTOMRIGHT", background, "BOTTOMRIGHT", 30, 0)
-background2:SetTexCoord(0,1,0,0.96)
+if isDualBackgroundRequired then 
+	local background2 = SCForgeMainFrame.Inset:CreateTexture(nil,"BACKGROUND")
+	background2:SetTexture(frameBackgroundOptionsEdge[randomBackgroundID])
+	background2:SetPoint("TOPLEFT", background, "TOPRIGHT")
+	background2:SetPoint("BOTTOMRIGHT", background, "BOTTOMRIGHT", 30, 0)
+	background2:SetTexCoord(0,1,0,0.96)
+end
 
 	SCForgeMainFrame.Inset.scrollFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.Inset, "UIPanelScrollFrameTemplate")
 	local scrollFrame = SCForgeMainFrame.Inset.scrollFrame
@@ -1366,8 +1389,8 @@ local function saveSpellToPhaseVault(commID)
 
 end
 
-local loadRowHeight = 30
-local loadRowSpacing = 10
+local loadRowHeight = 45
+local loadRowSpacing = 5
 local function updateSpellLoadRows(fromPhaseDataLoaded)
 	local spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
 	for i = 1, #spellLoadRows do
@@ -1382,12 +1405,18 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		currentVault = "PERSONAL"
 		savedSpellFromVault = SpellCreatorSavedSpells
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Hide()
-		SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("")
+		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
+		if next(savedSpellFromVault) == nil then
+			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty")
+		else
+			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("")
+		end
 	elseif currentVaultTab == 2 then
 		--phase vault is shown
 		currentVault = "PHASE"
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Disable()
+		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.20,0.40,0.50,0.5)
 		if fromPhaseDataLoaded then 
 			-- called from getSpellForgePhaseVault() - that means our saved spell from Vault is ready
 			savedSpellFromVault = SCForge_PhaseVaultSpells
@@ -1408,7 +1437,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		columnWidth = columnWidth*2;
 		loadRowSpacing = 5
 	end
-	
+		
 	for k,v in orderedPairs(savedSpellFromVault) do
 	-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
 		rowNum = rowNum+1
@@ -1445,8 +1474,12 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum].Background = spellLoadRows[rowNum]:CreateTexture(nil,"BACKGROUND")
 			spellLoadRows[rowNum].Background:SetPoint("TOPLEFT",-9,5)
 			spellLoadRows[rowNum].Background:SetPoint("BOTTOMRIGHT",10,-5)
-			spellLoadRows[rowNum].Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
-			spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
+			spellLoadRows[rowNum].Background:SetTexture(load_row_background_parchment)
+			spellLoadRows[rowNum].Background:SetTexCoord(0,1,0.5,1)
+			
+			-- Original Atlas based texture with vertex shading for a unique look. Actually looked pretty good imo.
+			--spellLoadRows[rowNum].Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
+			--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8) -- Let T color it naturally :)
 			--spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
 			
 			spellLoadRows[rowNum].spellNameBackground = spellLoadRows[rowNum]:CreateTexture(nil, "BACKGROUND")
@@ -1552,7 +1585,9 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			if currentVault == "PERSONAL" then
 				spellLoadRows[rowNum].loadButton:SetText(EDIT)
 				spellLoadRows[rowNum].saveToPhaseButton.commID = k
-				spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
+				--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
+				spellLoadRows[rowNum].Background:SetTexCoord(0,1,0.5,1)
+				
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					spellLoadRows[rowNum].saveToPhaseButton:Show()
 				else
@@ -1562,7 +1597,9 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			elseif currentVault == "PHASE" then
 				spellLoadRows[rowNum].loadButton:SetText("Load")
 				spellLoadRows[rowNum].saveToPhaseButton:Hide()
-				spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
+				--spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
+				spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,0.5)
+				
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					spellLoadRows[rowNum].deleteButton:Show()
 				else
@@ -1761,6 +1798,11 @@ else
 	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
 end
 SCForgeMainFrame.LoadSpellFrame:SetTitle("Spell Vault")
+SCForgeMainFrame.LoadSpellFrame.TitleBgColor = SCForgeMainFrame.LoadSpellFrame:CreateTexture(nil, "BACKGROUND")
+SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
+SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
+SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
+
 SCForgeMainFrame.LoadSpellFrame:Hide()
 SCForgeMainFrame.LoadSpellFrame.Rows = {}
 SCForgeMainFrame.LoadSpellFrame:HookScript("OnShow", function()
@@ -2101,30 +2143,32 @@ minimapButton:SetScript("OnLeave", function(self)
 end)
 
 
--- icon ideas:
+-- Minimap Icon ideas:
 local mmIcons = {
 "interface/cursor/voidstorage",
 "interface/icons/70_inscription_vantus_rune_suramar",
 "interface/icons/inv_inscription_tradeskill01",
 "interface/icons/inv_7xp_inscription_talenttome02",
+"Interface/AddOns/SpellCreator/assets/arcanum_icon"
 }
 
-local mmIcon = mmIcons[2]
+local mmIcon = mmIcons[5]
 minimapButton.icon = minimapButton:CreateTexture("$parentIcon", "ARTWORK")
 minimapButton.icon:SetTexture(mmIcon)
 minimapButton.icon:SetSize(21,21)
 minimapButton.icon:SetPoint("CENTER")
 
--- Border Ideas (Atlas):
+-- Minimap Border Ideas (Atlas):
 local mmBorders = {
-	{name = "Artifacts-PerkRing-Final", size=0.58, posx=1, posy=-1 },	-- 1 -- Thin Gold Border with gloss over the icon area like glass
-	{name = "auctionhouse-itemicon-border-purple", size=0.62, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
-	{name = "legionmission-portraitring-epicplus", size=0.65, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- thicker purple ring w/ gold edges & decor
+	{atlas = "Artifacts-PerkRing-Final", size=0.58, posx=1, posy=-1 },	-- 1 -- Thin Gold Border with gloss over the icon area like glass
+	{atlas = "auctionhouse-itemicon-border-purple", size=0.62, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
+	{atlas = "legionmission-portraitring-epicplus", size=0.65, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- thicker purple ring w/ gold edges & decor
+	{tex = "Interface/AddOns/SpellCreator/assets/Icon_Ring_Border", size=0.62, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
 }
 
-local mmBorder = mmBorders[2]	-- put your table choice here
+local mmBorder = mmBorders[4]	-- put your table choice here
 minimapButton.border = minimapButton:CreateTexture("$parentBorder", "OVERLAY")
-minimapButton.border:SetAtlas(mmBorder.name, false)
+if mmBorder.atlas then minimapButton.border:SetAtlas(mmBorder.atlas, false) else minimapButton.border:SetTexture(mmBorder.tex) end
 minimapButton.border:SetSize(56*mmBorder.size,56*mmBorder.size)
 minimapButton.border:SetPoint("TOPLEFT",mmBorder.posx,mmBorder.posy)
 if mmBorder.hilight then minimapButton:SetHighlightAtlas(mmBorder.hilight) else minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight") end
