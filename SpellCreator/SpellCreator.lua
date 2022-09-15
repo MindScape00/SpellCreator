@@ -1,7 +1,3 @@
--------------------------------------------------------------------------------
--- Simple Chat & Helper Functions
--------------------------------------------------------------------------------
-
 local MYADDON, MyAddOn = ...
 local addonVersion, addonAuthor, addonName = GetAddOnMetadata(MYADDON, "Version"), GetAddOnMetadata(MYADDON, "Author"), GetAddOnMetadata(MYADDON, "Title")
 local addonColor = "|cff".."ce2eff" -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
@@ -13,7 +9,11 @@ localization.SPELLCOMM = STAT_CATEGORY_SPELL.." "..COMMAND
 
 local savedSpellFromVault = {}
 
---C_ChatInfo.RegisterAddonMessagePrefix(addonMsgPrefix)
+-- localized frequent functions for speed
+local CTimerAfter = C_Timer.After
+
+
+--
 
 local LibDeflate
 local AceSerializer
@@ -50,17 +50,38 @@ sfCmd_ReplacerChar = "@N@"
 
 -- local main = Epsilon.main
 
+
+-------------------------------------------------------------------------------
+-- Simple Chat & Helper Functions
+-------------------------------------------------------------------------------
+
 local function cmd(text)
-  SendChatMessage("."..text, "GUILD");
+	SendChatMessage("."..text, "GUILD");
 end
 
 local function cmdNoDot(text)
-  SendChatMessage(text, "GUILD");
+	SendChatMessage(text, "GUILD");
+end
+
+local function cmdWithDotCheck(text)
+	if text:sub(1, 1) == "." then cmdNoDot(text) else cmd(text) end
 end
 
 local function sendchat(text)
   SendChatMessage(text, "SAY");
 end
+
+-- Macro & /Slash Command Processing
+local MacroEditBox = MacroEditBox
+local dummy = function() end
+local function RunMacroText(command)
+	MacroEditBox:SetText(command)
+	local ran = xpcall(ChatEdit_SendText, dummy, MacroEditBox)
+	if not ran then
+		eprint("This command failed: "..command)
+	end
+end
+
 
 local function cprint(text)
 	print(addonColor..addonName..": "..(text and text or "ERROR").."|r")
@@ -132,6 +153,7 @@ local function orderedPairs (t, f) -- get keys & sort them - default sort is alp
 	return iter
 end
 
+-- Frame Listeners
 local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
 local isSavingOrLoadingPhaseAddonData = false
@@ -237,7 +259,7 @@ end
 -- Core Functions & Data
 -------------------------------------------------------------------------------
 
--- the functions to actuall process & cast the spells
+-- the functions to actually process & cast the spells
 
 local actionTypeData = {} -- Defined here, but actually set below. Weird hack to bypass that they technically rely on each other..
 local actionTypeDataList = {}
@@ -253,7 +275,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	end
 	
 	if actionData.comTarget == "func" then
-		C_Timer.After(delay, function()
+		CTimerAfter(delay, function()
 			local varTable = varTable
 			for i = 1, #varTable do
 				local v = varTable[i]
@@ -262,7 +284,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 		end)
 	else
 		if actionData.dataName then
-			C_Timer.After(delay, function()
+			CTimerAfter(delay, function()
 				local varTable = varTable
 				for i = 1, #varTable do
 					local v = varTable[i] -- v = the ID or input.
@@ -275,7 +297,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 					
 				end
 				if revertDelay and revertDelay > 0 then
-					C_Timer.After(revertDelay, function()
+					CTimerAfter(revertDelay, function()
 						local varTable = varTable
 						for i = 1, #varTable do
 							local v = varTable[i]
@@ -290,9 +312,9 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 			end)
 		else
 			if selfOnly then
-				C_Timer.After(delay, function() cmd(actionData.command.." self") end)
+				CTimerAfter(delay, function() cmd(actionData.command.." self") end)
 			else
-				C_Timer.After(delay, function() cmd(actionData.command) end)
+				CTimerAfter(delay, function() cmd(actionData.command) end)
 			end
 		end
 	end
@@ -300,6 +322,7 @@ end
 
 local actionsToCommit = {}
 local function executeSpell(actionsToCommit)
+	if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than start.") return; end
 	for _,spell in pairs(actionsToCommit) do
 		dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
 		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
@@ -323,9 +346,10 @@ actionTypeDataList = { -- formatted for easier sorting - whatever order they are
 "RemoveAllAuras", 
 "Unmorph", 
 "Unequip", 
-"DefaultEmote", 
+"MacroText",
+"Command",
 "ArcSpell",
-"Command",}
+}
 
 actionTypeData = {
 	["SpellCast"] = {
@@ -453,9 +477,18 @@ actionTypeData = {
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},
+	["MacroText"] = {
+		["name"] = "Slash /Command",
+		["command"] = function(command) RunMacroText(command); end,
+		["description"] = "Any line that can be processed in a macro (any slash commands & macro flags).\n\rYou can use this for pretty much ANYTHING, technically, including custom short Lua scripts.",
+		["dataName"] = "/command",
+		["inputDescription"] = "Any /commands that can be processed in a macro-script, including emotes, addon commands, Lua run scripts, etc.\n\rI.e., '/emote begins to conjur up a fireball in their hand.' ",
+		["comTarget"] = "func",
+		["revert"] = nil,
+		},
 	["Command"] = {
-		["name"] = "Other Command",
-		["command"] = cmd,
+		["name"] = "Server .Command",
+		["command"] = cmdWithDotCheck,
 		["description"] = "Any other server command.\n\rType the full command you want, without the dot, in the input box.\n\ri.e., 'mod drunk 100'.",
 		["dataName"] = "Full Command",
 		["inputDescription"] = "You can use any server command here, without the '.', and it will run after the delay.\n\rTechnically accepts multiple commands, separated by commas.\n\rExample: 'mod drunk 100'.",
@@ -474,7 +507,7 @@ actionTypeData = {
 	["EquipSet"] = {
 		["name"] = "Equip Set",
 		["command"] = function(vars) C_EquipmentSet.UseEquipmentSet(C_EquipmentSet.GetEquipmentSetID(vars)) end,
-		["description"] = "Equip a saved Equipment Manager set by name.",
+		["description"] = "Equip a saved set from Blizzard's Equipment Manager, by name.",
 		["dataName"] = "Set Name",
 		["inputDescription"] = "Set name from Equipment Manager (Blizzard's built in set manager).",
 		["comTarget"] = "func",
@@ -1204,6 +1237,11 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
+if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then 
+	SCForgeMainFrame.ExecuteSpellButton:Disable()
+else
+	SCForgeMainFrame.ExecuteSpellButton:Enable()
+end
 
 local function loadSpell(spellToLoad)
 	dprint("Loading spell.. "..spellToLoad.commID)
@@ -1530,7 +1568,6 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetSize(60,24)
 			button:SetText(EDIT)
 			button:SetScript("OnClick", function(self)
-				print()
 				loadSpell(savedSpellFromVault[self.commID])
 				if vaultStyle ~= 2 then SCForgeMainFrame.LoadSpellFrame:Hide(); end
 			end)
@@ -1587,6 +1624,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				spellLoadRows[rowNum].saveToPhaseButton.commID = k
 				--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
 				spellLoadRows[rowNum].Background:SetTexCoord(0,1,0.5,1)
+				spellLoadRows[rowNum].deleteButton:Show()
 				
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					spellLoadRows[rowNum].saveToPhaseButton:Show()
@@ -1990,7 +2028,7 @@ function ChatFrame_OnHyperlinkShow(...)
 		ItemRefTooltip:AddLine("Command: "..spellComm, 1, 1, 1, 1)
 		ItemRefTooltip:AddLine("Actions: "..numActions, 1, 1, 1, 1 )
 		ItemRefTooltip:AddLine(" ")
-			C_Timer.After(0, function()
+			CTimerAfter(0, function()
 				local button
 				if tonumber(charName) then -- is a phase, not a character
 					if charName == "169" then
@@ -2313,6 +2351,51 @@ function updateSCInterfaceOptions()
 end
 
 -------------------------------------------------------------------------------
+-- Gossip Hook
+-------------------------------------------------------------------------------
+
+local isPhaseDMOn
+local gossipListener = CreateFrame("frame")
+gossipListener:RegisterEvent("GOSSIP_SHOW");
+gossipListener:RegisterEvent("UI_ERROR_MESSAGE");
+--gossipListener:RegisterEvent("GOSSIP_CLOSED");
+gossipListener:SetScript("OnEvent", function(self, event, errType, msg, ...)
+	if event == "UI_ERROR_MESSAGE" then
+		print(msg)
+		if msg=="DM mode is ON" then isPhaseDMOn = true; dprint("DM Mode On");
+		elseif msg=="DM mode is OFF" then isPhaseDMOn = false; dprint("DM Mode Off");
+		end
+	end
+
+	if event == "GOSSIP_SHOW" then
+		for i = 1, GetNumGossipOptions() do
+			--[[	-- Doesn't appear this is needed
+			_G["GossipTitleButton" .. i]:SetScript("OnClick", function()
+				SelectGossipOption(i)
+			end)
+			--]] 
+		local titleButtonText = _G["GossipTitleButton" .. i]:GetText();
+			if i == 1 and titleButtonText == "<arcanum_auto>" then
+				if isPhaseDMOn and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
+					_G["GossipTitleButton" .. i]:SetText("<arcanum_auto> :: DM Mode");
+					_G["GossipTitleButton" .. i]:SetScript("OnClick", scforge_showhide)
+				else
+					CloseGossip();
+					scforge_showhide();
+				end
+			elseif titleButtonText:match("<arcanum_toggle>") then
+					if not(isPhaseDMOn and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
+						_G["GossipTitleButton" .. i]:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
+					end
+					_G["GossipTitleButton" .. i]:SetScript("OnClick", scforge_showhide)
+			end
+		end
+	--elseif event == "GOSSIP_CLOSED" then
+		
+	end
+end)
+
+-------------------------------------------------------------------------------
 -- Addon Loaded & Communication
 -------------------------------------------------------------------------------
 
@@ -2329,14 +2412,21 @@ local function aceCommInit()
 end
 
 
-local SC_Addon_OnLoad = CreateFrame("frame","SC_Addon_OnLoad");
+local SC_Addon_OnLoad = CreateFrame("frame");
 SC_Addon_OnLoad:RegisterEvent("ADDON_LOADED");
 SC_Addon_OnLoad:RegisterEvent("SCENARIO_UPDATE")
 
 SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
 	if event == "SCENARIO_UPDATE" then
-		dprint("Caught Phase Change - Refreshing Load Rows")
+		dprint("Caught Phase Change - Refreshing Load Rows & Checking for Main Phase / Start")
 		updateSpellLoadRows();
+		
+		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then 
+			SCForgeMainFrame.ExecuteSpellButton:Disable()
+		else
+			SCForgeMainFrame.ExecuteSpellButton:Enable()
+		end
+		
 		return;
 	end
 	
@@ -2347,7 +2437,7 @@ SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
 		aceCommInit()
 	
 		--Quickly Show / Hide the Frame on Start-Up to initialize everything for key bindings & loading
-		C_Timer.After(1,function()
+		CTimerAfter(1,function()
 			SCForgeMainFrame:Show();
 			if not SpellCreatorMasterTable.Options["debug"] then SCForgeMainFrame:Hide(); --[[ SCForgeLoadFrame:Hide() ]] end
 		end)
@@ -2426,6 +2516,22 @@ end
 
 SLASH_SCFORGETEST1 = '/sftest';
 function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
-	
+
+	if msg == "getPhaseKeys" then
+		local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
+
+		phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
+		
+		phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
+			if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
+				phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
+				print(text)
+				phaseVaultKeys = serialDecompressForAddonMsg(text)
+				print(dump(phaseVaultKeys))
+			end
+		end)
+	else
+		
+	end
 	
 end
