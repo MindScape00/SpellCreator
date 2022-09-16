@@ -27,12 +27,14 @@ end
 local function serialCompressForAddonMsg(str)
 	str = AceSerializer:Serialize(str)
 	str = LibDeflate:CompressDeflate(str, {level = 9})
-	str = LibDeflate:EncodeForWoWAddonChannel(str)
+	--str = LibDeflate:EncodeForWoWAddonChannel(str)
+	str = LibDeflate:EncodeForWoWChatChannel(str)
 	return str;
 end
 
 local function serialDecompressForAddonMsg(str)
-	str = LibDeflate:DecodeForWoWAddonChannel(str)
+	--str = LibDeflate:DecodeForWoWAddonChannel(str)
+	str = LibDeflate:DecodeForWoWChatChannel(str)
 	str = LibDeflate:DecompressDeflate(str)
 	_, str = AceSerializer:Deserialize(str)
 	return str;
@@ -797,17 +799,28 @@ local function AddSpellRow()
 		
 		-- ID Entry Box (Input)
 		newRow.InputEntryBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."InputEntryBox", newRow, "InputBoxInstructionsTemplate")
+		--newRow.InputEntryScrollFrame = CreateFrame("ScrollFrame", "spellRow"..numberOfSpellRows.."InputEntryScrollFrame", newRow, "InputScrollFrameTemplate")
+		if newRow.InputEntryScrollFrame then 
+			newRow.InputEntryScrollFrame.CharCount:Hide()
+			newRow.InputEntryScrollFrame:SetSize(InputEntryColumnWidth,40)
+			newRow.InputEntryScrollFrame:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 25, 0)
+			newRow.InputEntryBox = newRow.InputEntryScrollFrame.EditBox
+		end
+		_G["spellRow"..numberOfSpellRows.."InputEntryBox"] = newRow.InputEntryBox
 		newRow.InputEntryBox:SetFontObject(ChatFontNormal)
 		newRow.InputEntryBox.disabledColor = GRAY_FONT_COLOR
 		newRow.InputEntryBox.enabledColor = HIGHLIGHT_FONT_COLOR
-		newRow.InputEntryBox.Instructions:SetText("...")
+		newRow.InputEntryBox.Instructions:SetText("select an action...")
 		newRow.InputEntryBox.Instructions:SetTextColor(0.5,0.5,0.5)
 		newRow.InputEntryBox.Description = ""
 		newRow.InputEntryBox.rowNumber = numberOfSpellRows
 		newRow.InputEntryBox:SetAutoFocus(false)
 		newRow.InputEntryBox:Disable()
-		newRow.InputEntryBox:SetSize(InputEntryColumnWidth,23)
-		newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 25, 0)
+		newRow.InputEntryBox:SetWidth(InputEntryColumnWidth-18)
+		if not newRow.InputEntryScrollFrame then
+			newRow.InputEntryBox:SetSize(InputEntryColumnWidth,23)
+			newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 25, 0)
+		end
 		newRow.InputEntryBox:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			local row = self.rowNumber
@@ -832,7 +845,7 @@ local function AddSpellRow()
 		
 		-- Revert Checkbox
 		newRow.RevertCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."RevertCheckbox", newRow, "UICheckButtonTemplate")
-		newRow.RevertCheckbox:SetPoint("LEFT", newRow.InputEntryBox, "RIGHT", 20, 0)
+		newRow.RevertCheckbox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 20, 0)
 		newRow.RevertCheckbox.RowID = numberOfSpellRows
 		newRow.RevertCheckbox:Disable()
 		newRow.RevertCheckbox:SetMotionScriptsWhileDisabled(true)
@@ -898,6 +911,14 @@ local function AddSpellRow()
 			if checked then _G["spellRow"..rowID.."RevertDelayBox"]:Enable() else _G["spellRow"..rowID.."RevertDelayBox"]:Disable() end
 		end)
 
+	-- Make Tab work to switch edit boxes
+	newRow.mainDelayBox.nextEditBox = newRow.InputEntryBox
+	newRow.mainDelayBox.previousEditBox = newRow.RevertDelayBox
+	newRow.InputEntryBox.nextEditBox = newRow.RevertDelayBox
+	newRow.InputEntryBox.previousEditBox = newRow.mainDelayBox
+	newRow.RevertDelayBox.nextEditBox = newRow.mainDelayBox
+	newRow.RevertDelayBox.previousEditBox = newRow.InputEntryBox
+		
 	end
 	updateFrameChildScales(SCForgeMainFrame)
 	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable() return; end -- hard cap
@@ -938,11 +959,39 @@ SCForgeMainFrame:SetResizable(true)
 SCForgeMainFrame:EnableMouse(true)
 SCForgeMainFrame:SetClampedToScreen(true)
 SCForgeMainFrame:SetClampRectInsets(300, -300, 0, 500)
---SCForgeMainFrame.TitleBg:SetVertexColor(0.302,0.102,0.204,1)
+
 SCForgeMainFrame.TitleBgColor = SCForgeMainFrame:CreateTexture(nil, "BACKGROUND")
 SCForgeMainFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.TitleBg)
 SCForgeMainFrame.TitleBgColor:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.TitleBg)
 SCForgeMainFrame.TitleBgColor:SetColorTexture(0.30,0.10,0.40,0.5)
+
+SCForgeMainFrame.SettingsButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonNoTooltipTemplate")
+SCForgeMainFrame.SettingsButton:SetSize(24,24)
+SCForgeMainFrame.SettingsButton:SetPoint("RIGHT", SCForgeMainFrame.CloseButton, "LEFT", 4, 0)
+SCForgeMainFrame.SettingsButton.icon = SCForgeMainFrame.SettingsButton:CreateTexture(nil, "ARTWORK")
+SCForgeMainFrame.SettingsButton.icon:SetTexture("interface/buttons/ui-optionsbutton")
+SCForgeMainFrame.SettingsButton.icon:SetSize(16,16)
+SCForgeMainFrame.SettingsButton.icon:SetPoint("CENTER")
+SCForgeMainFrame.SettingsButton:SetScript("OnClick", function(self)
+	InterfaceOptionsFrame_OpenToCategory(addonName);
+	InterfaceOptionsFrame_OpenToCategory(addonName);
+end)
+SCForgeMainFrame.SettingsButton:SetScript("OnMouseDown", function(self)
+	local point, relativeTo, relativePoint, xOfs, yOfs = self.icon:GetPoint(1)
+	self.icon:SetPoint(point, relativeTo, relativePoint, xOfs+2, yOfs-2)
+end)
+SCForgeMainFrame.SettingsButton:SetScript("OnMouseUp", function(self)
+	local point, relativeTo, relativePoint, xOfs, yOfs = self.icon:GetPoint(1)
+	self.icon:SetPoint(point, relativeTo, relativePoint, xOfs-2, yOfs+2)
+end)
+SCForgeMainFrame.SettingsButton:SetScript("OnDisable", function(self)
+	self.icon:GetDisabledTexture():SetDesaturated(true)
+end)
+SCForgeMainFrame.SettingsButton:SetScript("OnEnable", function(self)
+	self.icon:GetDisabledTexture():SetDesaturated(false)
+end)
+
+
 --NineSliceUtil.ApplyLayout(SCForgeMainFrame, "BFAMissionAlliance")
 
 local myNineSliceFile_corners = "interface/addons/SpellCreator/assets/frame_border_corners"
@@ -950,7 +999,8 @@ local myNineSliceFile_vert = "interface/addons/SpellCreator/assets/frame_border_
 local myNineSliceFile_horz = "interface/addons/SpellCreator/assets/frame_border_horizontal"
 local newNineSliceOverride = {
     TopLeftCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.263672, txb = 0.521484, }, --0.263672, 0.521484, 0.263672, 0.521484
-    TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.263672, txb = 0.521484, }, -- 0.00195312, 0.259766, 0.263672, 0.521484
+    --TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.263672, txb = 0.521484, }, -- 0.00195312, 0.259766, 0.263672, 0.521484
+	TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.525391, txb = 0.783203, }, -- 0.00195312, 0.259766, 0.525391, 0.783203 -- this is the double one
     BottomLeftCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.00195312, txb = 0.259766, }, -- 0.00195312, 0.259766, 0.00195312, 0.259766
     BottomRightCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.00195312, txb = 0.259766, }, -- 0.263672, 0.521484, 0.00195312, 0.259766
     TopEdge = { tex = myNineSliceFile_horz, txl = 0, txr = 1, txt = 0.263672, txb = 0.521484, }, -- 0, 1, 0.263672, 0.521484
@@ -1007,6 +1057,7 @@ end)
 
 SCForgeMainFrame.SpellInfoCommandBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
 SCForgeMainFrame.SpellInfoCommandBox:SetFontObject(ChatFontNormal)
+SCForgeMainFrame.SpellInfoCommandBox:SetMaxBytes(80)
 SCForgeMainFrame.SpellInfoCommandBox.disabledColor = GRAY_FONT_COLOR
 SCForgeMainFrame.SpellInfoCommandBox.enabledColor = HIGHLIGHT_FONT_COLOR
 SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetText(localization.SPELLCOMM)
@@ -1031,6 +1082,10 @@ SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
+
+-- Enable Tabing between editboxes
+SCForgeMainFrame.SpellInfoCommandBox.nextEditBox = SCForgeMainFrame.SpellInfoNameBox
+SCForgeMainFrame.SpellInfoNameBox.nextEditBox = SCForgeMainFrame.SpellInfoCommandBox
 
 --- The Inner Frame
 local isDualBackgroundRequired = false
@@ -1365,7 +1420,7 @@ local function getSpellForgePhaseVault(callback)
 			for k,v in ipairs(phaseVaultKeys) do
 				local phaseVaultLoadingExpected = k
 				dprint("Trying to load spell from phase: "..v)
-				messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S"..v)
+				messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S_"..v)
 				messageTicketQueue[messageTicketID] = true -- add it to a fake queue table so we can watch for multiple prefixes...
 				
 				phaseAddonDataListener2:RegisterEvent("CHAT_MSG_ADDON")
@@ -1407,8 +1462,8 @@ local function deleteSpellFromPhaseVault(commID, callback)
 			
 			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
 			local realCommID = savedSpellFromVault[commID].commID
-			dprint("Removing PhaseAddonData for SCFORGE_S"..realCommID)
-			C_Epsilon.SetPhaseAddonData("SCFORGE_S"..realCommID, "")
+			dprint("Removing PhaseAddonData for SCFORGE_S_"..realCommID)
+			C_Epsilon.SetPhaseAddonData("SCFORGE_S_"..realCommID, "")
 			
 			isSavingOrLoadingPhaseAddonData = false
 			if callback then callback(); end
@@ -1450,7 +1505,7 @@ local function saveSpellToPhaseVault(commID)
 				-- Passed checking for duplicates. NOW we can save it.
 				local str = serialCompressForAddonMsg(SpellCreatorSavedSpells[commID])
 				
-				local key = "SCFORGE_S"..phaseSpellKey
+				local key = "SCFORGE_S_"..phaseSpellKey
 				C_Epsilon.SetPhaseAddonData(key, str)
 				
 				tinsert(phaseVaultKeys, phaseSpellKey)
@@ -1630,7 +1685,11 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.commID = k
 			button:SetPoint("RIGHT", spellLoadRows[rowNum].loadButton, "LEFT", 0, 0)
 			button:SetSize(24,24)
-			button:SetText("P")
+			--button:SetText("P")
+			button.icon = button:CreateTexture(nil, "ARTWORK")
+			button.icon:SetTexture("interface/buttons/ui-microstream-green")
+			button.icon:SetTexCoord(0,1,1,0)
+			button.icon:SetAllPoints()
 			button:SetScript("OnClick", function(self)
 				saveSpellToPhaseVault(self.commID)
 			end)
@@ -2546,6 +2605,20 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 		elseif msg == "resetPhaseSpellKeys" then
 			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", "")
 			dprint(true, "Wiped all Spell Keys from Phase Vault memory. This does not wipe the data itself of the spells, so they can technically be recovered by manually adding the key back, or begging Azar/Raz to give you the data and then running it thru libDeflate/AceSerializer/Decode. Yeah..")
+		elseif msg == "getPhaseKeys" then
+			local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
+
+			phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
+			
+			phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
+				if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
+					phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
+					print(text)
+					phaseVaultKeys = serialDecompressForAddonMsg(text)
+					print(dump(phaseVaultKeys))
+				end
+			end)
+		
 		end
 	else
 		SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
