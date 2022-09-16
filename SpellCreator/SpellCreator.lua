@@ -41,7 +41,7 @@ end
 local clearSpellOnRowRemoved = false
 local vaultStyle = 2	-- 1 = pop-up window, 2 = attached tray
 
-sfCmd_ReplacerChar = "@N@"
+local sfCmd_ReplacerChar = "@N@"
 
 -- local utils = Epsilon.utils
 -- local messages = utils.messages
@@ -275,24 +275,35 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	end
 	
 	if actionData.comTarget == "func" then
-		CTimerAfter(delay, function()
+		if delay == 0 then
 			local varTable = varTable
 			for i = 1, #varTable do
-				local v = varTable[i]
+				local v = varTable[i] -- v = the ID or input string.
+				if string.byte(v,1) == 32 then v = strtrim(v, " ") end
 				actionData.command(v)
 			end
-		end)
-	else
-		if actionData.dataName then
+		else
 			CTimerAfter(delay, function()
 				local varTable = varTable
 				for i = 1, #varTable do
+					local v = varTable[i]
+					if string.byte(v,1) == 32 then v = strtrim(v, " ") end
+					actionData.command(v)
+				end
+			end)
+		end
+	else
+		if actionData.dataName then
+			if delay == 0 then
+				local varTable = varTable
+				for i = 1, #varTable do
 					local v = varTable[i] -- v = the ID or input.
+					if string.byte(v,1) == 32 then v = strtrim(v, " ") end
 					--print(actionData.command)
 					local finalCommand = tostring(actionData.command)
 					finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
 					if selfOnly then finalCommand = finalCommand.." self" end
-					dprint(false, finalCommand)
+					--dprint(false, finalCommand)
 					cmd(finalCommand)
 					
 				end
@@ -301,6 +312,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 						local varTable = varTable
 						for i = 1, #varTable do
 							local v = varTable[i]
+							if string.byte(v,1) == 32 then v = strtrim(v, " ") end
 							if selfOnly then
 								cmd(actionData.revert.." "..v.." self")
 							else
@@ -309,7 +321,35 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 						end
 					end)
 				end
-			end)
+			else
+				CTimerAfter(delay, function()
+					local varTable = varTable
+					for i = 1, #varTable do
+						local v = varTable[i] -- v = the ID or input.
+						if string.byte(v,1) == 32 then v = strtrim(v, " ") end
+						local finalCommand = tostring(actionData.command)
+						finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
+						if selfOnly then finalCommand = finalCommand.." self" end
+						--dprint(false, finalCommand)
+						cmd(finalCommand)
+						
+					end
+					if revertDelay and revertDelay > 0 then
+						CTimerAfter(revertDelay, function()
+							local varTable = varTable
+							for i = 1, #varTable do
+								local v = varTable[i]
+								if string.byte(v,1) == 32 then v = strtrim(v, " ") end
+								if selfOnly then
+									cmd(actionData.revert.." "..v.." self")
+								else
+									cmd(actionData.revert.." "..v)
+								end
+							end
+						end)
+					end
+				end)
+			end
 		else
 			if selfOnly then
 				CTimerAfter(delay, function() cmd(actionData.command.." self") end)
@@ -324,7 +364,7 @@ local actionsToCommit = {}
 local function executeSpell(actionsToCommit)
 	if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than start.") return; end
 	for _,spell in pairs(actionsToCommit) do
-		dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
+		--dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
 		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
 	end
 end
