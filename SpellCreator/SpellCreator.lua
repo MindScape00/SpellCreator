@@ -1412,7 +1412,7 @@ local function getSpellForgePhaseVault(callback)
 	end
 	
 	
-	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now."); return; end
+	--if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again shortly."); return; end
 	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 	isSavingOrLoadingPhaseAddonData = true
 	
@@ -1454,12 +1454,24 @@ local function getSpellForgePhaseVault(callback)
 	end)
 end
 
+local function sendPhaseVaultIOLock(toggle)
+	local phaseID = C_Epsilon.GetPhaseId()
+	if toggle == true then
+		AceComm:SendCommMessage(addonMsgPrefix.."_PLOCK", phaseID, "CHANNEL", tostring(scforge_ChannelID))
+		dprint("Sending Lock Phase Vault IO Message for phase "..phaseID)
+	elseif toggle == false then
+		AceComm:SendCommMessage(addonMsgPrefix.."_PUNLOCK", phaseID, "CHANNEL", tostring(scforge_ChannelID))
+		dprint("Sending Unlock Phase Vault IO Message for phase "..phaseID)
+	end
+end
+
 local function deleteSpellFromPhaseVault(commID, callback)
 	-- get the phase spell keys, remove the one we want to delete, then re-save it, and then over-ride the PhaseAddonData for it's key with nothing..
 	
-	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now."); return; end
+	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
 	
 	isSavingOrLoadingPhaseAddonData = true
+	sendPhaseVaultIOLock(true)
 	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 
 	phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
@@ -1477,6 +1489,7 @@ local function deleteSpellFromPhaseVault(commID, callback)
 			C_Epsilon.SetPhaseAddonData("SCFORGE_S_"..realCommID, "")
 			
 			isSavingOrLoadingPhaseAddonData = false
+			sendPhaseVaultIOLock(false)
 			if callback then callback(); end
 		end
 	end)
@@ -1489,12 +1502,13 @@ local function saveSpellToPhaseVault(commID)
 	else 
 		phaseSpellKey = commID
 	end
-	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now."); return; end
+	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
 	if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 		dprint("Trying to save spell to phase vault.")
 
 		local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 		isSavingOrLoadingPhaseAddonData = true
+		sendPhaseVaultIOLock(true)
 		phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
 		phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 			if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
@@ -1509,6 +1523,8 @@ local function saveSpellToPhaseVault(commID)
 					if v == phaseSpellKey then
 						-- phase already has this ID saved.. Handle over-write... ( see saveSpell() to steal the code if we want to change it later.. )
 						eprint("Phase already has a spell saved by Command '"..phaseSpellKey.."'. You must delete it first before you can save a new one with that code.")
+						isSavingOrLoadingPhaseAddonData = false
+						sendPhaseVaultIOLock(false)
 						return;
 					end
 				end
@@ -1525,6 +1541,7 @@ local function saveSpellToPhaseVault(commID)
 				
 				cprint("Spell '"..phaseSpellKey.."' saved to the Phase Vault.")
 				isSavingOrLoadingPhaseAddonData = false
+				sendPhaseVaultIOLock(false)
 			end
 		end)
 	else
@@ -2458,6 +2475,15 @@ function CreateSpellCreatorInterfaceOptions()
 		}
 	SpellCreatorInterfaceOptions.panel.showVaultToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 
+	local buttonData = {
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.showVaultToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
+		["title"] = "Show Tooltips",
+		["tooltipTitle"] = "Show Tooltips",
+		["tooltipText"] = "Show Tooltips when you mouse-over UI elements like buttons, editboxes, and spells in the vault, just like this one!",
+		["optionKey"] = "showTooltips",
+		["onClickHandler"] = nil,
+		}
+	SpellCreatorInterfaceOptions.panel.showTooltipsToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 
 	-- Debug Checkbox
 	local SpellCreatorInterfaceOptionsDebug = CreateFrame("CHECKBUTTON", "SC_DebugToggleOption", SpellCreatorInterfaceOptions.panel, "OptionsSmallCheckButtonTemplate")
@@ -2493,15 +2519,14 @@ local gossipListener = CreateFrame("frame")
 gossipListener:RegisterEvent("GOSSIP_SHOW");
 gossipListener:RegisterEvent("UI_ERROR_MESSAGE");
 --gossipListener:RegisterEvent("GOSSIP_CLOSED");
-gossipListener:SetScript("OnEvent", function(self, event, errType, msg, ...)
+gossipListener:SetScript("OnEvent", function(self, event, ...)
 	if event == "UI_ERROR_MESSAGE" then
-		print(msg)
+		local errType, msg = ...
 		if msg=="DM mode is ON" then isPhaseDMOn = true; dprint("DM Mode On");
 		elseif msg=="DM mode is OFF" then isPhaseDMOn = false; dprint("DM Mode Off");
 		end
-	end
 
-	if event == "GOSSIP_SHOW" then
+	elseif event == "GOSSIP_SHOW" then
 		for i = 1, GetNumGossipOptions() do
 			--[[	-- Doesn't appear this is needed
 			_G["GossipTitleButton" .. i]:SetScript("OnClick", function()
@@ -2532,17 +2557,33 @@ end)
 -------------------------------------------------------------------------------
 -- Addon Loaded & Communication
 -------------------------------------------------------------------------------
-
+local lockTimer
 local function onCommReceived(prefix, message, channel, sender)
 	if prefix == addonMsgPrefix.."REQ" then
 		sendSpellToPlayer(sender, message)
 	elseif prefix == addonMsgPrefix.."SPELL" then
 		receiveSpellData(message, sender)
+	elseif prefix == addonMsgPrefix.."_PLOCK" then
+		local phaseID = C_Epsilon.GetPhaseId()
+		if message == phaseID then
+			isSavingOrLoadingPhaseAddonData = true
+			dprint("Phase Vault IO for Phase "..phaseID.." was locked by Addon Message")
+			lockTimer = C_Timer.NewTicker(5, function() isSavingOrLoadingPhaseAddonData=false; eprint("Phase IO Lock on for longer than 10 seconds - disabled. If you get this after changing phases, ignore, otherwise please report it."); end)
+		end
+	elseif prefix == addonMsgPrefix.."_PUNLOCK" then
+		local phaseID = C_Epsilon.GetPhaseId()
+		if message == phaseID then
+			isSavingOrLoadingPhaseAddonData = false
+			dprint("Phase Vault IO for Phase "..phaseID.." was unlocked by Addon Message")
+			lockTimer:Cancel()
+		end	
 	end
 end
 local function aceCommInit()
 	AceComm:RegisterComm(addonMsgPrefix.."REQ", onCommReceived)
 	AceComm:RegisterComm(addonMsgPrefix.."SPELL", onCommReceived)
+	AceComm:RegisterComm(addonMsgPrefix.."_PLOCK", onCommReceived)
+	AceComm:RegisterComm(addonMsgPrefix.."_PUNLOCK", onCommReceived)
 end
 
 
@@ -2553,6 +2594,7 @@ SC_Addon_OnLoad:RegisterEvent("SCENARIO_UPDATE")
 SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
 	if event == "SCENARIO_UPDATE" then
 		dprint("Caught Phase Change - Refreshing Load Rows & Checking for Main Phase / Start")
+		isSavingOrLoadingPhaseAddonData = false
 		updateSpellLoadRows();
 		
 		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then 
@@ -2569,6 +2611,9 @@ SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
 		SC_loadMasterTable();
 		LoadMinimapPosition();
 		aceCommInit()
+	
+		local channelType, channelName = JoinChannelByName("scforge_comm")
+		scforge_ChannelID = GetChannelName("scforge_comm")
 	
 		--Quickly Show / Hide the Frame on Start-Up to initialize everything for key bindings & loading
 		CTimerAfter(1,function()
