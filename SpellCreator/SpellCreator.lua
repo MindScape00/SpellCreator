@@ -1135,7 +1135,7 @@ end
 	SCForgeMainFrame.Inset.scrollFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.Inset, "UIPanelScrollFrameTemplate")
 	local scrollFrame = SCForgeMainFrame.Inset.scrollFrame
 	scrollFrame:SetPoint("TOPLEFT", 0, -35)
-	scrollFrame:SetPoint("BOTTOMRIGHT", -20, 5)
+	scrollFrame:SetPoint("BOTTOMRIGHT", -24, 0)
 
 	SCForgeMainFrame.Inset.scrollFrame.scrollChild = CreateFrame("Frame")
 	local scrollChild = SCForgeMainFrame.Inset.scrollFrame.scrollChild
@@ -1143,7 +1143,7 @@ end
 	scrollChild:SetWidth(SCForgeMainFrame.Inset:GetWidth()-18)
 	scrollChild:SetHeight(1) 
 	
-	scrollFrame.ScrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, -16+30)
+	scrollFrame.ScrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, 18)
 	scrollFrame.ScrollBar.scrollStep = rowHeight+5
 
 --This is a sub-frame of the Main Frame.. Should it be? Idk..
@@ -2017,7 +2017,7 @@ if vaultStyle == 2 then
 	SCForgeMainFrame.LoadSpellFrame:SetPoint("TOPLEFT", SCForgeMainFrame, "TOPRIGHT", 0, 0)
 	SCForgeMainFrame.LoadSpellFrame:SetSize(280,SCForgeMainFrame:GetHeight())
 	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("MEDIUM")
-	setResizeWithMainFrame(SCForgeMainFrame.LoadSpellFrame.Inset)
+	--setResizeWithMainFrame(SCForgeMainFrame.LoadSpellFrame.Inset)
 else
 	SCForgeMainFrame.LoadSpellFrame:SetPoint("CENTER", UIParent, 0, 100)
 	SCForgeMainFrame.LoadSpellFrame:SetSize(500,250)
@@ -2040,6 +2040,7 @@ end)
 -- Spell Vault Scroll Frame
 	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.LoadSpellFrame.Inset, "UIPanelScrollFrameTemplate")
 	local scrollFrame = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame
+	setResizeWithMainFrame(SCForgeMainFrame.LoadSpellFrame.spellVaultFrame)
 	scrollFrame:SetPoint("TOPLEFT", 0, -3)
 	scrollFrame:SetPoint("BOTTOMRIGHT", -24, 0)
 	scrollFrame.ScrollBar.scrollStep = loadRowHeight+5
