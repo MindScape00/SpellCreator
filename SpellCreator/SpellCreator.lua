@@ -187,6 +187,7 @@ end
 -- UI Stuff
 -------------------------------------------------------------------------------
 
+--[[
 local frameIconOptions = {
 "interface/icons/70_professions_scroll_01",
 "interface/icons/70_professions_scroll_02",
@@ -229,6 +230,7 @@ local frameIconOptions = {
 "interface/icons/inv_enchanting_80_veiledcrystal",
 "interface/icons/inv_enchanting_815_drustrod",
 }
+--]]
 
 local frameBackgroundOptions = {
 "interface/archeology/arch-bookitemleft",
@@ -237,7 +239,7 @@ local frameBackgroundOptions = {
 "interface/archeology/arch-bookitemleft",
 "interface/archeology/arch-bookcompletedleft",
 "interface/spellbook/spellbook-page-1",
--------- enter single background territory
+-------- enter single background territory if > 6
 "Interface/AddOns/SpellCreator/assets/bookbackground_full"
 }
 
@@ -250,7 +252,7 @@ local frameBackgroundOptionsEdge = {
 "interface/spellbook/spellbook-page-2",
 }
 
-local load_row_background_parchment = "Interface/AddOns/SpellCreator/assets/row_parchment"
+local load_row_background = "Interface/AddOns/SpellCreator/assets/l_row_parchment"
 
 local function get_Table_Position(str, tab)
 	for i = 1, #tab do
@@ -1024,8 +1026,13 @@ for k,v in pairs(newNineSliceOverride) do
 	SCForgeMainFrame.NineSlice[k]:SetTexCoord(v.txl, v.txr, v.txt, v.txb)
 end
 
-	SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)]
-SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait)
+--SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)] -- Old Random Icon Stuff
+--SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait)
+SCForgeMainFrame.portrait:SetTexture("Interface/AddOns/SpellCreator/assets/arcanum_icon")
+SCForgeMainFrame.portrait.mask = SCForgeMainFrame:CreateMaskTexture()
+SCForgeMainFrame.portrait.mask:SetAllPoints(SCForgeMainFrame.portrait)
+SCForgeMainFrame.portrait.mask:SetTexture("Interface/CHARACTERFRAME/TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+SCForgeMainFrame.portrait:AddMaskTexture(SCForgeMainFrame.portrait.mask)
 SCForgeMainFrame:SetTitle("Arcanum - Spell Forge")
 
 SCForgeMainFrame.DragBar = CreateFrame("Frame", nil, SCForgeMainFrame)
@@ -1550,13 +1557,35 @@ local function saveSpellToPhaseVault(commID)
 
 end
 
+local selectedVaultRow
+local function setSelectedVaultRow(rowID)
+	if rowID then
+		
+	else
+		
+	end
+end
+
+local spellLoadRows = {}
+local function clearSpellLoadRadios(self)
+	if not self:GetChecked() then return; end
+	for i = 1, #spellLoadRows do
+		local button = spellLoadRows[i]
+		if button ~= self and button:GetChecked() then
+			button:SetChecked(false)
+		end
+	end
+end
+
 local loadRowHeight = 45
 local loadRowSpacing = 5
 local function updateSpellLoadRows(fromPhaseDataLoaded)
-	local spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
+	spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
 	for i = 1, #spellLoadRows do
 		spellLoadRows[i]:Hide()
+		spellLoadRows[i]:SetChecked(false)
 	end
+	setSelectedVaultRow(nil)
 	savedSpellFromVault = {}
 	local currentVault
 	local currentVaultTab = PanelTemplates_GetSelectedTab(SCForgeMainFrame.LoadSpellFrame)
@@ -1609,8 +1638,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 		else
 			dprint(false,"SCForge Load Row "..rowNum.." Didn't exist - making it!")
-			spellLoadRows[rowNum] = CreateFrame("Frame", "scForgeLoadRow"..rowNum, spellLoadFrame)
-			
+			spellLoadRows[rowNum] = CreateFrame("CheckButton", "scForgeLoadRow"..rowNum, spellLoadFrame)
+
 			-- Position the Rows
 			if vaultStyle == 2 then
 				if rowNum == 1 then
@@ -1631,12 +1660,25 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			end
 			spellLoadRows[rowNum]:SetHeight(loadRowHeight)
 			
+			spellLoadRows[rowNum]:SetScript("OnClick", function(self)
+				clearSpellLoadRadios(self)
+				if self:GetChecked() then
+					setSelectedVaultRow( )
+				else
+					setSelectedVaultRow(nil)
+				end
+			end)
+			
 			-- A nice lil background to make them easier to tell apart			
 			spellLoadRows[rowNum].Background = spellLoadRows[rowNum]:CreateTexture(nil,"BACKGROUND")
 			spellLoadRows[rowNum].Background:SetPoint("TOPLEFT",-9,5)
 			spellLoadRows[rowNum].Background:SetPoint("BOTTOMRIGHT",10,-5)
-			spellLoadRows[rowNum].Background:SetTexture(load_row_background_parchment)
+			spellLoadRows[rowNum].Background:SetTexture(load_row_background)
 			spellLoadRows[rowNum].Background:SetTexCoord(0,1,0.5,1)
+			
+			spellLoadRows[rowNum]:SetCheckedTexture("Interface\\AddOns\\SpellCreator\\assets\\l_row_selected")
+			spellLoadRows[rowNum].CheckedTexture = spellLoadRows[rowNum]:GetCheckedTexture()
+			spellLoadRows[rowNum].CheckedTexture:SetAllPoints(spellLoadRows[rowNum].Background)
 			
 			-- Original Atlas based texture with vertex shading for a unique look. Actually looked pretty good imo.
 			--spellLoadRows[rowNum].Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
@@ -1952,6 +1994,25 @@ end)
 
 SCForgeMainFrame.LoadSpellFrame = CreateFrame("Frame", "SCForgeLoadFrame", SCForgeMainFrame, "ButtonFrameTemplate")
 ButtonFrameTemplate_HidePortrait(SCForgeMainFrame.LoadSpellFrame)
+SCForgeMainFrame.LoadSpellFrame:SetIgnoreParentScale()
+
+local newNineSliceOverride = {
+    TopLeftCorner = { tex = myNineSliceFile_corners, txl = 0.525391, txr = 0.783203, txt = 0.00195312, txb = 0.259766, }, --0.525391, 0.783203, 0.00195312, 0.259766
+    TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.263672, txb = 0.521484, }, -- 0.00195312, 0.259766, 0.263672, 0.521484
+	--TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.525391, txb = 0.783203, }, -- 0.00195312, 0.259766, 0.525391, 0.783203 -- this is the double one
+    BottomLeftCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.00195312, txb = 0.259766, }, -- 0.00195312, 0.259766, 0.00195312, 0.259766
+    BottomRightCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.00195312, txb = 0.259766, }, -- 0.263672, 0.521484, 0.00195312, 0.259766
+    TopEdge = { tex = myNineSliceFile_horz, txl = 0, txr = 1, txt = 0.263672, txb = 0.521484, }, -- 0, 1, 0.263672, 0.521484
+    BottomEdge = { tex = myNineSliceFile_horz, txl = 0, txr = 1, txt = 0.00195312, txb = 0.259766, }, -- 0, 1, 0.00195312, 0.259766
+    LeftEdge = { tex = myNineSliceFile_vert, txl = 0.00195312, txr = 0.259766, txt = 0, txb = 1, }, -- 0.00195312, 0.259766, 0, 1
+    RightEdge = { tex = myNineSliceFile_vert, txl = 0.263672, txr = 0.521484, txt = 0, txb = 1, }, -- 0.263672, 0.521484, 0, 1
+}
+
+for k,v in pairs(newNineSliceOverride) do
+	SCForgeMainFrame.LoadSpellFrame.NineSlice[k]:SetTexture(v.tex)
+	SCForgeMainFrame.LoadSpellFrame.NineSlice[k]:SetTexCoord(v.txl, v.txr, v.txt, v.txb)
+end
+
 if vaultStyle == 2 then 
 	SCForgeMainFrame.LoadSpellFrame:SetPoint("TOPLEFT", SCForgeMainFrame, "TOPRIGHT", 0, 0)
 	SCForgeMainFrame.LoadSpellFrame:SetSize(280,SCForgeMainFrame:GetHeight())
@@ -1962,6 +2023,7 @@ else
 	SCForgeMainFrame.LoadSpellFrame:SetSize(500,250)
 	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
 end
+
 SCForgeMainFrame.LoadSpellFrame:SetTitle("Spell Vault")
 SCForgeMainFrame.LoadSpellFrame.TitleBgColor = SCForgeMainFrame.LoadSpellFrame:CreateTexture(nil, "BACKGROUND")
 SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
