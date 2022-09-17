@@ -1797,6 +1797,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.icon:SetTexture("interface/buttons/ui-microstream-green")
 			button.icon:SetTexCoord(0,1,1,0)
 			button.icon:SetAllPoints()
+			button:Hide()
 			button:SetScript("OnClick", function(self)
 				saveSpellToPhaseVault(self.commID)
 			end)
@@ -1835,7 +1836,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				spellLoadRows[rowNum].deleteButton:Show()
 				
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
-					spellLoadRows[rowNum].saveToPhaseButton:Show()
+					--spellLoadRows[rowNum].saveToPhaseButton:Show()
 				else
 					spellLoadRows[rowNum].saveToPhaseButton:Hide()
 				end
@@ -2644,6 +2645,7 @@ function CreateSpellCreatorInterfaceOptions()
 		["onClickHandler"] = nil,
 		}
 	SpellCreatorInterfaceOptions.panel.showTooltipsToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+	SpellCreatorInterfaceOptions.panel.showTooltipsToggle:Disable()
 
 	-- Debug Checkbox
 	local SpellCreatorInterfaceOptionsDebug = CreateFrame("CHECKBUTTON", "SC_DebugToggleOption", SpellCreatorInterfaceOptions.panel, "OptionsSmallCheckButtonTemplate")
