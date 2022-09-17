@@ -715,7 +715,8 @@ local function AddSpellRow()
 		
 		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND")
 		newRow.Background:SetAllPoints()
-		newRow.Background:SetColorTexture(0,0,0,0.25)
+		newRow.Background:SetTexture("Interface/AddOns/SpellCreator/assets/a_row_background")
+		--newRow.Background:SetColorTexture(0,0,0,0.25)
 		
 		-- main delay entry box
 		newRow.mainDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."MainDelayBox", newRow, "InputBoxTemplate")
@@ -1055,11 +1056,11 @@ SCForgeMainFrame.SpellInfoNameBox.enabledColor = HIGHLIGHT_FONT_COLOR
 SCForgeMainFrame.SpellInfoNameBox.Instructions:SetText(localization.SPELLNAME)
 SCForgeMainFrame.SpellInfoNameBox.Instructions:SetTextColor(0.5,0.5,0.5)
 SCForgeMainFrame.SpellInfoNameBox.Title = SCForgeMainFrame.SpellInfoNameBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-SCForgeMainFrame.SpellInfoNameBox.Title:SetText(NAME..":")
-SCForgeMainFrame.SpellInfoNameBox.Title:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoNameBox, "LEFT", -10, 0)
+SCForgeMainFrame.SpellInfoNameBox.Title:SetText(NAME)
+SCForgeMainFrame.SpellInfoNameBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoNameBox, "TOP", 0, 0)
 SCForgeMainFrame.SpellInfoNameBox:SetAutoFocus(false)
 SCForgeMainFrame.SpellInfoNameBox:SetSize(100,23)
-SCForgeMainFrame.SpellInfoNameBox:SetPoint("TOP", -100, -30)
+SCForgeMainFrame.SpellInfoNameBox:SetPoint("TOPLEFT", 110, -35)
 SCForgeMainFrame.SpellInfoNameBox:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
@@ -1081,11 +1082,11 @@ SCForgeMainFrame.SpellInfoCommandBox.enabledColor = HIGHLIGHT_FONT_COLOR
 SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetText(localization.SPELLCOMM)
 SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetTextColor(0.5,0.5,0.5)
 SCForgeMainFrame.SpellInfoCommandBox.Title = SCForgeMainFrame.SpellInfoCommandBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-SCForgeMainFrame.SpellInfoCommandBox.Title:SetText(COMMAND.." ("..ID.."):")
-SCForgeMainFrame.SpellInfoCommandBox.Title:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoCommandBox, "LEFT", -10, 0)
+SCForgeMainFrame.SpellInfoCommandBox.Title:SetText(COMMAND)
+SCForgeMainFrame.SpellInfoCommandBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoCommandBox, "TOP", 0, 0)
 SCForgeMainFrame.SpellInfoCommandBox:SetAutoFocus(false)
-SCForgeMainFrame.SpellInfoCommandBox:SetSize(100,23)
-SCForgeMainFrame.SpellInfoCommandBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoNameBox, "RIGHT", 120, 0)
+SCForgeMainFrame.SpellInfoCommandBox:SetSize(SCForgeMainFrame:GetWidth()/8,23)
+SCForgeMainFrame.SpellInfoCommandBox:SetPoint("TOP", 0, -35)
 SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
@@ -1100,10 +1101,44 @@ SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
+SCForgeMainFrame.SpellInfoNameBox:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoCommandBox, "LEFT", -10, 0)
+
+SCForgeMainFrame.SpellInfoDescBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
+SCForgeMainFrame.SpellInfoDescBox:SetFontObject(ChatFontNormal)
+SCForgeMainFrame.SpellInfoDescBox:SetMaxBytes(80)
+SCForgeMainFrame.SpellInfoDescBox.disabledColor = GRAY_FONT_COLOR
+SCForgeMainFrame.SpellInfoDescBox.enabledColor = HIGHLIGHT_FONT_COLOR
+SCForgeMainFrame.SpellInfoDescBox.Instructions:SetText("Description")
+SCForgeMainFrame.SpellInfoDescBox.Instructions:SetTextColor(0.5,0.5,0.5)
+SCForgeMainFrame.SpellInfoDescBox.Title = SCForgeMainFrame.SpellInfoDescBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
+SCForgeMainFrame.SpellInfoDescBox.Title:SetText("Description")
+SCForgeMainFrame.SpellInfoDescBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoDescBox, "TOP", 0, 0)
+SCForgeMainFrame.SpellInfoDescBox:SetAutoFocus(false)
+SCForgeMainFrame.SpellInfoDescBox:SetSize(100,23)
+SCForgeMainFrame.SpellInfoDescBox:SetPoint("TOPRIGHT", -20, -35)
+SCForgeMainFrame.SpellInfoDescBox:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Description", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("A short description of the spell.",1,1,1,true)
+		--GameTooltip:AddLine(" ",1,1,1,true)
+		--GameTooltip:AddLine("This is purely cosmetic.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+SCForgeMainFrame.SpellInfoDescBox:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+SCForgeMainFrame.SpellInfoDescBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoCommandBox, "RIGHT", 10, 0)
 
 -- Enable Tabing between editboxes
-SCForgeMainFrame.SpellInfoCommandBox.nextEditBox = SCForgeMainFrame.SpellInfoNameBox
 SCForgeMainFrame.SpellInfoNameBox.nextEditBox = SCForgeMainFrame.SpellInfoCommandBox
+SCForgeMainFrame.SpellInfoCommandBox.nextEditBox = SCForgeMainFrame.SpellInfoDescBox
+SCForgeMainFrame.SpellInfoDescBox.nextEditBox = SCForgeMainFrame.SpellInfoNameBox
+SCForgeMainFrame.SpellInfoDescBox.previousEditBox = SCForgeMainFrame.SpellInfoNameBox
+SCForgeMainFrame.SpellInfoNameBox.previousEditBox = SCForgeMainFrame.SpellInfoNameBox
+SCForgeMainFrame.SpellInfoNameBox.previousEditBox = SCForgeMainFrame.SpellInfoDescBox
 
 --- The Inner Frame
 local isDualBackgroundRequired = false
@@ -1235,6 +1270,7 @@ SCForgeMainFrame:SetScript("OnSizeChanged", function(self)
 		local ratio = newHeight/mainFrameSize.y
 		SCForgeLoadFrame:SetSize(280*ratio, self:GetHeight())
 	end
+	SCForgeMainFrame.SpellInfoCommandBox:SetSize(SCForgeMainFrame:GetWidth()/6,23)
 end)
 
 SCForgeMainFrame.AddSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
@@ -1560,9 +1596,16 @@ end
 local selectedVaultRow
 local function setSelectedVaultRow(rowID)
 	if rowID then
-		
+		selectedVaultRow = rowID
+		print(selectedVaultRow)
+		if C_Epsilon.IsOfficer() then
+			SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Enable()
+		else
+			SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
+		end
 	else
-		
+		selectedVaultRow = nil
+		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
 	end
 end
 
@@ -1596,6 +1639,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		savedSpellFromVault = SpellCreatorSavedSpells
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Hide()
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
+		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Show()
+		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
 		if next(savedSpellFromVault) == nil then
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty")
 		else
@@ -1606,6 +1651,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		currentVault = "PHASE"
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Disable()
+		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Hide()
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.20,0.40,0.50,0.5)
 		if fromPhaseDataLoaded then 
 			-- called from getSpellForgePhaseVault() - that means our saved spell from Vault is ready
@@ -1659,16 +1705,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				spellLoadRows[rowNum]:SetWidth(columnWidth-15)
 			end
 			spellLoadRows[rowNum]:SetHeight(loadRowHeight)
-			
-			spellLoadRows[rowNum]:SetScript("OnClick", function(self)
-				clearSpellLoadRadios(self)
-				if self:GetChecked() then
-					setSelectedVaultRow( )
-				else
-					setSelectedVaultRow(nil)
-				end
-			end)
-			
+						
 			-- A nice lil background to make them easier to tell apart			
 			spellLoadRows[rowNum].Background = spellLoadRows[rowNum]:CreateTexture(nil,"BACKGROUND")
 			spellLoadRows[rowNum].Background:SetPoint("TOPLEFT",-9,5)
@@ -1782,6 +1819,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum].spellName:SetText(v.fullName)
 			spellLoadRows[rowNum].loadButton.commID = k
 			spellLoadRows[rowNum].deleteButton.commID = k
+			spellLoadRows[rowNum].commID = k -- used in new Transfer to Phase Button
+			spellLoadRows[rowNum].rowID = rowNum
 			
 			spellLoadRows[rowNum].deleteButton:SetScript("OnClick", function(self)
 				deleteSpellConf(self.commID, currentVault)
@@ -1830,13 +1869,26 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				GameTooltip_Hide()
 				self.Timer:Cancel()
 			end)
+			spellLoadRows[rowNum]:SetScript("OnClick", function(self)
+				if IsModifiedClick("CHATLINK") then
+					ChatEdit_InsertLink(generateSpellChatLink(k, currentVault));
+					self:SetChecked(not self:GetChecked());
+					return;
+				end
+				clearSpellLoadRadios(self)
+				if self:GetChecked() then
+					setSelectedVaultRow(self.rowID)
+				else
+					setSelectedVaultRow(nil)
+				end
+			end)
+			--[[
 			spellLoadRows[rowNum]:SetScript("OnMouseDown", function(self)
 				if IsModifiedClick("CHATLINK") then
 					ChatEdit_InsertLink(generateSpellChatLink(k, currentVault))
 				end
 			end)
-			
-			
+			--]]
 		end
 		
 		-- Limit our Spell Name to 2 lines - but by downsizing the text instead of truncating..
@@ -2029,6 +2081,51 @@ SCForgeMainFrame.LoadSpellFrame.TitleBgColor = SCForgeMainFrame.LoadSpellFrame:C
 SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
 SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
 SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
+
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelButtonNoTooltipTemplate")
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetPoint("BOTTOM", 0, 3)
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetSize(24*5,24)
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetText("  Phase Vault")
+
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon = SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:CreateTexture(nil, "ARTWORK")
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture("interface/buttons/ui-microstream-green")
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexCoord(0,1,1,0)
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetPoint("TOPLEFT", 5, 0)
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetSize(24,24)
+
+
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnClick", function(self)
+	if selectedVaultRow then
+		print(selectedVaultRow)
+		commID = spellLoadRows[selectedVaultRow].commID
+		print(commID)
+		saveSpellToPhaseVault(commID)
+	end
+end)
+
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnDisable", function(self)
+	self.icon:SetDesaturated(true)
+end)
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnable", function(self)
+	self.icon:SetDesaturated(false)
+end)
+
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Transfer to Phase Vault.", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Transfer the spell to the Phase Vault.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnShow", function(self)
+	if not selectedVaultRow then self:Disable(); end
+end)
+
 
 SCForgeMainFrame.LoadSpellFrame:Hide()
 SCForgeMainFrame.LoadSpellFrame.Rows = {}
