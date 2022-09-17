@@ -2,6 +2,7 @@ local MYADDON, MyAddOn = ...
 local addonVersion, addonAuthor, addonName = GetAddOnMetadata(MYADDON, "Version"), GetAddOnMetadata(MYADDON, "Author"), GetAddOnMetadata(MYADDON, "Title")
 local addonColor = "|cff".."ce2eff" -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
 local addonMsgPrefix = "SCFORGE"
+local isAddonLoaded = false
 
 local localization = {}
 localization.SPELLNAME = STAT_CATEGORY_SPELL.." "..NAME
@@ -167,15 +168,17 @@ local isSavingOrLoadingPhaseAddonData = false
 local function isNotDefined(s)
 	return s == nil or s == '';
 end
-
+SpellCreatorMasterTable = {}
+SpellCreatorMasterTable.Options = {}
 local function SC_loadMasterTable()
-	if not SpellCreatorMasterTable then SpellCreatorMasterTable = {} end
-	if not SpellCreatorMasterTable.Options then SpellCreatorMasterTable.Options = {} end
+
 	if isNotDefined(SpellCreatorMasterTable.Options["debug"]) then SpellCreatorMasterTable.Options["debug"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["locked"]) then SpellCreatorMasterTable.Options["locked"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["minimapIcon"]) then SpellCreatorMasterTable.Options["minimapIcon"] = true end
 	if isNotDefined(SpellCreatorMasterTable.Options["mmLoc"]) then SpellCreatorMasterTable.Options["mmLoc"] = 2.7 end
 	if isNotDefined(SpellCreatorMasterTable.Options["showTooltips"]) then SpellCreatorMasterTable.Options["showTooltips"] = true end
+	if isNotDefined(SpellCreatorMasterTable.Options["biggerInputBox"]) then SpellCreatorMasterTable.Options["biggerInputBox"] = false end
+	if isNotDefined(SpellCreatorMasterTable.Options["showVaultOnShow"]) then SpellCreatorMasterTable.Options["showVaultOnShow"] = false end
 	
 	if not SpellCreatorSavedSpells then SpellCreatorSavedSpells = {} end
 end
@@ -798,15 +801,20 @@ local function AddSpellRow()
 		end)
 		
 		-- ID Entry Box (Input)
-		newRow.InputEntryBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."InputEntryBox", newRow, "InputBoxInstructionsTemplate")
-		--newRow.InputEntryScrollFrame = CreateFrame("ScrollFrame", "spellRow"..numberOfSpellRows.."InputEntryScrollFrame", newRow, "InputScrollFrameTemplate")
-		if newRow.InputEntryScrollFrame then 
+		if SpellCreatorMasterTable.Options["biggerInputBox"] == true then
+			newRow.InputEntryScrollFrame = CreateFrame("ScrollFrame", "spellRow"..numberOfSpellRows.."InputEntryScrollFrame", newRow, "InputScrollFrameTemplate")
 			newRow.InputEntryScrollFrame.CharCount:Hide()
 			newRow.InputEntryScrollFrame:SetSize(InputEntryColumnWidth,40)
 			newRow.InputEntryScrollFrame:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 25, 0)
 			newRow.InputEntryBox = newRow.InputEntryScrollFrame.EditBox
+			_G["spellRow"..numberOfSpellRows.."InputEntryBox"] = newRow.InputEntryBox
+			newRow.InputEntryBox:SetWidth(InputEntryColumnWidth-18)
+		else
+			newRow.InputEntryBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."InputEntryBox", newRow, "InputBoxInstructionsTemplate")
+			newRow.InputEntryBox:SetSize(InputEntryColumnWidth,23)
+			newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 25, 0)
 		end
-		_G["spellRow"..numberOfSpellRows.."InputEntryBox"] = newRow.InputEntryBox
+
 		newRow.InputEntryBox:SetFontObject(ChatFontNormal)
 		newRow.InputEntryBox.disabledColor = GRAY_FONT_COLOR
 		newRow.InputEntryBox.enabledColor = HIGHLIGHT_FONT_COLOR
@@ -816,11 +824,7 @@ local function AddSpellRow()
 		newRow.InputEntryBox.rowNumber = numberOfSpellRows
 		newRow.InputEntryBox:SetAutoFocus(false)
 		newRow.InputEntryBox:Disable()
-		newRow.InputEntryBox:SetWidth(InputEntryColumnWidth-18)
-		if not newRow.InputEntryScrollFrame then
-			newRow.InputEntryBox:SetSize(InputEntryColumnWidth,23)
-			newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 25, 0)
-		end
+
 		newRow.InputEntryBox:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			local row = self.rowNumber
@@ -959,6 +963,13 @@ SCForgeMainFrame:SetResizable(true)
 SCForgeMainFrame:EnableMouse(true)
 SCForgeMainFrame:SetClampedToScreen(true)
 SCForgeMainFrame:SetClampRectInsets(300, -300, 0, 500)
+SCForgeMainFrame:SetScript("OnShow", function(self)
+	if SpellCreatorMasterTable.Options["showVaultOnShow"] == true then
+		if not SCForgeMainFrame.LoadSpellFrame:IsShown() then
+			SCForgeMainFrame.LoadSpellFrame:Show()
+		end
+	end
+end)
 
 SCForgeMainFrame.TitleBgColor = SCForgeMainFrame:CreateTexture(nil, "BACKGROUND")
 SCForgeMainFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.TitleBg)
@@ -2052,24 +2063,6 @@ SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnEnable", functio
 	self:GetDisabledTexture():SetDesaturated(false)
 end)
 
---[[
-
-SCForgeMainFrame.SpellActionButton = CreateFrame("CHECKBUTTON", nil, SCForgeMainFrame, "MacroButtonTemplate")
-SCForgeMainFrame.SpellActionButton:SetPoint("center")
-SCForgeMainFrame.SpellActionButton:SetSize(14,14)
-SCForgeMainFrame.SpellActionButton:SetScript("OnClick", function(self)
-	self:SetChecked(false);
-	--PickupMacro()
-end)
---]]
-
-
--- Gen First Row, and a few since who's gonna want just one anyways
-
-AddSpellRow()
-AddSpellRow()
-AddSpellRow()
-AddSpellRow()
 
 -------------------------------------------------------------------------------
 -- Custom Chat Link Stuff
@@ -2335,9 +2328,10 @@ function CreateSpellCreatorInterfaceOptions()
 	SpellCreatorInterfaceOptionsHeader:SetPoint("TOPLEFT", 15, -15)
 	SpellCreatorInterfaceOptionsHeader:SetText(addonName.." v"..addonVersion.." by "..addonAuthor)
 		
+	
 	local scrollFrame = CreateFrame("ScrollFrame", nil, SpellCreatorInterfaceOptions.panel, "UIPanelScrollFrameTemplate")
-	scrollFrame:SetPoint("TOPLEFT", 3, -75)
-	scrollFrame:SetPoint("BOTTOMRIGHT", -30, 90)
+	scrollFrame:SetPoint("TOPLEFT", 3, -75*3)
+	scrollFrame:SetPoint("BOTTOMRIGHT", -30, 30)
 	
 	scrollFrame.backdrop = CreateFrame("FRAME", nil, scrollFrame)
 	scrollFrame.backdrop:SetPoint("TOPLEFT", scrollFrame, 3, 3)
@@ -2359,7 +2353,7 @@ function CreateSpellCreatorInterfaceOptions()
 	scrollFrame.Title = scrollFrame.backdrop:CreateFontString(nil,'ARTWORK')
 	scrollFrame.Title:SetFont(STANDARD_TEXT_FONT,12,'OUTLINE')
 	scrollFrame.Title:SetTextColor(1,1,1)
-	scrollFrame.Title:SetText("Spells")
+	scrollFrame.Title:SetText("Spell Forge")
 	scrollFrame.Title:SetPoint('TOP',scrollFrame.backdrop,0,5)
 
 	-- Create the scrolling child frame, set its width to fit, and give it an arbitrary minimum height (such as 1)
@@ -2371,60 +2365,101 @@ function CreateSpellCreatorInterfaceOptions()
 	-- Add widgets to the scrolling child frame as desired
 
 
---  -- Testing to force the scroll frame to have a bunch to scroll
+--[[  -- Testing/example to force the scroll frame to have a bunch to scroll
 	local footer = scrollChild:CreateFontString("ARTWORK", nil, "GameFontNormal")
 	footer:SetPoint("TOP", 0, -5000)
 	footer:SetText("This is 5000 below the top, so the scrollChild automatically expanded.")
 --]]
 	
+	local function genOptionsCheckbutton(buttonData, parent)
 	
-	local SpellCreatorInterfaceOptionsInventoryIDsList = SpellCreatorInterfaceOptions.panel:CreateFontString("Inventory Slot IDs", "OVERLAY", "GameFontNormalLeft")
-	SpellCreatorInterfaceOptionsInventoryIDsList:SetPoint("BOTTOMLEFT", 20, 70)
-	SpellCreatorInterfaceOptionsInventoryIDsList:SetText("Inventory Slot IDs:")
-	SpellListHorizontalSpacing = 160
-		local SpellCreatorInterfaceOptionsInventoryIDsListRow1 = SpellCreatorInterfaceOptions.panel:CreateFontString("SpellRow1","OVERLAY",SpellCreatorInterfaceOptionsInventoryIDsList)
-		SpellCreatorInterfaceOptionsInventoryIDsListRow1:SetPoint("TOPLEFT",SpellCreatorInterfaceOptionsInventoryIDsList,"BOTTOMLEFT",9,-15)
-		local SpellCreatorInterfaceOptionsInventoryIDsListRow2 = SpellCreatorInterfaceOptions.panel:CreateFontString("SpellRow2","OVERLAY",SpellCreatorInterfaceOptionsInventoryIDsListRow1)
-		SpellCreatorInterfaceOptionsInventoryIDsListRow2:SetPoint("TOPLEFT",SpellCreatorInterfaceOptionsInventoryIDsListRow1,"BOTTOMLEFT",0,-25)
-			local SpellCreatorInterfaceOptionsInventoryIDsListSpell1 = SpellCreatorInterfaceOptions.panel:CreateFontString("Spell1","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsInventoryIDsListSpell1:SetPoint("LEFT",SpellCreatorInterfaceOptionsInventoryIDsListRow1,"RIGHT",SpellListHorizontalSpacing*0,0)
-				SpellCreatorInterfaceOptionsInventoryIDsListSpell1:SetText("Head: 1      Shoulders: 2      Shirt: 4      Chest: 5      Waist: 6      Legs 6      Feet: 8      Wrist: 9")
-
-			local SpellCreatorInterfaceOptionsInventoryIDsListSpell4 = SpellCreatorInterfaceOptions.panel:CreateFontString("Spell4","OVERLAY","GameFontNormalLeft")
-				SpellCreatorInterfaceOptionsInventoryIDsListSpell4:SetPoint("LEFT",SpellCreatorInterfaceOptionsInventoryIDsListRow2,"RIGHT",SpellListHorizontalSpacing*0,0)
-				SpellCreatorInterfaceOptionsInventoryIDsListSpell4:SetText("Hands: 10      Back: 15      Main-hand: 16      Off-hand: 17      Ranged: 18      Tabard: 19 ")
-
-	--Minimap Icon Toggle
-	local SpellCreatorInterfaceOptionsMiniMapToggle = CreateFrame("CHECKBUTTON", "SC_ToggleMiniMapIconOption", SpellCreatorInterfaceOptions.panel, "InterfaceOptionsCheckButtonTemplate")
-	SC_ToggleMiniMapIconOption:SetPoint("TOPLEFT", 20, -40)
-	SC_ToggleMiniMapIconOptionText:SetText("Enable the Minimap Button / Icon")
-	SC_ToggleMiniMapIconOption:SetScript("OnShow", function(self)
-		if SpellCreatorMasterTable.Options["minimapIcon"] == true then
-			self:SetChecked(true)
+		--[[
+		local buttonData = {
+		["anchor"] = {point = , relativeTo = , relativePoint = , x = , y = ,}, 
+		["title"] = ,
+		["tooltipTitle"] = ,
+		["tooltipText"] = ,
+		["optionKey"] = ,
+		["onClickHandler"] = , -- extra OnClick function
+		["customOnLoad"] = , -- extra OnLoad function
+		}
+		--]]
+		button = CreateFrame("CHECKBUTTON", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+		if buttonData.anchor.relativePoint then
+			button:SetPoint(buttonData.anchor.point, buttonData.anchor.relativeTo, buttonData.anchor.relativePoint, buttonData.anchor.x, buttonData.anchor.y)
 		else
-			self:SetChecked(false)
+			button:SetPoint(buttonData.anchor.point, buttonData.anchor.x, buttonData.anchor.y)
 		end
-	end)
-	SC_ToggleMiniMapIconOption:SetScript("OnClick", function(self)
-		SpellCreatorMasterTable.Options["minimapIcon"] = not SpellCreatorMasterTable.Options["minimapIcon"]
-		if SpellCreatorMasterTable.Options["minimapIcon"] then
-			minimapButton:Show()
-		else
-			minimapButton:Hide()
-		end
-	end)
-	SC_ToggleMiniMapIconOption:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText("Toggle the mini map icon on / off.", nil, nil, nil, nil, true)
-			GameTooltip:Show()
+		button.Text:SetText(buttonData.title)
+		button:SetScript("OnShow", function(self)
+			if SpellCreatorMasterTable.Options[buttonData.optionKey] == true then
+				self:SetChecked(true)
+			else
+				self:SetChecked(false)
+			end
 		end)
-	end)
-	SC_ToggleMiniMapIconOption:SetScript("OnLeave", function(self)
-		GameTooltip_Hide()
-		self.Timer:Cancel()
-	end)
+		button:SetScript("OnClick", function(self)
+			SpellCreatorMasterTable.Options[buttonData.optionKey] = not SpellCreatorMasterTable.Options[buttonData.optionKey]
+			if buttonData.onClickHandler then buttonData.onClickHandler(button); end
+		end)
+		
+		
+		button:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			self.Timer = C_Timer.NewTimer(0.7,function()
+				GameTooltip:SetText(buttonData.tooltipTitle, nil, nil, nil, nil, true)
+				if buttonData.tooltipText then
+					GameTooltip:AddLine(buttonData.tooltipText, 1,1,1,1 )
+				end
+				GameTooltip:Show()
+			end)
+		end)
+		button:SetScript("OnLeave", function(self)
+			GameTooltip_Hide()
+			self.Timer:Cancel()
+		end)
+		if SpellCreatorMasterTable.Options[buttonData.optionKey] == true then -- handle default checking of the box
+			button:SetChecked(true)
+		else
+			button:SetChecked(false)
+		end
+		if buttonData.customOnLoad then buttonData.customOnLoad(); end
+		return button;
+	end
 	
+	--Minimap Icon Toggle
+	local buttonData = {
+		["anchor"] = {point = "TOPLEFT", relativeTo = nil, relativePoint = nil, x = 20, y = -40,}, 
+		["title"] = "Enable Minimap Button",
+		["tooltipTitle"] = "Enable Minimap Button",
+		["tooltipText"] = nil,
+		["optionKey"] = "minimapIcon",
+		["onClickHandler"] = function(self) if SpellCreatorMasterTable.Options["minimapIcon"] then minimapButton:Show() else minimapButton:Hide() end end,
+		}
+	SpellCreatorInterfaceOptions.panel.MinimapIconToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+	
+	local buttonData = {
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.MinimapIconToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
+		["title"] = "Use Larger Scrollable Input Box",
+		["tooltipTitle"] = "Use Larger Input Box.",
+		["tooltipText"] = "Switches the 'Input' entry box with a larger, scrollable editbox.\n\rRequires /reload to take affect after changing it.",
+		["optionKey"] = "biggerInputBox",
+		["onClickHandler"] = nil,
+		}
+	SpellCreatorInterfaceOptions.panel.BiggerInputBoxToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+	
+	local buttonData = {
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.BiggerInputBoxToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
+		["title"] = "AutoShow Vault",
+		["tooltipTitle"] = "AutpShow Vault",
+		["tooltipText"] = "Automatically show the Vault when you open the Forge.",
+		["optionKey"] = "showVaultOnShow",
+		["onClickHandler"] = nil,
+		}
+	SpellCreatorInterfaceOptions.panel.showVaultToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+
+
+	-- Debug Checkbox
 	local SpellCreatorInterfaceOptionsDebug = CreateFrame("CHECKBUTTON", "SC_DebugToggleOption", SpellCreatorInterfaceOptions.panel, "OptionsSmallCheckButtonTemplate")
 	SC_DebugToggleOption:SetPoint("BOTTOMRIGHT", 0, 0)
 	SC_DebugToggleOption:SetHitRectInsets(-35,0,0,0)
@@ -2530,7 +2565,7 @@ SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
 	end
 	
 	if event == "ADDON_LOADED" and name == "SpellCreator" then
-				
+		isAddonLoaded = true
 		SC_loadMasterTable();
 		LoadMinimapPosition();
 		aceCommInit()
@@ -2559,7 +2594,12 @@ SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
 		
 		CreateSpellCreatorInterfaceOptions()
 		
-		if SpellCreatorMasterTable.Options["minimapIcon"] then SC_ToggleMiniMapIconOption:SetChecked(true) end
+		--if SpellCreatorMasterTable.Options["minimapIcon"] then SpellCreatorInterfaceOptions.panel.MinimapIconToggle:SetChecked(true) end
+		
+		-- Gen the first few spell rows
+		AddSpellRow()
+		AddSpellRow()
+		AddSpellRow()
 		
 	end
 end);
