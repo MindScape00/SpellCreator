@@ -657,6 +657,8 @@ end
 local function generateSpellChatLink(commID, vaultType)
 	local spellName = savedSpellFromVault[commID].fullName
 	local spellComm = savedSpellFromVault[commID].commID
+	local spellDesc = savedSpellFromVault[commID].description
+	if spellDesc == nil then spellDesc = "" end
 	local charOrPhase
 	if vaultType == "PHASE" then
 		charOrPhase = C_Epsilon.GetPhaseId()
@@ -664,7 +666,7 @@ local function generateSpellChatLink(commID, vaultType)
 		charOrPhase = GetUnitName("player",false)
 	end
 	local numActions = #savedSpellFromVault[commID].actions
-	local chatLink = addonColor.."|HarcSpell:"..spellComm..":"..charOrPhase..":"..spellName..":"..numActions.."|h["..spellName.."]|h|r"
+	local chatLink = addonColor.."|HarcSpell:"..spellComm..":"..charOrPhase..":"..spellName..":"..numActions..":"..spellDesc.."|h["..spellName.."]|h|r"
 	return chatLink;
 end
 
@@ -1051,6 +1053,7 @@ SCForgeMainFrame.DragBar:SetScript("OnDragStop", function(self)
 -- The top bar Spell Info Boxes - Needs some placement love later..
 SCForgeMainFrame.SpellInfoNameBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
 SCForgeMainFrame.SpellInfoNameBox:SetFontObject(ChatFontNormal)
+SCForgeMainFrame.SpellInfoNameBox:SetMaxBytes(80)
 SCForgeMainFrame.SpellInfoNameBox.disabledColor = GRAY_FONT_COLOR
 SCForgeMainFrame.SpellInfoNameBox.enabledColor = HIGHLIGHT_FONT_COLOR
 SCForgeMainFrame.SpellInfoNameBox.Instructions:SetText(localization.SPELLNAME)
@@ -1858,7 +1861,11 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum]:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Spell: "..v.fullName, nil, nil, nil, nil, true)
+					GameTooltip:SetText(v.fullName, nil, nil, nil, nil, true)
+					if v.description then
+						GameTooltip:AddLine(v.description, 1, 1, 1, 1)
+					end
+					GameTooltip:AddLine(" ", 1, 1, 1, 1)
 					GameTooltip:AddLine("Command: '/sf "..v.commID.."'", 1, 1, 1, 1)
 					GameTooltip:AddLine("Actions: "..#v.actions, 1, 1, 1, 1)
 					GameTooltip:AddLine(" ", 1, 1, 1, 1)
@@ -1938,6 +1945,7 @@ local function saveSpell(mousebutton)
 	local newSpellData = {}
 	newSpellData.commID = SCForgeMainFrame.SpellInfoCommandBox:GetText()
 	newSpellData.fullName = SCForgeMainFrame.SpellInfoNameBox:GetText()
+	newSpellData.description = SCForgeMainFrame.SpellInfoDescBox:GetText()
 	newSpellData.actions = {}
 	if isNotDefined(newSpellData.fullName) or isNotDefined(newSpellData.commID) then
 		cprint("Spell Name and/or Spell Command cannot be blank.")
@@ -2292,19 +2300,21 @@ function ChatFrame_OnHyperlinkShow(...)
 	if IsModifiedClick() then return end
 	local linkType, linkData, displayText = LinkUtil.ExtractLink(select(3, ...))
 	if linkType == "arcSpell" then
-		spellComm, charName, spellName, numActions = strsplit(":", linkData)
+		spellComm, charOrPhase, spellName, numActions, spellDesc = strsplit(":", linkData)
 		GameTooltip_SetTitle(ItemRefTooltip, addonColor..spellName)
-		ItemRefTooltip:AddDoubleLine( "Arcanum Spell", charName, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75 )
-		ItemRefTooltip:AddLine("Command: "..spellComm, 1, 1, 1, 1)
-		ItemRefTooltip:AddLine("Actions: "..numActions, 1, 1, 1, 1 )
+		ItemRefTooltip:AddLine(spellDesc, nil, nil, nil, true)
 		ItemRefTooltip:AddLine(" ")
+		ItemRefTooltip:AddDoubleLine("Command: "..spellComm, "Actions: "..numActions, 1, 1, 1, 1, 1, 1)
+		ItemRefTooltip:AddDoubleLine( "Arcanum Spell", charOrPhase, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75 )
+		--ItemRefTooltip:AddLine("Actions: "..numActions, 1, 1, 1, 1 )
+		--ItemRefTooltip:AddLine(" ")
 			CTimerAfter(0, function()
 				local button
-				if tonumber(charName) then -- is a phase, not a character
-					if charName == "169" then
+				if tonumber(charOrPhase) then -- is a phase, not a character
+					if charOrPhase == "169" then
 						ItemRefTooltip:AddLine("Get it from the Main Phase Vault")
 					else
-						ItemRefTooltip:AddLine("Get it from Phase "..charName.."'s Vault")
+						ItemRefTooltip:AddLine("Get it from Phase "..charOrPhase.."'s Vault")
 					end
 				else
 					if SCForgeSpellRefTooltipButton then
@@ -2318,7 +2328,7 @@ function ChatFrame_OnHyperlinkShow(...)
 					end
 					button:SetHeight(GameTooltip_InsertFrame(ItemRefTooltip, button))
 					button:SetPoint("RIGHT", -10, 0)
-					button.playerName = charName
+					button.playerName = charOrPhase
 					button.commID = spellComm
 				end
 				--
