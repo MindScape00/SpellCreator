@@ -93,12 +93,12 @@ end
 local function dprint(force, text, ...)
 	if text then
 		if force == true or SpellCreatorMasterTable.Options["debug"] then
-			if not ... then ... = "" end
+			local rest = ... or ""
 			local line = strmatch(debugstack(2),":(%d+):")
 			if line then
-				print(addonColor..addonName.." DEBUG "..line..": "..text, ..., " |r")
+				print(addonColor..addonName.." DEBUG "..line..": "..text, rest, " |r")
 			else
-				print(addonColor..addonName.." DEBUG: "..text, ...," |r")
+				print(addonColor..addonName.." DEBUG: "..text, rest, " |r")
 				print(debugstack(2))
 			end
 		end
