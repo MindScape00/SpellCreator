@@ -786,12 +786,6 @@ local function AddSpellRow()
 		newRow.SelfCheckbox:SetPoint("LEFT", newRow.actionSelectButton, "RIGHT", 0, 2)
 		newRow.SelfCheckbox:Disable()
 		newRow.SelfCheckbox:SetMotionScriptsWhileDisabled(true)
-		newRow.SelfCheckbox:SetScript("OnShow", function(self)
-
-		end)
-		newRow.SelfCheckbox:SetScript("OnClick", function(self)
-
-		end)
 		newRow.SelfCheckbox:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			self.Timer = C_Timer.NewTimer(0.7,function()
@@ -1601,7 +1595,6 @@ local selectedVaultRow
 local function setSelectedVaultRow(rowID)
 	if rowID then
 		selectedVaultRow = rowID
-		print(selectedVaultRow)
 		if C_Epsilon.IsOfficer() then
 			SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Enable()
 		else
@@ -2095,7 +2088,7 @@ SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelButtonNoTooltipTemplate")
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetPoint("BOTTOM", 0, 3)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetSize(24*5,24)
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetText("  Phase Vault")
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetText("   Phase Vault")
 
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon = SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:CreateTexture(nil, "ARTWORK")
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture("interface/buttons/ui-microstream-green")
@@ -2106,9 +2099,9 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetSize(24,24)
 
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnClick", function(self)
 	if selectedVaultRow then
-		print(selectedVaultRow)
+		--print(selectedVaultRow)
 		commID = spellLoadRows[selectedVaultRow].commID
-		print(commID)
+		--print(commID)
 		saveSpellToPhaseVault(commID)
 	end
 end)
@@ -2722,11 +2715,11 @@ SC_Addon_Listener:RegisterEvent("SCENARIO_UPDATE")
 SC_Addon_Listener:RegisterEvent("UI_ERROR_MESSAGE");
 SC_Addon_Listener:RegisterEvent("GOSSIP_SHOW");
 
-C_Epsilon.IsDM = false
+if not C_Epsilon.IsDM then C_Epsilon.IsDM = false end
 SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 	-- Phase Change Listener
 	if event == "SCENARIO_UPDATE" then -- SCENARIO_UPDATE fires whenever a phase change occurs. Lucky us.
-		--dprint("Caught Phase Change - Refreshing Load Rows & Checking for Main Phase / Start") -- Commented out for performance.
+		dprint("Caught Phase Change - Refreshing Load Rows & Checking for Main Phase / Start") -- Commented out for performance.
 		isSavingOrLoadingPhaseAddonData = false
 		C_Epsilon.IsDM = false
 		updateSpellLoadRows();
@@ -2741,7 +2734,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		
 	-- Addon Loaded Handler
 	elseif event == "ADDON_LOADED" and name == "SpellCreator" then
-		isAddonLoaded = true
+
 		SC_loadMasterTable();
 		LoadMinimapPosition();
 		aceCommInit()
@@ -2772,13 +2765,13 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		end
 		
 		CreateSpellCreatorInterfaceOptions()
-		
-		--if SpellCreatorMasterTable.Options["minimapIcon"] then SpellCreatorInterfaceOptions.panel.MinimapIconToggle:SetChecked(true) end
-		
+				
 		-- Gen the first few spell rows
 		AddSpellRow()
 		AddSpellRow()
 		AddSpellRow()
+		
+		isAddonLoaded = true
 
 	-- Phase DM Toggle Listener
 	elseif event == "UI_ERROR_MESSAGE" then
