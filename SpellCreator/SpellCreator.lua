@@ -2684,50 +2684,6 @@ function updateSCInterfaceOptions()
 end
 
 -------------------------------------------------------------------------------
--- Gossip Hook
--------------------------------------------------------------------------------
-
-local isPhaseDMOn
-local gossipListener = CreateFrame("frame")
-gossipListener:RegisterEvent("GOSSIP_SHOW");
-gossipListener:RegisterEvent("UI_ERROR_MESSAGE");
---gossipListener:RegisterEvent("GOSSIP_CLOSED");
-gossipListener:SetScript("OnEvent", function(self, event, ...)
-	if event == "UI_ERROR_MESSAGE" then
-		local errType, msg = ...
-		if msg=="DM mode is ON" then isPhaseDMOn = true; dprint("DM Mode On");
-		elseif msg=="DM mode is OFF" then isPhaseDMOn = false; dprint("DM Mode Off");
-		end
-
-	elseif event == "GOSSIP_SHOW" then
-		for i = 1, GetNumGossipOptions() do
-			--[[	-- Doesn't appear this is needed
-			_G["GossipTitleButton" .. i]:SetScript("OnClick", function()
-				SelectGossipOption(i)
-			end)
-			--]] 
-		local titleButtonText = _G["GossipTitleButton" .. i]:GetText();
-			if i == 1 and titleButtonText == "<arcanum_auto>" then
-				if isPhaseDMOn and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
-					_G["GossipTitleButton" .. i]:SetText("<arcanum_auto> :: DM Mode");
-					_G["GossipTitleButton" .. i]:SetScript("OnClick", scforge_showhide)
-				else
-					CloseGossip();
-					scforge_showhide();
-				end
-			elseif titleButtonText:match("<arcanum_toggle>") then
-					if not(isPhaseDMOn and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
-						_G["GossipTitleButton" .. i]:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
-					end
-					_G["GossipTitleButton" .. i]:SetScript("OnClick", scforge_showhide)
-			end
-		end
-	--elseif event == "GOSSIP_CLOSED" then
-		
-	end
-end)
-
--------------------------------------------------------------------------------
 -- Addon Loaded & Communication
 -------------------------------------------------------------------------------
 local lockTimer
@@ -2760,14 +2716,19 @@ local function aceCommInit()
 end
 
 
-local SC_Addon_OnLoad = CreateFrame("frame");
-SC_Addon_OnLoad:RegisterEvent("ADDON_LOADED");
-SC_Addon_OnLoad:RegisterEvent("SCENARIO_UPDATE")
+local SC_Addon_Listener = CreateFrame("frame");
+SC_Addon_Listener:RegisterEvent("ADDON_LOADED");
+SC_Addon_Listener:RegisterEvent("SCENARIO_UPDATE")
+SC_Addon_Listener:RegisterEvent("UI_ERROR_MESSAGE");
+SC_Addon_Listener:RegisterEvent("GOSSIP_SHOW");
 
-SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
-	if event == "SCENARIO_UPDATE" then
-		dprint("Caught Phase Change - Refreshing Load Rows & Checking for Main Phase / Start")
+C_Epsilon.IsDM = false
+SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
+	-- Phase Change Listener
+	if event == "SCENARIO_UPDATE" then -- SCENARIO_UPDATE fires whenever a phase change occurs. Lucky us.
+		--dprint("Caught Phase Change - Refreshing Load Rows & Checking for Main Phase / Start") -- Commented out for performance.
 		isSavingOrLoadingPhaseAddonData = false
+		C_Epsilon.IsDM = false
 		updateSpellLoadRows();
 		
 		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then 
@@ -2777,9 +2738,9 @@ SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
 		end
 		
 		return;
-	end
-	
-	if event == "ADDON_LOADED" and name == "SpellCreator" then
+		
+	-- Addon Loaded Handler
+	elseif event == "ADDON_LOADED" and name == "SpellCreator" then
 		isAddonLoaded = true
 		SC_loadMasterTable();
 		LoadMinimapPosition();
@@ -2818,8 +2779,42 @@ SC_Addon_OnLoad:SetScript("OnEvent", function(self,event,name)
 		AddSpellRow()
 		AddSpellRow()
 		AddSpellRow()
+
+	-- Phase DM Toggle Listener
+	elseif event == "UI_ERROR_MESSAGE" then
+		local errType, msg = name, ...
+		if msg=="DM mode is ON" then C_Epsilon.IsDM = true; dprint("DM Mode On");
+			elseif msg=="DM mode is OFF" then C_Epsilon.IsDM = false; dprint("DM Mode Off");
+		end
+
+	-- Gossip Menu Listener
+	elseif event == "GOSSIP_SHOW" then
+		for i = 1, GetNumGossipOptions() do
+			--[[	-- Doesn't appear this is needed
+			_G["GossipTitleButton" .. i]:SetScript("OnClick", function()
+				SelectGossipOption(i)
+			end)
+			--]] 
+		local titleButtonText = _G["GossipTitleButton" .. i]:GetText();
+			if i == 1 and titleButtonText == "<arcanum_auto>" then
+				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
+					_G["GossipTitleButton" .. i]:SetText("<arcanum_auto> :: DM Mode");
+					_G["GossipTitleButton" .. i]:SetScript("OnClick", scforge_showhide)
+				else
+					CloseGossip();
+					scforge_showhide();
+				end
+			elseif titleButtonText:match("<arcanum_toggle>") then
+					if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
+						_G["GossipTitleButton" .. i]:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
+					end
+					_G["GossipTitleButton" .. i]:SetScript("OnClick", scforge_showhide)
+			end
+		end
+	--elseif event == "GOSSIP_CLOSED" then
 		
 	end
+
 end);
 -------------------------------------------------------------------------------
 -- Version / Help / Toggle
