@@ -1400,6 +1400,7 @@ local function loadSpell(spellToLoad)
 	
 	SCForgeMainFrame.SpellInfoCommandBox:SetText(spellToLoad.commID)
 	SCForgeMainFrame.SpellInfoNameBox:SetText(spellToLoad.fullName)
+	if spellToLoad.description then SCForgeMainFrame.SpellInfoDescBox:SetText(spellToLoad.description) end
 	
 	numberOfActionsToLoad = #spellToLoad.actions
 	
