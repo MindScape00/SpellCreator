@@ -756,7 +756,6 @@ local function AddSpellRow()
 		
 		for i = 1, #actionTypeDataList do
 			local v = actionTypeDataList[i]
---		for k,v in ipairs(actionTypeDataList) do
 			local menuItem = UIDropDownMenu_CreateInfo()
 			menuItem.text = actionTypeData[v].name
 			menuItem.checked = false
@@ -1002,7 +1001,7 @@ SCForgeMainFrame.SettingsButton:SetScript("OnEnable", function(self)
 end)
 
 
---NineSliceUtil.ApplyLayout(SCForgeMainFrame, "BFAMissionAlliance")
+--NineSliceUtil.ApplyLayout(SCForgeMainFrame, "BFAMissionAlliance") -- You can use this to apply other nine-slice templates to a nine-slice frame. We want a custom Nine-Slice tho so below is my application of it.
 
 local myNineSliceFile_corners = "interface/addons/SpellCreator/assets/frame_border_corners"
 local myNineSliceFile_vert = "interface/addons/SpellCreator/assets/frame_border_vertical"
@@ -1010,7 +1009,7 @@ local myNineSliceFile_horz = "interface/addons/SpellCreator/assets/frame_border_
 local newNineSliceOverride = {
     TopLeftCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.263672, txb = 0.521484, }, --0.263672, 0.521484, 0.263672, 0.521484
     --TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.263672, txb = 0.521484, }, -- 0.00195312, 0.259766, 0.263672, 0.521484
-	TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.525391, txb = 0.783203, }, -- 0.00195312, 0.259766, 0.525391, 0.783203 -- this is the double one
+	TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.525391, txb = 0.783203, }, -- 0.00195312, 0.259766, 0.525391, 0.783203 -- this is the double button one in the top right corner.
     BottomLeftCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.00195312, txb = 0.259766, }, -- 0.00195312, 0.259766, 0.00195312, 0.259766
     BottomRightCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.00195312, txb = 0.259766, }, -- 0.263672, 0.521484, 0.00195312, 0.259766
     TopEdge = { tex = myNineSliceFile_horz, txl = 0, txr = 1, txt = 0.263672, txb = 0.521484, }, -- 0, 1, 0.263672, 0.521484
@@ -1023,8 +1022,8 @@ for k,v in pairs(newNineSliceOverride) do
 	SCForgeMainFrame.NineSlice[k]:SetTexCoord(v.txl, v.txr, v.txt, v.txb)
 end
 
---SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)] -- Old Random Icon Stuff
---SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait)
+--local SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)] -- Old Random Icon Stuff
+--SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait) -- Switched to using our version.
 SCForgeMainFrame.portrait:SetTexture("Interface/AddOns/SpellCreator/assets/arcanum_icon")
 SCForgeMainFrame.portrait.mask = SCForgeMainFrame:CreateMaskTexture()
 SCForgeMainFrame.portrait.mask:SetAllPoints(SCForgeMainFrame.portrait)
