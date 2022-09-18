@@ -1738,7 +1738,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 			-- Make the Spell Name Text
 			spellLoadRows[rowNum].spellName = spellLoadRows[rowNum]:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
-			spellLoadRows[rowNum].spellName:SetWidth(columnWidth/2)
+			spellLoadRows[rowNum].spellName:SetWidth(columnWidth*2/3)
 			spellLoadRows[rowNum].spellName:SetJustifyH("LEFT")
 			spellLoadRows[rowNum].spellName:SetPoint("LEFT", 1, 0)
 			spellLoadRows[rowNum].spellName:SetText(v.fullName) -- initial text, reset later when it needs updated
