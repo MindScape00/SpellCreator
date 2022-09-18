@@ -1053,7 +1053,7 @@ SCForgeMainFrame.DragBar:SetScript("OnDragStop", function(self)
 -- The top bar Spell Info Boxes - Needs some placement love later..
 SCForgeMainFrame.SpellInfoNameBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
 SCForgeMainFrame.SpellInfoNameBox:SetFontObject(ChatFontNormal)
-SCForgeMainFrame.SpellInfoNameBox:SetMaxBytes(80)
+SCForgeMainFrame.SpellInfoNameBox:SetMaxBytes(60)
 SCForgeMainFrame.SpellInfoNameBox.disabledColor = GRAY_FONT_COLOR
 SCForgeMainFrame.SpellInfoNameBox.enabledColor = HIGHLIGHT_FONT_COLOR
 SCForgeMainFrame.SpellInfoNameBox.Instructions:SetText(localization.SPELLNAME)
@@ -1079,7 +1079,7 @@ end)
 
 SCForgeMainFrame.SpellInfoCommandBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
 SCForgeMainFrame.SpellInfoCommandBox:SetFontObject(ChatFontNormal)
-SCForgeMainFrame.SpellInfoCommandBox:SetMaxBytes(80)
+SCForgeMainFrame.SpellInfoCommandBox:SetMaxBytes(40)
 SCForgeMainFrame.SpellInfoCommandBox.disabledColor = GRAY_FONT_COLOR
 SCForgeMainFrame.SpellInfoCommandBox.enabledColor = HIGHLIGHT_FONT_COLOR
 SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetText(localization.SPELLCOMM)
@@ -1108,7 +1108,7 @@ SCForgeMainFrame.SpellInfoNameBox:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoCo
 
 SCForgeMainFrame.SpellInfoDescBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
 SCForgeMainFrame.SpellInfoDescBox:SetFontObject(ChatFontNormal)
-SCForgeMainFrame.SpellInfoDescBox:SetMaxBytes(80)
+SCForgeMainFrame.SpellInfoDescBox:SetMaxBytes(100)
 SCForgeMainFrame.SpellInfoDescBox.disabledColor = GRAY_FONT_COLOR
 SCForgeMainFrame.SpellInfoDescBox.enabledColor = HIGHLIGHT_FONT_COLOR
 SCForgeMainFrame.SpellInfoDescBox.Instructions:SetText("Description")
