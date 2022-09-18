@@ -90,18 +90,20 @@ local function cprint(text)
 	print(addonColor..addonName..": "..(text and text or "ERROR").."|r")
 end
 
-local function dprint(force, text, rest)
-	local line = strmatch(debugstack(2),":(%d+):")
+local function dprint(force, text, ...)
 	if text then
 		if force == true or SpellCreatorMasterTable.Options["debug"] then
+			if not ... then ... = "" end
+			local line = strmatch(debugstack(2),":(%d+):")
 			if line then
-				print(addonColor..addonName.." DEBUG "..line..": "..text..(rest and " | "..rest or "").." |r")
+				print(addonColor..addonName.." DEBUG "..line..": "..text, ..., " |r")
 			else
-				print(addonColor..addonName.." DEBUG: "..text..(rest and " | "..rest or "").." |r")
+				print(addonColor..addonName.." DEBUG: "..text, ...," |r")
 				print(debugstack(2))
 			end
 		end
 	elseif SpellCreatorMasterTable.Options["debug"] then
+		local line = strmatch(debugstack(2),":(%d+):")
 		if line then
 			print(addonColor..addonName.." DEBUG "..line..": "..force.." |r")
 		else
@@ -1464,7 +1466,7 @@ local function getSpellForgePhaseVault(callback)
 			if (#text < 1 or text == "") then noSpellsToLoad(); return; end
 			phaseVaultKeys = serialDecompressForAddonMsg(text)
 			if #phaseVaultKeys < 1 then noSpellsToLoad(); return; end
-			dprint("Phase spell keys: "..dump(phaseVaultKeys))
+			--dprint("Phase spell keys: "..dump(phaseVaultKeys))
 			local phaseVaultLoadingCount = 0
 			
 			local messageTicketQueue = {}
