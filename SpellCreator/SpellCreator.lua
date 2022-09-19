@@ -853,9 +853,6 @@ local function AddSpellRow()
 		newRow.RevertCheckbox.RowID = numberOfSpellRows
 		newRow.RevertCheckbox:Disable()
 		newRow.RevertCheckbox:SetMotionScriptsWhileDisabled(true)
-		newRow.RevertCheckbox:SetScript("OnShow", function(self)
-
-		end)
 		newRow.RevertCheckbox:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			self.Timer = C_Timer.NewTimer(0.7,function()
@@ -969,7 +966,12 @@ SCForgeMainFrame:SetScript("OnShow", function(self)
 			SCForgeMainFrame.LoadSpellFrame:Show()
 		end
 	end
+	self:Raise()
 end)
+SCForgeMainFrame:SetScript("OnMouseDown", function(self)
+	self:Raise()
+end)
+
 
 SCForgeMainFrame.TitleBgColor = SCForgeMainFrame:CreateTexture(nil, "BACKGROUND")
 SCForgeMainFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.TitleBg)
@@ -1038,6 +1040,9 @@ SCForgeMainFrame.DragBar:SetPoint("TOPLEFT")
 SCForgeMainFrame.DragBar:SetSize(mainFrameSize.x, 20)
 SCForgeMainFrame.DragBar:EnableMouse(true)
 SCForgeMainFrame.DragBar:RegisterForDrag("LeftButton")
+SCForgeMainFrame.DragBar:SetScript("OnMouseDown", function(self)
+    self:GetParent():Raise()
+  end)
 SCForgeMainFrame.DragBar:SetScript("OnDragStart", function(self)
     self:GetParent():StartMoving()
   end)
