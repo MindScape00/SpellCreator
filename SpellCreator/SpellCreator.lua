@@ -957,6 +957,7 @@ SCForgeMainFrame:SetMaxResize(mainFrameSize.Xmax, mainFrameSize.Ymax)
 SCForgeMainFrame:SetMinResize(mainFrameSize.Xmin, mainFrameSize.Ymin)
 SCForgeMainFrame:SetMovable(true)
 SCForgeMainFrame:SetResizable(true)
+SCForgeMainFrame:SetToplevel(true);
 SCForgeMainFrame:EnableMouse(true)
 SCForgeMainFrame:SetClampedToScreen(true)
 SCForgeMainFrame:SetClampRectInsets(300, -300, 0, 500)
