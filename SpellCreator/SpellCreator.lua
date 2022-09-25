@@ -41,7 +41,6 @@ local function serialDecompressForAddonMsg(str)
 	return str;
 end
 
-local clearSpellOnRowRemoved = false
 local vaultStyle = 2	-- 1 = pop-up window, 2 = attached tray
 
 local sfCmd_ReplacerChar = "@N@"
@@ -181,6 +180,7 @@ local function SC_loadMasterTable()
 	if isNotDefined(SpellCreatorMasterTable.Options["showTooltips"]) then SpellCreatorMasterTable.Options["showTooltips"] = true end
 	if isNotDefined(SpellCreatorMasterTable.Options["biggerInputBox"]) then SpellCreatorMasterTable.Options["biggerInputBox"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["showVaultOnShow"]) then SpellCreatorMasterTable.Options["showVaultOnShow"] = false end
+	if isNotDefined(SpellCreatorMasterTable.Options["clearRowOnRemove"]) then SpellCreatorMasterTable.Options["clearRowOnRemove"] = false end
 	
 	if not SpellCreatorSavedSpells then SpellCreatorSavedSpells = {} end
 end
@@ -680,7 +680,7 @@ local function RemoveSpellRow()
 	if numberOfSpellRows <= 1 then return; end
 	_G["spellRow"..numberOfSpellRows]:Hide()
 	
-	if clearSpellOnRowRemoved then
+	if SpellCreatorMasterTable.Options["clearRowOnRemove"] then
 		_G["spellRow"..numberOfSpellRows.."MainDelayBox"]:SetText("")
 		
 		for k,v in pairs(_G["spellRow"..numberOfSpellRows].menuList) do
@@ -942,7 +942,7 @@ function updateSpellRowOptions(row, selectedAction)
 	else
 		_G["spellRow"..row.."SelectedAction"] = nil
 		_G["spellRow"..row.."SelfCheckbox"]:Disable()
-		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("...")
+		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("select an action...")
 		_G["spellRow"..row.."InputEntryBox"]:Disable()
 		_G["spellRow"..row.."RevertCheckbox"]:Disable();
 		_G["spellRow"..row.."RevertDelayBox"]:Disable()
@@ -2649,6 +2649,16 @@ function CreateSpellCreatorInterfaceOptions()
 
 	local buttonData = {
 		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.showVaultToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
+		["title"] = "Clear Action Data when Removing Row",
+		["tooltipTitle"] = "Clear Action Data when Removing Row",
+		["tooltipText"] = "When an Action Row is removed using the |cffFFAAAA—|r button, the data is wiped. If off, you can use the |cff00AAFF+|r button and the data will still be there again.",
+		["optionKey"] = "clearRowOnRemove",
+		["onClickHandler"] = nil,
+		}
+	SpellCreatorInterfaceOptions.panel.clearRowOnRemoveToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+
+	local buttonData = {
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.clearRowOnRemoveToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
 		["title"] = "Show Tooltips",
 		["tooltipTitle"] = "Show Tooltips",
 		["tooltipText"] = "Show Tooltips when you mouse-over UI elements like buttons, editboxes, and spells in the vault, just like this one!",
