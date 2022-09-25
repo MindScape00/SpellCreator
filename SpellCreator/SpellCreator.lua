@@ -924,7 +924,7 @@ local function AddSpellRow()
 	end
 	
 		newRow.mainDelayBox.nextEditBox = newRow.InputEntryBox 			-- Main Delay -> Input
-		newRow.mainDelayBox.previousEditBox = newRow.RevertDelayBox 	-- Main Delay <- Revert (changed after)
+		newRow.mainDelayBox.previousEditBox = newRow.mainDelayBox 	-- Main Delay <- Main Delay (Can't reverse past itself, updated later)
 		newRow.InputEntryBox.nextEditBox = newRow.RevertDelayBox		-- Input -> Revert
 		newRow.InputEntryBox.previousEditBox = newRow.mainDelayBox		-- Input <- Main Delay
 		newRow.RevertDelayBox.nextEditBox = newRow.mainDelayBox			-- Revert -> Main Delay (we change it later if needed)
