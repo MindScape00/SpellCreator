@@ -678,25 +678,28 @@ end
 
 local function RemoveSpellRow()
 	if numberOfSpellRows <= 1 then return; end
-	_G["spellRow"..numberOfSpellRows]:Hide()
+	local theSpellRow = _G["spellRow"..numberOfSpellRows]
+	theSpellRow:Hide()
 	
 	if SpellCreatorMasterTable.Options["clearRowOnRemove"] then
-		_G["spellRow"..numberOfSpellRows.."MainDelayBox"]:SetText("")
+		theSpellRow.mainDelayBox:SetText("")
 		
-		for k,v in pairs(_G["spellRow"..numberOfSpellRows].menuList) do
+		for k,v in pairs(theSpellRow.menuList) do
 			v.checked = false
 		end
 		UIDropDownMenu_SetSelectedID(_G["spellRow"..numberOfSpellRows.."ActionSelectButton"], 0)
 		_G["spellRow"..numberOfSpellRows.."ActionSelectButtonText"]:SetText("Action")
 		updateSpellRowOptions(numberOfSpellRows, nil)
 		
-		_G["spellRow"..numberOfSpellRows.."SelfCheckbox"]:SetChecked(false)
-		_G["spellRow"..numberOfSpellRows.."InputEntryBox"]:SetText("")
-		_G["spellRow"..numberOfSpellRows.."RevertCheckbox"]:SetChecked(false)
-		_G["spellRow"..numberOfSpellRows.."RevertDelayBox"]:SetText("")
+		theSpellRow.SelfCheckbox:SetChecked(false)
+		theSpellRow.InputEntryBox:SetText("")
+		theSpellRow.RevertCheckbox:SetChecked(false)
+		theSpellRow.RevertDelayBox:SetText("")
 	end
 
 	numberOfSpellRows = numberOfSpellRows - 1
+	
+	_G["spellRow"..numberOfSpellRows].RevertDelayBox.nextEditBox = spellRow1.mainDelayBox
 	
 	if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Enable() end
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
@@ -705,7 +708,11 @@ end
 local function AddSpellRow()
 	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable() return; end -- hard cap
 	numberOfSpellRows = numberOfSpellRows+1		-- The number of spell rows that this row will be.
-	if _G["spellRow"..numberOfSpellRows] then _G["spellRow"..numberOfSpellRows]:Show(); else
+	local newRow
+	if _G["spellRow"..numberOfSpellRows] then 
+		newRow = _G["spellRow"..numberOfSpellRows]
+		newRow:Show();
+	else
 
 		-- The main row frame
 		newRow = CreateFrame("Frame", "spellRow"..numberOfSpellRows, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
@@ -913,14 +920,22 @@ local function AddSpellRow()
 		end)
 
 	-- Make Tab work to switch edit boxes
-	newRow.mainDelayBox.nextEditBox = newRow.InputEntryBox
-	newRow.mainDelayBox.previousEditBox = newRow.RevertDelayBox
-	newRow.InputEntryBox.nextEditBox = newRow.RevertDelayBox
-	newRow.InputEntryBox.previousEditBox = newRow.mainDelayBox
-	newRow.RevertDelayBox.nextEditBox = newRow.mainDelayBox
-	newRow.RevertDelayBox.previousEditBox = newRow.InputEntryBox
-		
+	
 	end
+	
+		newRow.mainDelayBox.nextEditBox = newRow.InputEntryBox 			-- Main Delay -> Input
+		newRow.mainDelayBox.previousEditBox = newRow.RevertDelayBox 	-- Main Delay <- Revert (changed after)
+		newRow.InputEntryBox.nextEditBox = newRow.RevertDelayBox		-- Input -> Revert
+		newRow.InputEntryBox.previousEditBox = newRow.mainDelayBox		-- Input <- Main Delay
+		newRow.RevertDelayBox.nextEditBox = newRow.mainDelayBox			-- Revert -> Main Delay (we change it later if needed)
+		newRow.RevertDelayBox.previousEditBox = newRow.InputEntryBox	-- Revert <- Input
+	
+	if numberOfSpellRows > 1 then	
+		newRow.mainDelayBox.previousEditBox = _G["spellRow"..numberOfSpellRows-1].RevertDelayBox 	-- Main Delay <- LAST Revert
+		newRow.RevertDelayBox.nextEditBox = spellRow1.mainDelayBox			-- Revert -> Spell Row 1 Main Delay
+		_G["spellRow"..numberOfSpellRows-1].RevertDelayBox.nextEditBox = newRow.mainDelayBox		-- LAST Revert -> THIS Main Delay
+	end
+	
 	updateFrameChildScales(SCForgeMainFrame)
 	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable() return; end -- hard cap
 end
