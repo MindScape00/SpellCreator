@@ -1155,8 +1155,8 @@ SCForgeMainFrame.SpellInfoDescBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoCom
 SCForgeMainFrame.SpellInfoNameBox.nextEditBox = SCForgeMainFrame.SpellInfoCommandBox
 SCForgeMainFrame.SpellInfoCommandBox.nextEditBox = SCForgeMainFrame.SpellInfoDescBox
 SCForgeMainFrame.SpellInfoDescBox.nextEditBox = SCForgeMainFrame.SpellInfoNameBox
-SCForgeMainFrame.SpellInfoDescBox.previousEditBox = SCForgeMainFrame.SpellInfoNameBox
-SCForgeMainFrame.SpellInfoNameBox.previousEditBox = SCForgeMainFrame.SpellInfoNameBox
+SCForgeMainFrame.SpellInfoDescBox.previousEditBox = SCForgeMainFrame.SpellInfoCommandBox
+SCForgeMainFrame.SpellInfoCommandBox.previousEditBox = SCForgeMainFrame.SpellInfoNameBox
 SCForgeMainFrame.SpellInfoNameBox.previousEditBox = SCForgeMainFrame.SpellInfoDescBox
 
 --- The Inner Frame
@@ -2317,7 +2317,13 @@ function ChatFrame_OnHyperlinkShow(...)
 	local linkType, linkData, displayText = LinkUtil.ExtractLink(select(3, ...))
 	if linkType == "arcSpell" then
 		spellComm, charOrPhase, spellName, numActions, spellDesc = strsplit(":", linkData)
-		GameTooltip_SetTitle(ItemRefTooltip, addonColor..spellName)
+		local spellIconPath = "Interface/AddOns/SpellCreator/assets/arcanum_icon"
+		local spellIconSize = 24
+		local spellIconSequence = "|T"..spellIconPath..":"..spellIconSize.."|t "
+		local tooltipTitle = spellIconSequence..addonColor..spellName
+		--local tooltipTitle = addonColor..spellName
+		GameTooltip_SetTitle(ItemRefTooltip, tooltipTitle)
+		--ItemRefTooltip:AddTexture(spellIconPath, {width=spellIconSize, height=spellIconSize, anchor=ItemRefTooltip.LeftTop })
 		ItemRefTooltip:AddLine(spellDesc, nil, nil, nil, true)
 		ItemRefTooltip:AddLine(" ")
 		ItemRefTooltip:AddDoubleLine("Command: "..spellComm, "Actions: "..numActions, 1, 1, 1, 1, 1, 1)
@@ -2328,10 +2334,15 @@ function ChatFrame_OnHyperlinkShow(...)
 				local button
 				if tonumber(charOrPhase) then -- is a phase, not a character
 					if charOrPhase == "169" then
+						ItemRefTooltip:AddLine(" ")
 						ItemRefTooltip:AddLine("Get it from the Main Phase Vault")
 					else
+						ItemRefTooltip:AddLine(" ")
 						ItemRefTooltip:AddLine("Get it from Phase "..charOrPhase.."'s Vault")
 					end
+				elseif charOrPhase == UnitName("player") then
+					ItemRefTooltip:AddLine(" ")
+					ItemRefTooltip:AddLine("This is your spell.")
 				else
 					if SCForgeSpellRefTooltipButton then
 						button = SCForgeSpellRefTooltipButton
