@@ -2371,7 +2371,7 @@ function ChatFrame_OnHyperlinkShow(...)
 	local linkType, linkData, displayText = LinkUtil.ExtractLink(select(3, ...))
 	if linkType == "arcSpell" then
 		spellComm, charOrPhase, spellName, numActions, spellDesc = strsplit(":", linkData)
-		local spellIconPath = "Interface/AddOns/SpellCreator/assets/arcanum_icon"
+		local spellIconPath = "Interface/AddOns/SpellCreator/assets/DragonGem"
 		local spellIconSize = 24
 		local spellIconSequence = "|T"..spellIconPath..":"..spellIconSize.."|t "
 		local tooltipTitle = spellIconSequence..addonColor..spellName
