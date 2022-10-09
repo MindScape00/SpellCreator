@@ -2512,7 +2512,7 @@ minimapButton:SetScript("OnDragStop", function(self)
 	self:UnlockHighlight()
 	self:SetScript("OnUpdate", nil)
 end)
-minimapButton:SetScript("OnClick", function(self, button)
+minimapButton:SetScript("OnMouseUp", function(self, button)
 	if button == "LeftButton" then
 		scforge_showhide()
 	elseif button == "RightButton" then
