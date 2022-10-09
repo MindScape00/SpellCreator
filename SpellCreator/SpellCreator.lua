@@ -180,6 +180,7 @@ local function SC_loadMasterTable()
 	if isNotDefined(SpellCreatorMasterTable.Options["biggerInputBox"]) then SpellCreatorMasterTable.Options["biggerInputBox"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["showVaultOnShow"]) then SpellCreatorMasterTable.Options["showVaultOnShow"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["clearRowOnRemove"]) then SpellCreatorMasterTable.Options["clearRowOnRemove"] = false end
+	if isNotDefined(SpellCreatorMasterTable.Options["loadChronologically"]) then SpellCreatorMasterTable.Options["loadChronologically"] = false end
 	
 	if not SpellCreatorSavedSpells then SpellCreatorSavedSpells = {} end
 end
@@ -671,6 +672,21 @@ local function generateSpellChatLink(commID, vaultType)
 	return chatLink;
 end
 
+StaticPopupDialogs["SCFORGE_RELOADUI_REQUIRED"] = {
+	text = "A UI Reload is Required to Change Input Boxes.\n\rReload Now?\r[Warning: All un-saved data will be wiped]",
+	showAlert = true,
+	button1 = YES,
+	button2 = NO,
+	OnAccept = function(self, data, data2)
+		ReloadUI();
+	end,
+	timeout = 0,
+	cancels = true,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+}
+
 -------------------------------------------------------------------------------
 -- Main UI Frame
 -------------------------------------------------------------------------------
@@ -724,14 +740,31 @@ local function AddSpellRow()
 		end
 		newRow:SetWidth(mainFrameSize.x-50)
 		newRow:SetHeight(rowHeight)
-		
-		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND")
+				
+		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND", nil, 5)
 		newRow.Background:SetAllPoints()
-		newRow.Background:SetTexture("Interface/AddOns/SpellCreator/assets/SpellForgeMainPanelRow")
+		newRow.Background:SetTexture("Interface/AddOns/SpellCreator/assets/SpellForgeMainPanelRow1")
 		newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
-		newRow.Background:SetPoint("RIGHT",-9,0)
-		--newRow.Background:SetAlpha(1)
+		newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
+		newRow.Background:SetAlpha(0.9)
 		--newRow.Background:SetColorTexture(0,0,0,0.25)
+		
+		newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
+		newRow.Background2:SetAllPoints()
+		newRow.Background2:SetTexture("Interface/AddOns/SpellCreator/assets/SpellForgeMainPanelRow2")
+		newRow.Background2:SetTexCoord(0.208,1-0.209,0,1)
+		newRow.Background2:SetPoint("TOPLEFT",-3,0)
+		newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
+		--newRow.Background2:SetAlpha(0.8)
+		--newRow.Background:SetColorTexture(0,0,0,0.25)
+		
+		newRow.RowGem = newRow:CreateTexture(nil,"ARTWORK")
+		newRow.RowGem:SetPoint("CENTER", newRow.Background2, "LEFT", 2, 0)
+		newRow.RowGem:SetHeight(40)
+		newRow.RowGem:SetWidth(40)
+		newRow.RowGem:SetTexture("Interface/AddOns/SpellCreator/assets/DragonGem")
+		--newRow.RowGem:SetTexCoord(0.208,1-0.209,0,1)
+		--newRow.RowGem:SetPoint("RIGHT",-9,0)
 		
 		-- main delay entry box
 		newRow.mainDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."MainDelayBox", newRow, "InputBoxTemplate")
@@ -1426,7 +1459,8 @@ local function loadSpell(spellToLoad)
 	SCForgeMainFrame.SpellInfoNameBox:SetText(spellToLoad.fullName)
 	if spellToLoad.description then SCForgeMainFrame.SpellInfoDescBox:SetText(spellToLoad.description) end
 	
-	numberOfActionsToLoad = #spellToLoad.actions
+	local spellActions = spellToLoad.actions
+	numberOfActionsToLoad = #spellActions
 	
 	-- Adjust the number of available Action Rows
 	if numberOfActionsToLoad > numberOfSpellRows then
@@ -1439,9 +1473,13 @@ local function loadSpell(spellToLoad)
 		end
 	end
 	
+	if SpellCreatorMasterTable.Options["loadChronologically"] then
+		table.sort(spellActions, function (k1, k2) return k1.delay < k2.delay end)
+	end
+	
 	-- Loop thru actions & set their data
 	local rowNum, actionData
-	for rowNum, actionData in ipairs(spellToLoad.actions) do
+	for rowNum, actionData in ipairs(spellActions) do
 		for k,v in pairs(_G["spellRow"..rowNum].menuList) do
 			v.checked = false
 		end
@@ -1761,7 +1799,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum].spellName = spellLoadRows[rowNum]:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
 			spellLoadRows[rowNum].spellName:SetWidth(columnWidth*2/3)
 			spellLoadRows[rowNum].spellName:SetJustifyH("LEFT")
-			spellLoadRows[rowNum].spellName:SetPoint("LEFT", 1, 0)
+			spellLoadRows[rowNum].spellName:SetPoint("LEFT", 10, 0)
 			spellLoadRows[rowNum].spellName:SetText(v.fullName) -- initial text, reset later when it needs updated
 			spellLoadRows[rowNum].spellName:SetShadowColor(0, 0, 0)
 			spellLoadRows[rowNum].spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
@@ -1833,8 +1871,11 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
 			button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
 			button:SetPushedTexture(button.PushedTex)
-			
-			button:SetScript("OnClick", function(self)
+			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+			button:SetScript("OnClick", function(self, button)
+				if button == "RightButton" then
+					table.sort(savedSpellFromVault[self.commID].actions, function (k1, k2) return k1.delay < k2.delay end)
+				end
 				loadSpell(savedSpellFromVault[self.commID])
 				if vaultStyle ~= 2 then SCForgeMainFrame.LoadSpellFrame:Hide(); end
 			end)
@@ -1842,6 +1883,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
 					GameTooltip:SetText("Load spell '"..self.commID.."' into the forge, where you can edit it.", nil, nil, nil, nil, true)
+					GameTooltip:AddLine("Right-click to re-sort the spells actions into chronological order by delay.", 1,1,1,1)
 					GameTooltip:Show()
 				end)
 			end)
@@ -2715,7 +2757,7 @@ function CreateSpellCreatorInterfaceOptions()
 		["tooltipTitle"] = "Use Larger Input Box.",
 		["tooltipText"] = "Switches the 'Input' entry box with a larger, scrollable editbox.\n\rRequires /reload to take affect after changing it.",
 		["optionKey"] = "biggerInputBox",
-		["onClickHandler"] = nil,
+		["onClickHandler"] = function() StaticPopup_Show("SCFORGE_RELOADUI_REQUIRED") end,
 		}
 	SpellCreatorInterfaceOptions.panel.BiggerInputBoxToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 	
@@ -2741,6 +2783,16 @@ function CreateSpellCreatorInterfaceOptions()
 
 	local buttonData = {
 		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.clearRowOnRemoveToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
+		["title"] = "Load Actions Chronologically",
+		["tooltipTitle"] = "Load Chronologically by Delay",
+		["tooltipText"] = "When loading a spell, actions will be loaded in order of their delays, despite the order they were saved in.",
+		["optionKey"] = "loadChronologically",
+		["onClickHandler"] = nil,
+		}
+	SpellCreatorInterfaceOptions.panel.loadChronologicallyToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+
+	local buttonData = {
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.loadChronologicallyToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
 		["title"] = "Show Tooltips",
 		["tooltipTitle"] = "Show Tooltips",
 		["tooltipText"] = "Show Tooltips when you mouse-over UI elements like buttons, editboxes, and spells in the vault, just like this one!",
