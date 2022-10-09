@@ -701,11 +701,13 @@ local function RemoveSpellRow()
 	_G["spellRow"..numberOfSpellRows].RevertDelayBox.nextEditBox = spellRow1.mainDelayBox
 	
 	if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Enable() end
+	if numberOfSpellRows <= 1 then SCForgeMainFrame.RemoveSpellRowButton:Disable() end
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
 end
 
 local function AddSpellRow()
 	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable() return; end -- hard cap
+	SCForgeMainFrame.RemoveSpellRowButton:Enable()
 	numberOfSpellRows = numberOfSpellRows+1		-- The number of spell rows that this row will be.
 	local newRow
 	if _G["spellRow"..numberOfSpellRows] then 
