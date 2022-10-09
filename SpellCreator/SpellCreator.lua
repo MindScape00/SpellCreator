@@ -84,7 +84,6 @@ local function RunMacroText(command)
 	end
 end
 
-
 local function cprint(text)
 	print(addonColor..addonName..": "..(text and text or "ERROR").."|r")
 end
@@ -254,7 +253,7 @@ local frameBackgroundOptionsEdge = {
 "interface/spellbook/spellbook-page-2",
 }
 
-local load_row_background = "Interface/AddOns/SpellCreator/assets/l_row_parchment"
+local load_row_background = "Interface/AddOns/SpellCreator/assets/SpellForgeVaultPanelRow"
 
 local function get_Table_Position(str, tab)
 	for i = 1, #tab do
@@ -719,14 +718,17 @@ local function AddSpellRow()
 		if numberOfSpellRows == 1 then
 			newRow:SetPoint("TOPLEFT", 25, 0)
 		else
-			newRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows-1, "BOTTOMLEFT", 0, -5)
+			newRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows-1, "BOTTOMLEFT", 0, 0)
 		end
 		newRow:SetWidth(mainFrameSize.x-50)
 		newRow:SetHeight(rowHeight)
 		
 		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND")
 		newRow.Background:SetAllPoints()
-		newRow.Background:SetTexture("Interface/AddOns/SpellCreator/assets/a_row_background")
+		newRow.Background:SetTexture("Interface/AddOns/SpellCreator/assets/SpellForgeMainPanelRow")
+		newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
+		newRow.Background:SetPoint("RIGHT",-9,0)
+		--newRow.Background:SetAlpha(1)
 		--newRow.Background:SetColorTexture(0,0,0,0.25)
 		
 		-- main delay entry box
@@ -1159,17 +1161,20 @@ SCForgeMainFrame.SpellInfoDescBox.previousEditBox = SCForgeMainFrame.SpellInfoCo
 SCForgeMainFrame.SpellInfoCommandBox.previousEditBox = SCForgeMainFrame.SpellInfoNameBox
 SCForgeMainFrame.SpellInfoNameBox.previousEditBox = SCForgeMainFrame.SpellInfoDescBox
 
+local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, save a frame texture
+	background:SetTexture("Interface/AddOns/SpellCreator/assets/bookbackground_full")
+	background:SetVertTile(false)
+	background:SetHorizTile(false)
+	background:SetAllPoints()
+	
+--[[ -- Old Background Setup
+
 --- The Inner Frame
 local isDualBackgroundRequired = false
 
---local randomBackgroundID = fastrandom(#frameBackgroundOptions)
-local randomBackgroundID = 7 	-- Forced to 7 for now for dev
+local randomBackgroundID = fastrandom(#frameBackgroundOptions)
 if randomBackgroundID < 7 then isDualBackgroundRequired = true end
 
-local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, save a frame texture
-	background:SetTexture(frameBackgroundOptions[randomBackgroundID])
-	background:SetVertTile(false)
-	background:SetHorizTile(false)
 if isDualBackgroundRequired then 
 	background:SetTexCoord(0.05,1,0,0.96)
 	background:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 0,0) -- 12, -66
@@ -1185,6 +1190,7 @@ if isDualBackgroundRequired then
 	background2:SetPoint("BOTTOMRIGHT", background, "BOTTOMRIGHT", 30, 0)
 	background2:SetTexCoord(0,1,0,0.96)
 end
+--]]
 
 	SCForgeMainFrame.Inset.scrollFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.Inset, "UIPanelScrollFrameTemplate")
 	local scrollFrame = SCForgeMainFrame.Inset.scrollFrame
@@ -1198,7 +1204,7 @@ end
 	scrollChild:SetHeight(1) 
 	
 	scrollFrame.ScrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, 18)
-	scrollFrame.ScrollBar.scrollStep = rowHeight+5
+	scrollFrame.ScrollBar.scrollStep = rowHeight
 
 --This is a sub-frame of the Main Frame.. Should it be? Idk..
 SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame)
@@ -1687,11 +1693,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	
 	local spellLoadFrame = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.scrollChild
 	local rowNum = 0
-	local columnWidth = (spellLoadFrame:GetWidth())/2
-	if vaultStyle == 2 then 
-		columnWidth = columnWidth*2;
-		loadRowSpacing = 5
-	end
+	local columnWidth = spellLoadFrame:GetWidth()
 		
 	for k,v in orderedPairs(savedSpellFromVault) do
 	-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
@@ -1727,20 +1729,22 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 						
 			-- A nice lil background to make them easier to tell apart			
 			spellLoadRows[rowNum].Background = spellLoadRows[rowNum]:CreateTexture(nil,"BACKGROUND")
-			spellLoadRows[rowNum].Background:SetPoint("TOPLEFT",-9,5)
-			spellLoadRows[rowNum].Background:SetPoint("BOTTOMRIGHT",10,-5)
+			spellLoadRows[rowNum].Background:SetPoint("TOPLEFT",-3,0)
+			spellLoadRows[rowNum].Background:SetPoint("BOTTOMRIGHT",0,0)
 			spellLoadRows[rowNum].Background:SetTexture(load_row_background)
-			spellLoadRows[rowNum].Background:SetTexCoord(0,1,0.5,1)
+			spellLoadRows[rowNum].Background:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
 			
 			spellLoadRows[rowNum]:SetCheckedTexture("Interface\\AddOns\\SpellCreator\\assets\\l_row_selected")
 			spellLoadRows[rowNum].CheckedTexture = spellLoadRows[rowNum]:GetCheckedTexture()
 			spellLoadRows[rowNum].CheckedTexture:SetAllPoints(spellLoadRows[rowNum].Background)
+			spellLoadRows[rowNum].CheckedTexture:SetPoint("RIGHT", spellLoadRows[rowNum].Background, "RIGHT", 5, 0)
 			
 			-- Original Atlas based texture with vertex shading for a unique look. Actually looked pretty good imo.
 			--spellLoadRows[rowNum].Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
 			--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8) -- Let T color it naturally :)
 			--spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
 			
+			--[[ -- Disabled, not needed on the new load row backgrounds
 			spellLoadRows[rowNum].spellNameBackground = spellLoadRows[rowNum]:CreateTexture(nil, "BACKGROUND")
 			spellLoadRows[rowNum].spellNameBackground:SetPoint("TOPLEFT", spellLoadRows[rowNum].Background, "TOPLEFT", 5, -2)
 			spellLoadRows[rowNum].spellNameBackground:SetPoint("BOTTOMRIGHT", spellLoadRows[rowNum].Background, "BOTTOM", 10, 2) -- default position - move it later with the actual name font string.
@@ -1748,7 +1752,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum].spellNameBackground:SetColorTexture(1,1,1,0.25)
 			spellLoadRows[rowNum].spellNameBackground:SetGradient("HORIZONTAL", 0.5,0.5,0.5,1,1,1)
 			spellLoadRows[rowNum].spellNameBackground:SetBlendMode("MOD")
-			
+			--]]
 
 			
 			-- Make the Spell Name Text
@@ -1759,15 +1763,35 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum].spellName:SetText(v.fullName) -- initial text, reset later when it needs updated
 			spellLoadRows[rowNum].spellName:SetShadowColor(0, 0, 0)
 			spellLoadRows[rowNum].spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
-			spellLoadRows[rowNum].spellNameBackground:SetPoint("RIGHT", spellLoadRows[rowNum].spellName, "RIGHT", 0, 0) -- move the right edge of the gradient to the right edge of the name
+--			spellLoadRows[rowNum].spellNameBackground:SetPoint("RIGHT", spellLoadRows[rowNum].spellName, "RIGHT", 0, 0) -- move the right edge of the gradient to the right edge of the name
 
 			-- Make the delete saved spell button
-			spellLoadRows[rowNum].deleteButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum], "UIPanelButtonTemplate")
+			spellLoadRows[rowNum].deleteButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum])
 			local button = spellLoadRows[rowNum].deleteButton
 			button.commID = k
 			button:SetPoint("RIGHT", 0, 0)
-			button:SetSize(20,20)
-			button:SetText("x")
+			button:SetSize(24,24)
+			--button:SetText("x")
+			
+			button:SetNormalTexture("Interface/AddOns/SpellCreator/assets/icon-x")
+			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
+			button.DisabledTex:SetAllPoints(true)
+			button.DisabledTex:SetTexture("Interface/AddOns/SpellCreator/assets/icon-x")
+			SetDesaturation(button.DisabledTex, true)
+			button.DisabledTex:SetVertexColor(.6,.6,.6)
+			button:SetDisabledTexture(button.DisabledTex)
+
+			button.PushedTex = button:CreateTexture(nil, "ARTWORK")
+			button.PushedTex:SetAllPoints(true)
+			button.PushedTex:SetTexture("Interface/AddOns/SpellCreator/assets/icon-x")
+			button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+			button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+			button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+			button:SetPushedTexture(button.PushedTex)
+			
 			button:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
@@ -1782,12 +1806,32 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 
 			-- Make the load button
-			spellLoadRows[rowNum].loadButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum], "UIPanelButtonTemplate")
+			spellLoadRows[rowNum].loadButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum])
 			local button = spellLoadRows[rowNum].loadButton
 			button.commID = k
 			button:SetPoint("RIGHT", spellLoadRows[rowNum].deleteButton, "LEFT", 0, 0)
-			button:SetSize(60,24)
-			button:SetText(EDIT)
+			button:SetSize(24,24)
+			--button:SetText(EDIT)
+			
+			button:SetNormalTexture("Interface/AddOns/SpellCreator/assets/icon-edit")
+			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
+			button.DisabledTex:SetAllPoints(true)
+			button.DisabledTex:SetTexture("Interface/AddOns/SpellCreator/assets/icon-edit")
+			SetDesaturation(button.DisabledTex, true)
+			button.DisabledTex:SetVertexColor(.6,.6,.6)
+			button:SetDisabledTexture(button.DisabledTex)
+
+			button.PushedTex = button:CreateTexture(nil, "ARTWORK")
+			button.PushedTex:SetAllPoints(true)
+			button.PushedTex:SetTexture("Interface/AddOns/SpellCreator/assets/icon-edit")
+			button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+			button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+			button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+			button:SetPushedTexture(button.PushedTex)
+			
 			button:SetScript("OnClick", function(self)
 				loadSpell(savedSpellFromVault[self.commID])
 				if vaultStyle ~= 2 then SCForgeMainFrame.LoadSpellFrame:Hide(); end
@@ -1813,8 +1857,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetSize(24,24)
 			--button:SetText("P")
 			button.icon = button:CreateTexture(nil, "ARTWORK")
-			button.icon:SetTexture("interface/buttons/ui-microstream-green")
-			button.icon:SetTexCoord(0,1,1,0)
+			button.icon:SetTexture("Interface/AddOns/SpellCreator/assets/icon-transfer")
+			--button.icon:SetTexCoord(0,1,1,0)
 			button.icon:SetAllPoints()
 			button:Hide()
 			button:SetScript("OnClick", function(self)
@@ -1851,7 +1895,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				spellLoadRows[rowNum].loadButton:SetText(EDIT)
 				spellLoadRows[rowNum].saveToPhaseButton.commID = k
 				--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
-				spellLoadRows[rowNum].Background:SetTexCoord(0,1,0.5,1)
+				--spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,1)
 				spellLoadRows[rowNum].deleteButton:Show()
 				
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
@@ -1864,7 +1908,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				spellLoadRows[rowNum].loadButton:SetText("Load")
 				spellLoadRows[rowNum].saveToPhaseButton:Hide()
 				--spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
-				spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,0.5)
+				--spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,1)
 				
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					spellLoadRows[rowNum].deleteButton:Show()
@@ -2100,6 +2144,16 @@ else
 	SCForgeMainFrame.LoadSpellFrame:SetSize(500,250)
 	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
 end
+do
+	SCForgeMainFrame.LoadSpellFrame.Inset.Bg2 = SCForgeMainFrame.LoadSpellFrame.Inset:CreateTexture(nil, "BACKGROUND")
+	local background = SCForgeMainFrame.LoadSpellFrame.Inset.Bg2
+	background:SetTexture("Interface/AddOns/SpellCreator/assets/SpellForgeVaultBG")
+	background:SetVertTile(false)
+	background:SetHorizTile(false)
+	background:SetTexCoord(0.0546875,1-0.0546875,0.228515625,1-0.228515625)
+	background:SetPoint("TOPLEFT")
+	background:SetPoint("BOTTOMRIGHT",-19,0)
+end
 
 SCForgeMainFrame.LoadSpellFrame:SetTitle("Spell Vault")
 SCForgeMainFrame.LoadSpellFrame.TitleBgColor = SCForgeMainFrame.LoadSpellFrame:CreateTexture(nil, "BACKGROUND")
@@ -2113,7 +2167,7 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetSize(24*5,24)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetText("   Phase Vault")
 
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon = SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:CreateTexture(nil, "ARTWORK")
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture("interface/buttons/ui-microstream-green")
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture("Interface/AddOns/SpellCreator/assets/icon-transfer")
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexCoord(0,1,1,0)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetPoint("TOPLEFT", 5, 0)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetSize(24,24)
@@ -2500,7 +2554,7 @@ local mmIcons = {
 local mmIcon = mmIcons[5]
 minimapButton.icon = minimapButton:CreateTexture("$parentIcon", "ARTWORK")
 minimapButton.icon:SetTexture(mmIcon)
-minimapButton.icon:SetSize(21,21)
+minimapButton.icon:SetSize(22,22)
 minimapButton.icon:SetPoint("CENTER")
 
 -- Minimap Border Ideas (Atlas):
