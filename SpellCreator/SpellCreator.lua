@@ -234,6 +234,22 @@ local frameIconOptions = {
 }
 --]]
 
+local arcaneGemPath = "Interface/AddOns/SpellCreator/assets/gem-icons/Gem"
+local arcaneGemIcons = {
+"Blue",
+"Green",
+"Indigo",
+"Jade",
+"Orange",
+"Pink",
+"Prismatic",
+"Red",
+"Violet",
+"Yellow",
+}
+
+--SCForgeMainFrame.portrait.icon:SetTexture("Interface/AddOns/SpellCreator/assets/gem-icons/GemViolet")
+
 local frameBackgroundOptions = {
 "interface/archeology/arch-bookitemleft",
 "interface/archeology/arch-bookitemleft",
@@ -371,7 +387,7 @@ end
 
 local actionsToCommit = {}
 local function executeSpell(actionsToCommit)
-	if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than start.") return; end
+	if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than start.") return; end
 	for _,spell in pairs(actionsToCommit) do
 		--dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
 		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
@@ -848,15 +864,15 @@ local function AddSpellRow()
 		if SpellCreatorMasterTable.Options["biggerInputBox"] == true then
 			newRow.InputEntryScrollFrame = CreateFrame("ScrollFrame", "spellRow"..numberOfSpellRows.."InputEntryScrollFrame", newRow, "InputScrollFrameTemplate")
 			newRow.InputEntryScrollFrame.CharCount:Hide()
-			newRow.InputEntryScrollFrame:SetSize(InputEntryColumnWidth,40)
-			newRow.InputEntryScrollFrame:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 25, 0)
+			newRow.InputEntryScrollFrame:SetSize(InputEntryColumnWidth+20,40)
+			newRow.InputEntryScrollFrame:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 15, 0)
 			newRow.InputEntryBox = newRow.InputEntryScrollFrame.EditBox
 			_G["spellRow"..numberOfSpellRows.."InputEntryBox"] = newRow.InputEntryBox
-			newRow.InputEntryBox:SetWidth(InputEntryColumnWidth-18)
+			newRow.InputEntryBox:SetWidth(newRow.InputEntryScrollFrame:GetWidth()-18)
 		else
 			newRow.InputEntryBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."InputEntryBox", newRow, "InputBoxInstructionsTemplate")
-			newRow.InputEntryBox:SetSize(InputEntryColumnWidth,23)
-			newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 25, 0)
+			newRow.InputEntryBox:SetSize(InputEntryColumnWidth+20,23)
+			newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 15, 0)
 		end
 
 		newRow.InputEntryBox:SetFontObject(ChatFontNormal)
@@ -893,7 +909,7 @@ local function AddSpellRow()
 		
 		-- Revert Checkbox
 		newRow.RevertCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."RevertCheckbox", newRow, "UICheckButtonTemplate")
-		newRow.RevertCheckbox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 20, 0)
+		newRow.RevertCheckbox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 10, 0)
 		newRow.RevertCheckbox.RowID = numberOfSpellRows
 		newRow.RevertCheckbox:Disable()
 		newRow.RevertCheckbox:SetMotionScriptsWhileDisabled(true)
@@ -1081,11 +1097,19 @@ end
 
 --local SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)] -- Old Random Icon Stuff
 --SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait) -- Switched to using our version.
-SCForgeMainFrame.portrait:SetTexture("Interface/AddOns/SpellCreator/assets/arcanum_icon")
+--SCForgeMainFrame.portrait:SetTexture("Interface/AddOns/SpellCreator/assets/arcanum_icon")
+
+SCForgeMainFrame.portrait:SetTexture("Interface/AddOns/SpellCreator/assets/CircularBG")
+SCForgeMainFrame.portrait:SetTexCoord(0.25,1-0.25,0,1)
 SCForgeMainFrame.portrait.mask = SCForgeMainFrame:CreateMaskTexture()
 SCForgeMainFrame.portrait.mask:SetAllPoints(SCForgeMainFrame.portrait)
 SCForgeMainFrame.portrait.mask:SetTexture("Interface/CHARACTERFRAME/TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
 SCForgeMainFrame.portrait:AddMaskTexture(SCForgeMainFrame.portrait.mask)
+
+SCForgeMainFrame.portrait.icon = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 7)
+SCForgeMainFrame.portrait.icon:SetTexture(arcaneGemPath..arcaneGemIcons[fastrandom(#arcaneGemIcons)])
+SCForgeMainFrame.portrait.icon:SetAllPoints(SCForgeMainFrame.portrait)
+
 SCForgeMainFrame:SetTitle("Arcanum - Spell Forge")
 
 SCForgeMainFrame.DragBar = CreateFrame("Frame", nil, SCForgeMainFrame)
@@ -1447,6 +1471,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnLeave", function(self)
 	self.Timer:Cancel()
 end)
 if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then 
+	if C_Epsilon.IsOfficer() then return; end
 	SCForgeMainFrame.ExecuteSpellButton:Disable()
 else
 	SCForgeMainFrame.ExecuteSpellButton:Enable()
@@ -1777,7 +1802,9 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum]:SetCheckedTexture("Interface\\AddOns\\SpellCreator\\assets\\l_row_selected")
 			spellLoadRows[rowNum].CheckedTexture = spellLoadRows[rowNum]:GetCheckedTexture()
 			spellLoadRows[rowNum].CheckedTexture:SetAllPoints(spellLoadRows[rowNum].Background)
-			spellLoadRows[rowNum].CheckedTexture:SetPoint("RIGHT", spellLoadRows[rowNum].Background, "RIGHT", 5, 0)
+			spellLoadRows[rowNum].CheckedTexture:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
+			spellLoadRows[rowNum].CheckedTexture:SetAlpha(0.75)
+			--spellLoadRows[rowNum].CheckedTexture:SetPoint("RIGHT", spellLoadRows[rowNum].Background, "RIGHT", 5, 0)
 			
 			-- Original Atlas based texture with vertex shading for a unique look. Actually looked pretty good imo.
 			--spellLoadRows[rowNum].Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
@@ -2233,11 +2260,17 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnable", functi
 	self.icon:SetDesaturated(false)
 end)
 
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetMotionScriptsWhileDisabled(true)
+
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Transfer to Phase Vault.", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Transfer the spell to the Phase Vault.",1,1,1,true)
+		if self:IsEnabled() then
+			GameTooltip:AddLine("Transfer the spell to the Phase Vault.",1,1,1,true)
+		else
+			GameTooltip:AddLine("You do not currently have permissions to upload to this phase's vault.\n\rIf you were just given officer, rejoin the phase.",1,1,1,true)
+		end
 		GameTooltip:Show()
 	end)
 end)
@@ -2533,7 +2566,7 @@ local function MinimapButton_UpdateAngle(radian)
 	minimapButton:SetPoint("CENTER", "Minimap", "CENTER", x, y);
 end
 
-local function minimap_OnUpdate()
+local function minimap_OnUpdate(self)
 	local radian;
 
 	local mx, my = Minimap:GetCenter();
@@ -2544,46 +2577,10 @@ local function minimap_OnUpdate()
 
 	MinimapButton_UpdateAngle(radian);
 	SpellCreatorMasterTable.Options["mmLoc"] = radian;
+	if not self.highlight.anim:IsPlaying() then self.highlight.anim:Play() end
 end
 
-minimapButton:SetScript("OnDragStart", function(self)
-	self:LockHighlight()
-	self:SetScript("OnUpdate", minimap_OnUpdate)
-end)
-minimapButton:SetScript("OnDragStop", function(self)
-	self:UnlockHighlight()
-	self:SetScript("OnUpdate", nil)
-end)
-minimapButton:SetScript("OnMouseUp", function(self, button)
-	if button == "LeftButton" then
-		scforge_showhide()
-	elseif button == "RightButton" then
-		scforge_showhide("options")
-	end
-end)
 
-minimapButton:SetScript("OnEnter", function(self)
-	SetCursor("Interface/CURSOR/voidstorage.blp");
-	-- interface/cursor/argusteleporter.blp , interface/cursor/trainer.blp , 
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	GameTooltip:SetText(addonName)
-	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("/arcanum - Toggle UI",1,1,1,true)
-	GameTooltip:AddLine("/sfdebug - Toggle Debug",1,1,1,true)
-	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("|cffFFD700Left-Click|r to toggle the main UI!",1,1,1,true)
-	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options, Changelog, and the Help Manual!",1,1,1,true)
-	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("Mouse over most UI Elements to see tooltips for help! (Like this one!)",0.9,0.75,0.75,true)
-	GameTooltip:AddDoubleLine(" ", addonName.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
-	GameTooltip:AddDoubleLine(" ", "by "..addonAuthor, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
-	GameTooltip:Show()
-end)
-
-minimapButton:SetScript("OnLeave", function(self)
-	ResetCursor();
-	GameTooltip:Hide()
-end)
 
 
 -- Minimap Icon ideas:
@@ -2595,7 +2592,8 @@ local mmIcons = {
 "Interface/AddOns/SpellCreator/assets/arcanum_icon"
 }
 
-local mmIcon = mmIcons[5]
+--local mmIcon = mmIcons[5]
+local mmIcon = arcaneGemPath.."Violet"
 minimapButton.icon = minimapButton:CreateTexture("$parentIcon", "ARTWORK")
 minimapButton.icon:SetTexture(mmIcon)
 minimapButton.icon:SetSize(22,22)
@@ -2615,13 +2613,113 @@ if mmBorder.atlas then minimapButton.border:SetAtlas(mmBorder.atlas, false) else
 minimapButton.border:SetSize(56*mmBorder.size,56*mmBorder.size)
 minimapButton.border:SetPoint("TOPLEFT",mmBorder.posx,mmBorder.posy)
 if mmBorder.hilight then minimapButton:SetHighlightAtlas(mmBorder.hilight) else minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight") end
+minimapButton.highlight = minimapButton:GetHighlightTexture()
+
+local function setFrameFlicker(frame, iter, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, repeatnum)
+	if repeatnum then
+		if not frame.flickerTimer then frame.flickerTimer = {} end
+		frame.flickerTimer[repeatnum] = C_Timer.NewTimer((fastrandom(10,30)/10), function()
+			UIFrameFadeOut(frame,timeToFadeOut,startAlpha,endAlpha)
+			frame.fadeInfo.finishedFunc = function() UIFrameFadeIn(frame,timeToFadeIn,endAlpha,startAlpha) end
+			setFrameFlicker(frame, nil, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, repeatnum)
+		end)
+	else
+		if not iter then iter = 1 end
+		for i = 1,iter do
+			if not frame.flickerTimer then frame.flickerTimer = {} end
+			frame.flickerTimer[i] = C_Timer.NewTimer((fastrandom(10,30)/10), function()
+				UIFrameFadeOut(frame,timeToFadeOut,startAlpha,endAlpha)
+				frame.fadeInfo.finishedFunc = function() UIFrameFadeIn(frame,timeToFadeIn,endAlpha,startAlpha) end
+				setFrameFlicker(frame, nil, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, i)
+			end)
+		end
+	end
+end
+local function stopFrameFlicker(frame, endAlpha)
+	for i = 1, #frame.flickerTimer do
+		frame.flickerTimer[i]:Cancel()
+	end
+	frame:SetAlpha(endAlpha or 1)
+end
+
+minimapButton.highlight.anim = minimapButton.highlight:CreateAnimationGroup()
+minimapButton.highlight.anim:SetLooping("REPEAT")
+minimapButton.highlight.anim.rot = minimapButton.highlight.anim:CreateAnimation("Rotation")
+minimapButton.highlight.anim.rot:SetDegrees(-360)
+minimapButton.highlight.anim.rot:SetDuration(5)
+minimapButton.highlight.anim:SetScript("OnPlay", function(self)
+	setFrameFlicker(self:GetParent(), 2, 0.1, 0.5, 1, 0.33)
+end)
+minimapButton.highlight.anim:SetScript("OnPause", function(self)
+	stopFrameFlicker(self:GetParent(), 1)
+end)
+
+--[[
+minimapButton.highlight.anim.alphaOut = minimapButton.highlight.anim:CreateAnimation("Alpha")
+minimapButton.highlight.anim.alphaOut:SetFromAlpha(1)
+minimapButton.highlight.anim.alphaOut:SetToAlpha(0.25)
+minimapButton.highlight.anim.alphaOut:SetStartDelay(1)
+minimapButton.highlight.anim.alphaOut:SetDuration(0.1)
+--minimapButton.highlight.anim.alphaOut:SetOrder(1)
+
+minimapButton.highlight.anim.alphaIn = minimapButton.highlight.anim:CreateAnimation("Alpha")
+minimapButton.highlight.anim.alphaIn:SetFromAlpha(0.25)
+minimapButton.highlight.anim.alphaIn:SetToAlpha(1)
+minimapButton.highlight.anim.alphaIn:SetStartDelay(1.1)
+minimapButton.highlight.anim.alphaIn:SetDuration(0.1)
+--minimapButton.highlight.anim.alphaIn:SetOrder(2)
+--]]
+
 --[[
 SpellCreatorMinimapButton.border:SetSize(56*0.6,56*0.6)
 SpellCreatorMinimapButton.border:SetPoint("TOPLEFT",2,-1)
 minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 		-- kept these here for ez copy-paste in-game lol
 --]]
-		
+
+minimapButton:SetScript("OnDragStart", function(self)
+	self:LockHighlight()
+	self:SetScript("OnUpdate", minimap_OnUpdate)
+end)
+minimapButton:SetScript("OnDragStop", function(self)
+	self:UnlockHighlight()
+	self.highlight.anim:Pause()
+	self:SetScript("OnUpdate", nil)
+end)
+minimapButton:SetScript("OnMouseUp", function(self, button)
+	if button == "LeftButton" then
+		scforge_showhide()
+	elseif button == "RightButton" then
+		scforge_showhide("options")
+	end
+end)
+
+minimapButton:SetScript("OnEnter", function(self)
+	self.highlight.anim:Play()
+	SetCursor("Interface/CURSOR/voidstorage.blp");
+	-- interface/cursor/argusteleporter.blp , interface/cursor/trainer.blp , 
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	GameTooltip:SetText(addonName)
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine("/arcanum - Toggle UI",1,1,1,true)
+	GameTooltip:AddLine("/sfdebug - Toggle Debug",1,1,1,true)
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine("|cffFFD700Left-Click|r to toggle the main UI!",1,1,1,true)
+	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options, Changelog, and the Help Manual!",1,1,1,true)
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine("Mouse over most UI Elements to see tooltips for help! (Like this one!)",0.9,0.75,0.75,true)
+	GameTooltip:AddDoubleLine(" ", addonName.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
+	GameTooltip:AddDoubleLine(" ", "by "..addonAuthor, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
+	GameTooltip:Show()
+end)
+
+minimapButton:SetScript("OnLeave", function(self)
+	self.highlight.anim:Pause()
+	ResetCursor();
+	GameTooltip:Hide()
+end)
+
+	
 local function LoadMinimapPosition()
 	local radian = tonumber(SpellCreatorMasterTable.Options["mmLoc"]) or 2.7
 	MinimapButton_UpdateAngle(radian);
@@ -2875,7 +2973,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		C_Epsilon.IsDM = false
 		updateSpellLoadRows();
 		
-		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then 
+		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then 
 			SCForgeMainFrame.ExecuteSpellButton:Disable()
 		else
 			SCForgeMainFrame.ExecuteSpellButton:Enable()
