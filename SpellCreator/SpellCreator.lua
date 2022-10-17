@@ -248,6 +248,28 @@ local arcaneGemIcons = {
 "Yellow",
 }
 
+
+local runeIconOverlays = {
+--"interface/spellbook/ui-glyph-rune-"..fastrandom(20),
+"Rune-0"..fastrandom(6).."-purple",
+"Rune-"..string.format("%02d",fastrandom(11)).."-light",
+"ChallengeMode-Runes-BL-Glow",
+"ChallengeMode-Runes-BR-Glow",
+"ChallengeMode-Runes-L-Glow",
+"ChallengeMode-Runes-R-Glow",
+"ChallengeMode-Runes-T-Glow",
+"heartofazeroth-slot-minor-unactivated-rune",
+"Darklink-active",
+}
+
+local runeIconOverlay
+local runeIconType
+do 
+	local rand = fastrandom(#runeIconOverlays)
+	runeIconOverlay = runeIconOverlays[rand]
+	if rand >= 2 then runeIconType = "Atlas" end
+end
+
 --SCForgeMainFrame.portrait.icon:SetTexture("Interface/AddOns/SpellCreator/assets/gem-icons/GemViolet")
 
 local frameBackgroundOptions = {
@@ -1106,9 +1128,20 @@ SCForgeMainFrame.portrait.mask:SetAllPoints(SCForgeMainFrame.portrait)
 SCForgeMainFrame.portrait.mask:SetTexture("Interface/CHARACTERFRAME/TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
 SCForgeMainFrame.portrait:AddMaskTexture(SCForgeMainFrame.portrait.mask)
 
-SCForgeMainFrame.portrait.icon = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 7)
+SCForgeMainFrame.portrait.icon = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 6)
 SCForgeMainFrame.portrait.icon:SetTexture(arcaneGemPath..arcaneGemIcons[fastrandom(#arcaneGemIcons)])
 SCForgeMainFrame.portrait.icon:SetAllPoints(SCForgeMainFrame.portrait)
+--SCForgeMainFrame.portrait.icon:SetBlendMode("ADD")
+
+SCForgeMainFrame.portrait.rune = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 7)
+SCForgeMainFrame.portrait.rune:SetAtlas(runeIconOverlay)
+
+SCForgeMainFrame.portrait.rune:SetDesaturated(true)
+--SCForgeMainFrame.portrait.rune:SetVertexColor(0.75,0.6,1)
+SCForgeMainFrame.portrait.rune:SetVertexColor(1,1,1)
+SCForgeMainFrame.portrait.rune:SetBlendMode("ADD")
+SCForgeMainFrame.portrait.rune:SetPoint("TOPLEFT", SCForgeMainFrame.portrait, 16, -16)
+SCForgeMainFrame.portrait.rune:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.portrait, -16, 16)
 
 SCForgeMainFrame:SetTitle("Arcanum - Spell Forge")
 
@@ -2581,23 +2614,31 @@ local function minimap_OnUpdate(self)
 end
 
 
+minimapButton.bg = minimapButton:CreateTexture("$parentBg", "BACKGROUND")
+minimapButton.bg:SetTexture("Interface/AddOns/SpellCreator/assets/CircularBG")
+minimapButton.bg:SetSize(24,24)
+minimapButton.bg:SetPoint("CENTER")
+minimapButton.bg.mask = minimapButton:CreateMaskTexture()
+minimapButton.bg.mask:SetAllPoints(minimapButton.bg)
+minimapButton.bg.mask:SetTexture("Interface/CHARACTERFRAME/TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+minimapButton.bg:AddMaskTexture(minimapButton.bg.mask)
 
-
--- Minimap Icon ideas:
-local mmIcons = {
-"interface/cursor/voidstorage",
-"interface/icons/70_inscription_vantus_rune_suramar",
-"interface/icons/inv_inscription_tradeskill01",
-"interface/icons/inv_7xp_inscription_talenttome02",
-"Interface/AddOns/SpellCreator/assets/arcanum_icon"
-}
-
---local mmIcon = mmIcons[5]
 local mmIcon = arcaneGemPath.."Violet"
 minimapButton.icon = minimapButton:CreateTexture("$parentIcon", "ARTWORK")
 minimapButton.icon:SetTexture(mmIcon)
 minimapButton.icon:SetSize(22,22)
 minimapButton.icon:SetPoint("CENTER")
+
+minimapButton.rune = minimapButton:CreateTexture(nil, "OVERLAY", nil, 7)
+minimapButton.rune:SetAtlas(runeIconOverlay)
+
+minimapButton.rune:SetDesaturated(true)
+minimapButton.rune:SetVertexColor(1,1,1)
+minimapButton.rune:SetBlendMode("ADD")
+minimapButton.rune:SetPoint("CENTER")
+minimapButton.rune:SetSize(12,12)
+--minimapButton.rune:SetPoint("TOPLEFT", minimapButton, 8, -8)
+--minimapButton.rune:SetPoint("BOTTOMRIGHT", minimapButton, -8, 8)
 
 -- Minimap Border Ideas (Atlas):
 local mmBorders = {
@@ -2609,7 +2650,7 @@ local mmBorders = {
 
 local mmBorder = mmBorders[4]	-- put your table choice here
 minimapButton.border = minimapButton:CreateTexture("$parentBorder", "OVERLAY")
-if mmBorder.atlas then minimapButton.border:SetAtlas(mmBorder.atlas, false) else minimapButton.border:SetTexture(mmBorder.tex) end
+	if mmBorder.atlas then minimapButton.border:SetAtlas(mmBorder.atlas, false) else minimapButton.border:SetTexture(mmBorder.tex) end
 minimapButton.border:SetSize(56*mmBorder.size,56*mmBorder.size)
 minimapButton.border:SetPoint("TOPLEFT",mmBorder.posx,mmBorder.posy)
 if mmBorder.hilight then minimapButton:SetHighlightAtlas(mmBorder.hilight) else minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight") end
@@ -2653,22 +2694,6 @@ end)
 minimapButton.highlight.anim:SetScript("OnPause", function(self)
 	stopFrameFlicker(self:GetParent(), 1)
 end)
-
---[[
-minimapButton.highlight.anim.alphaOut = minimapButton.highlight.anim:CreateAnimation("Alpha")
-minimapButton.highlight.anim.alphaOut:SetFromAlpha(1)
-minimapButton.highlight.anim.alphaOut:SetToAlpha(0.25)
-minimapButton.highlight.anim.alphaOut:SetStartDelay(1)
-minimapButton.highlight.anim.alphaOut:SetDuration(0.1)
---minimapButton.highlight.anim.alphaOut:SetOrder(1)
-
-minimapButton.highlight.anim.alphaIn = minimapButton.highlight.anim:CreateAnimation("Alpha")
-minimapButton.highlight.anim.alphaIn:SetFromAlpha(0.25)
-minimapButton.highlight.anim.alphaIn:SetToAlpha(1)
-minimapButton.highlight.anim.alphaIn:SetStartDelay(1.1)
-minimapButton.highlight.anim.alphaIn:SetDuration(0.1)
---minimapButton.highlight.anim.alphaIn:SetOrder(2)
---]]
 
 --[[
 SpellCreatorMinimapButton.border:SetSize(56*0.6,56*0.6)
@@ -3139,7 +3164,8 @@ function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
 			end
 		end)
 	else
-		
+		runeIconOverlay = runeIconOverlays[fastrandom(#runeIconOverlays)]
+		SCForgeMainFrame.portrait.rune:SetAtlas(runeIconOverlay)
 	end
 	
 end
