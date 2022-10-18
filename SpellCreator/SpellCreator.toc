@@ -1,11 +1,11 @@
 ## Interface: 80300
 ## Title: Arcanum - Spell Forge
 ## Author: MindScape
-## Version: 1.0.0-rc1
+## Version: 1.0.0
 ## Notes: Combine a sequence of timed actions (spells, emotes, animations) to create your own unique custom spells!
 ## DefaultState: Enabled
 ## SavedVariables: SpellCreatorMasterTable, SpellCreatorSavedSpells
-## X-Date: September 12, 2022
+## X-Date: October 18, 2022
 ## X-Credits: MindScape
 
 SpellCreator.xml
