@@ -15,6 +15,7 @@ local CTimerAfter = C_Timer.After
 
 
 --
+local curDate = date("*t")
 
 local LibDeflate
 local AceSerializer
@@ -156,6 +157,28 @@ local function orderedPairs (t, f) -- get keys & sort them - default sort is alp
 	return iter
 end
 
+local function hsvToRgb(h, s, v)
+  local r, g, b
+
+  local i = math.floor(h * 6);
+  local f = h * 6 - i;
+  local p = v * (1 - s);
+  local q = v * (1 - f * s);
+  local t = v * (1 - (1 - f) * s);
+
+  i = i % 6
+
+  if i == 0 then r, g, b = v, t, p
+  elseif i == 1 then r, g, b = q, v, p
+  elseif i == 2 then r, g, b = p, v, t
+  elseif i == 3 then r, g, b = p, q, v
+  elseif i == 4 then r, g, b = t, p, v
+  elseif i == 5 then r, g, b = v, p, q
+  end
+
+  return r * 255, g * 255, b * 255
+end
+
 -- Frame Listeners
 local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
@@ -174,7 +197,6 @@ local function SC_loadMasterTable()
 
 	if isNotDefined(SpellCreatorMasterTable.Options["debug"]) then SpellCreatorMasterTable.Options["debug"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["locked"]) then SpellCreatorMasterTable.Options["locked"] = false end
-	if isNotDefined(SpellCreatorMasterTable.Options["minimapIcon"]) then SpellCreatorMasterTable.Options["minimapIcon"] = true end
 	if isNotDefined(SpellCreatorMasterTable.Options["mmLoc"]) then SpellCreatorMasterTable.Options["mmLoc"] = 2.7 end
 	if isNotDefined(SpellCreatorMasterTable.Options["showTooltips"]) then SpellCreatorMasterTable.Options["showTooltips"] = true end
 	if isNotDefined(SpellCreatorMasterTable.Options["biggerInputBox"]) then SpellCreatorMasterTable.Options["biggerInputBox"] = false end
@@ -183,6 +205,10 @@ local function SC_loadMasterTable()
 	if isNotDefined(SpellCreatorMasterTable.Options["loadChronologically"]) then SpellCreatorMasterTable.Options["loadChronologically"] = false end
 	
 	if not SpellCreatorSavedSpells then SpellCreatorSavedSpells = {} end
+	
+	if (curDate.year >= 2023 or curDate.yday >= 298) then -- Only default to showing the minimap icon after October 25th, 2022
+		if isNotDefined(SpellCreatorMasterTable.Options["minimapIcon"]) then SpellCreatorMasterTable.Options["minimapIcon"] = true end
+	end
 end
 
 -------------------------------------------------------------------------------
@@ -237,7 +263,7 @@ local frameIconOptions = {
 local arcaneGemPath = "Interface/AddOns/SpellCreator/assets/gem-icons/Gem"
 local arcaneGemIcons = {
 "Blue",
-"Green",
+--"Green",
 "Indigo",
 "Jade",
 "Orange",
@@ -245,33 +271,36 @@ local arcaneGemIcons = {
 "Prismatic",
 "Red",
 "Violet",
-"Yellow",
+--"Yellow",
 }
-
-
-local runeIconOverlays = {
---"interface/spellbook/ui-glyph-rune-"..fastrandom(20),
-"Rune-0"..fastrandom(6).."-purple",
-"Rune-"..string.format("%02d",fastrandom(11)).."-light",
-"ChallengeMode-Runes-BL-Glow",
-"ChallengeMode-Runes-BR-Glow",
-"ChallengeMode-Runes-L-Glow",
-"ChallengeMode-Runes-R-Glow",
-"ChallengeMode-Runes-T-Glow",
-"heartofazeroth-slot-minor-unactivated-rune",
-"Darklink-active",
-}
-
-local runeIconOverlay
-local runeIconType
-do 
-	local rand = fastrandom(#runeIconOverlays)
-	runeIconOverlay = runeIconOverlays[rand]
-	if rand >= 2 then runeIconType = "Atlas" end
-end
 
 --SCForgeMainFrame.portrait.icon:SetTexture("Interface/AddOns/SpellCreator/assets/gem-icons/GemViolet")
 
+local runeIconOverlays = {}
+local runeIconOverlay
+
+local function initRuneIcon()
+	runeIconOverlays = {
+		{atlas = "Rune-0"..fastrandom(6).."-purple", desat = false, x = 30, y = 30, alpha=0.8},
+		{atlas = "Rune-"..string.format("%02d",fastrandom(11)).."-light", desat = true, x = 30, y = 30, alpha=0.8},
+		{atlas = "ChallengeMode-Runes-BL-Glow", desat = true, x = 32, y = 32},
+		{atlas = "ChallengeMode-Runes-BR-Glow", desat = true, x = 32, y = 32},
+		{atlas = "ChallengeMode-Runes-L-Glow", desat = true, x = 34, y = 34},
+		{atlas = "ChallengeMode-Runes-R-Glow", desat = true, x = 32, y = 32},
+		{atlas = "ChallengeMode-Runes-T-Glow", desat = true, x = 32, y = 32},
+		{atlas = "heartofazeroth-slot-minor-unactivated-rune", desat = true, x = 44, y = 44, alpha=0.8},
+		{atlas = "Darklink-active", desat = true},
+		{tex = "Interface/AddOns/SpellCreator/assets/BookIcon", desat = false, x = 26, y = 26},
+	}
+	runeIconOverlay = runeIconOverlays[fastrandom(#runeIconOverlays)]
+end
+initRuneIcon()
+
+-- debug over-ride, comment out when done
+-- runeIconOverlay = {tex = "Interface/AddOns/SpellCreator/assets/BookIcon"}
+
+
+--[[	-- Old Background System stuff
 local frameBackgroundOptions = {
 "interface/archeology/arch-bookitemleft",
 "interface/archeology/arch-bookitemleft",
@@ -291,6 +320,7 @@ local frameBackgroundOptionsEdge = {
 "interface/archeology/arch-bookcompletedright",
 "interface/spellbook/spellbook-page-2",
 }
+--]]
 
 local load_row_background = "Interface/AddOns/SpellCreator/assets/SpellForgeVaultPanelRow"
 
@@ -1134,14 +1164,25 @@ SCForgeMainFrame.portrait.icon:SetAllPoints(SCForgeMainFrame.portrait)
 --SCForgeMainFrame.portrait.icon:SetBlendMode("ADD")
 
 SCForgeMainFrame.portrait.rune = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 7)
-SCForgeMainFrame.portrait.rune:SetAtlas(runeIconOverlay)
-
-SCForgeMainFrame.portrait.rune:SetDesaturated(true)
---SCForgeMainFrame.portrait.rune:SetVertexColor(0.75,0.6,1)
-SCForgeMainFrame.portrait.rune:SetVertexColor(1,1,1)
-SCForgeMainFrame.portrait.rune:SetBlendMode("ADD")
-SCForgeMainFrame.portrait.rune:SetPoint("TOPLEFT", SCForgeMainFrame.portrait, 16, -16)
-SCForgeMainFrame.portrait.rune:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.portrait, -16, 16)
+local function setRuneTex(texInfo)
+	if texInfo.atlas then 
+		SCForgeMainFrame.portrait.rune:SetAtlas(texInfo.atlas)
+	else
+		SCForgeMainFrame.portrait.rune:SetTexture(texInfo.tex)
+	end
+	if texInfo.desat then
+		SCForgeMainFrame.portrait.rune:SetDesaturated(true)
+		SCForgeMainFrame.portrait.rune:SetVertexColor(0.9,0.9,0.9)
+	else
+		SCForgeMainFrame.portrait.rune:SetDesaturated(false)
+		SCForgeMainFrame.portrait.rune:SetVertexColor(1,1,1)
+	end
+	SCForgeMainFrame.portrait.rune:SetPoint("CENTER", SCForgeMainFrame.portrait)
+	SCForgeMainFrame.portrait.rune:SetSize(texInfo.x or 28, texInfo.y or 28)
+	SCForgeMainFrame.portrait.rune:SetBlendMode(texInfo.blend or "ADD")
+	SCForgeMainFrame.portrait.rune:SetAlpha(texInfo.alpha or 1)
+end
+setRuneTex(runeIconOverlay)
 
 SCForgeMainFrame:SetTitle("Arcanum - Spell Forge")
 
@@ -1178,7 +1219,7 @@ SCForgeMainFrame.SpellInfoNameBox:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText(localization.SPELLNAME, nil, nil, nil, nil, true)
-		GameTooltip:AddLine("The name of the spell.\rThis can be anything and is only used for identifying the spell in the Vault & Chat Links.\n\rYes, you can have two spells with the same name.",1,1,1,true)
+		GameTooltip:AddLine("The name of the spell.\rThis can be anything and is only used for identifying the spell in the Vault & Chat Links.\n\rYes, you can have two spells with the same name, but that's annoying..",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -1761,7 +1802,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		currentVault = "PERSONAL"
 		savedSpellFromVault = SpellCreatorSavedSpells
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Hide()
-		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
+		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.30,0.10,0.40,0.5)
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
 		if next(savedSpellFromVault) == nil then
@@ -2481,7 +2522,7 @@ function ChatFrame_OnHyperlinkShow(...)
 	local linkType, linkData, displayText = LinkUtil.ExtractLink(select(3, ...))
 	if linkType == "arcSpell" then
 		spellComm, charOrPhase, spellName, numActions, spellDesc = strsplit(":", linkData)
-		local spellIconPath = "Interface/AddOns/SpellCreator/assets/DragonGem"
+		local spellIconPath = "Interface/AddOns/SpellCreator/assets/BookIcon"
 		local spellIconSize = 24
 		local spellIconSequence = "|T"..spellIconPath..":"..spellIconSize.."|t "
 		local tooltipTitle = spellIconSequence..addonColor..spellName
@@ -2543,6 +2584,12 @@ local function scforge_showhide(where)
 	else
 		if not SCForgeMainFrame:IsShown() then
 			SCForgeMainFrame:Show()
+			if where == "enableMMIcon" and SpellCreatorMasterTable.Options["minimapIcon"] == nil then 
+				SpellCreatorMasterTable.Options["minimapIcon"] = true
+				UIFrameFlash(SpellCreatorMinimapButton.Flash, 1.0, 1.0, -1, false, 0, 0);
+				SpellCreatorMinimapButton:SetShown(true)
+				UIFrameFadeIn(SpellCreatorMinimapButton, 0.5)
+			end
 		else
 			SCForgeMainFrame:Hide()
 		end
@@ -2613,6 +2660,28 @@ local function minimap_OnUpdate(self)
 	if not self.highlight.anim:IsPlaying() then self.highlight.anim:Play() end
 end
 
+minimapButton.Flash = minimapButton:CreateTexture("$parentFlash", "OVERLAY")
+minimapButton.Flash:SetAtlas("Azerite-Trait-RingGlow")
+minimapButton.Flash:SetAllPoints()
+minimapButton.Flash:SetPoint("TOPLEFT", -4, 4)
+minimapButton.Flash:SetPoint("BOTTOMRIGHT", 4, -4)
+minimapButton.Flash:SetDesaturated(true)
+minimapButton.Flash:SetVertexColor(1,1,0)
+minimapButton.Flash:Hide()
+local function rainbowVertex(frame, parentIfNeeded)
+	frame.elapsed = 0
+	frame.rainbowVertex = true
+	scriptFrame = parentIfNeeded or frame
+	scriptFrame:HookScript("OnUpdate", function(self,elapsed)
+		if frame.rainbowVertex then
+			elapsed = elapsed/10
+			frame.elapsed = frame.elapsed + elapsed
+			if frame.elapsed > 1 then frame.elapsed = 0 end
+			local r,g,b = hsvToRgb(frame.elapsed, 1, 1)
+			frame:SetVertexColor(r/255, g/255, b/255)
+		end
+	end)
+end
 
 minimapButton.bg = minimapButton:CreateTexture("$parentBg", "BACKGROUND")
 minimapButton.bg:SetTexture("Interface/AddOns/SpellCreator/assets/CircularBG")
@@ -2629,8 +2698,13 @@ minimapButton.icon:SetTexture(mmIcon)
 minimapButton.icon:SetSize(22,22)
 minimapButton.icon:SetPoint("CENTER")
 
+--[[
 minimapButton.rune = minimapButton:CreateTexture(nil, "OVERLAY", nil, 7)
-minimapButton.rune:SetAtlas(runeIconOverlay)
+if runeIconOverlay.atlas then 
+	minimapButton.rune:SetAtlas(runeIconOverlay.atlas)
+else
+	minimapButton.rune:SetTexture(runeIconOverlay.tex)
+end
 
 minimapButton.rune:SetDesaturated(true)
 minimapButton.rune:SetVertexColor(1,1,1)
@@ -2639,6 +2713,7 @@ minimapButton.rune:SetPoint("CENTER")
 minimapButton.rune:SetSize(12,12)
 --minimapButton.rune:SetPoint("TOPLEFT", minimapButton, 8, -8)
 --minimapButton.rune:SetPoint("BOTTOMRIGHT", minimapButton, -8, 8)
+--]]
 
 -- Minimap Border Ideas (Atlas):
 local mmBorders = {
@@ -2649,7 +2724,7 @@ local mmBorders = {
 }
 
 local mmBorder = mmBorders[4]	-- put your table choice here
-minimapButton.border = minimapButton:CreateTexture("$parentBorder", "OVERLAY")
+minimapButton.border = minimapButton:CreateTexture("$parentBorder", "BORDER")
 	if mmBorder.atlas then minimapButton.border:SetAtlas(mmBorder.atlas, false) else minimapButton.border:SetTexture(mmBorder.tex) end
 minimapButton.border:SetSize(56*mmBorder.size,56*mmBorder.size)
 minimapButton.border:SetPoint("TOPLEFT",mmBorder.posx,mmBorder.posy)
@@ -2730,25 +2805,32 @@ minimapButton:SetScript("OnEnter", function(self)
 	GameTooltip:AddLine("/sfdebug - Toggle Debug",1,1,1,true)
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine("|cffFFD700Left-Click|r to toggle the main UI!",1,1,1,true)
-	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options, Changelog, and the Help Manual!",1,1,1,true)
+	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options.",1,1,1,true)
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine("Mouse over most UI Elements to see tooltips for help! (Like this one!)",0.9,0.75,0.75,true)
 	GameTooltip:AddDoubleLine(" ", addonName.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
 	GameTooltip:AddDoubleLine(" ", "by "..addonAuthor, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
 	GameTooltip:Show()
+	
+	if self.Flash:IsShown() then UIFrameFlashStop(self.Flash) end
+	self.Flash.rainbowVertex = false
+	
 end)
-
 minimapButton:SetScript("OnLeave", function(self)
 	self.highlight.anim:Pause()
 	ResetCursor();
 	GameTooltip:Hide()
 end)
 
+minimapButton:SetScript("OnShow", function(self)
+	if not self.Flash:IsShown() then UIFrameFlash(self.Flash, 0.75, 0.75, 4.5, false, 0, 0); end
+	rainbowVertex(minimapButton.Flash, minimapButton)
+end)
 	
 local function LoadMinimapPosition()
 	local radian = tonumber(SpellCreatorMasterTable.Options["mmLoc"]) or 2.7
 	MinimapButton_UpdateAngle(radian);
-	if not SpellCreatorMasterTable.Options["minimapIcon"] then minimapButton:Hide() end
+	if not SpellCreatorMasterTable.Options["minimapIcon"] then minimapButton:SetShown(false) end
 end
 
 -------------------------------------------------------------------------------
@@ -2870,7 +2952,7 @@ function CreateSpellCreatorInterfaceOptions()
 		["tooltipTitle"] = "Enable Minimap Button",
 		["tooltipText"] = nil,
 		["optionKey"] = "minimapIcon",
-		["onClickHandler"] = function(self) if SpellCreatorMasterTable.Options["minimapIcon"] then minimapButton:Show() else minimapButton:Hide() end end,
+		["onClickHandler"] = function(self) if SpellCreatorMasterTable.Options["minimapIcon"] then minimapButton:SetShown(true) else minimapButton:SetShown(false) end end,
 		}
 	SpellCreatorInterfaceOptions.panel.MinimapIconToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 	
@@ -3066,16 +3148,16 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			if i == 1 and titleButtonText == "<arcanum_auto>" then
 				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
 					_G["GossipTitleButton" .. i]:SetText("<arcanum_auto> :: DM Mode");
-					_G["GossipTitleButton" .. i]:SetScript("OnClick", scforge_showhide)
+					_G["GossipTitleButton" .. i]:SetScript("OnClick", function() scforge_showhide("enableMMIcon") end)
 				else
 					CloseGossip();
-					scforge_showhide();
+					scforge_showhide("enableMMIcon");
 				end
 			elseif titleButtonText:match("<arcanum_toggle>") then
 					if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
 						_G["GossipTitleButton" .. i]:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
 					end
-					_G["GossipTitleButton" .. i]:SetScript("OnClick", scforge_showhide)
+					_G["GossipTitleButton" .. i]:SetScript("OnClick", function() scforge_showhide("enableMMIcon") end)
 			end
 		end
 	--elseif event == "GOSSIP_CLOSED" then
@@ -3090,7 +3172,7 @@ end);
 SLASH_SCFORGEHELP1, SLASH_SCFORGEHELP2 = '/arcanum', '/sf'; -- 3.
 function SlashCmdList.SCFORGEHELP(msg, editbox) -- 4.
 	if #msg > 0 then
-		dprint(false,"Casting Arcaum Spell by CommID: "..msg)
+		dprint(false,"Casting Arcanum Spell by CommID: "..msg)
 		if SpellCreatorSavedSpells[msg] then
 			executeSpell(SpellCreatorSavedSpells[msg].actions)
 		elseif msg == "options" then
@@ -3099,7 +3181,7 @@ function SlashCmdList.SCFORGEHELP(msg, editbox) -- 4.
 			cprint("No spell with Command "..msg.." found.")
 		end
 	else
-		scforge_showhide(msg)
+		scforge_showhide()
 	end
 end
 
@@ -3107,9 +3189,16 @@ SLASH_SCFORGEDEBUG1 = '/sfdebug';
 function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 	if SpellCreatorMasterTable.Options["debug"] and msg ~= "" then
 		if msg == "debug" then
-			cprint(addonName.." | DEBUG LIST")
+			cprint("DEBUG LIST")
 			cprint("Version: "..addonVersion)
-			cprint("Portrait: "..SC_randomFramePortrait)
+			--cprint("RuneIcon: "..runeIconOverlay.atlas or runeIconOverlay.tex)
+			cprint("Debug Commands: ")
+			print(" - resetSpells: reset your vault to empty. Cannot be undone.")
+			print(" - listSpells: List all your vault spells.. this is alot of stuff.")
+			print(" - listSpellKeys: List all your vault spells by just keys. Easier to read.")
+			print(" - resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, but cannot be restored without manual help from MindScape.")
+			print(" - getPhaseKeys: Lists all the vault spells by keys.")
+			
 		elseif msg == "resetSpells" then
 			dprint(true, "All Arcaum Spells reset. #GoodBye #ThisCannotBeUndoneHopeYouDidn'tFuckUp!")
 			SpellCreatorSavedSpells = {}
@@ -3164,8 +3253,8 @@ function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
 			end
 		end)
 	else
-		runeIconOverlay = runeIconOverlays[fastrandom(#runeIconOverlays)]
-		SCForgeMainFrame.portrait.rune:SetAtlas(runeIconOverlay)
+		initRuneIcon()
+		setRuneTex(runeIconOverlay)
 	end
 	
 end
