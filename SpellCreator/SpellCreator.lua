@@ -1936,7 +1936,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Delete '"..self.commID.."'", nil, nil, nil, nil, true)
+					GameTooltip:SetText("Delete '"..savedSpellFromVault[self.commID].commID.."'", nil, nil, nil, nil, true)
 					GameTooltip:Show()
 				end)
 			end)
@@ -1983,7 +1983,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Load spell '"..self.commID.."' into the forge, where you can edit it.", nil, nil, nil, nil, true)
+					GameTooltip:SetText("Load spell '"..savedSpellFromVault[self.commID].commID.."' into the forge, where you can edit it.", nil, nil, nil, nil, true)
 					GameTooltip:AddLine("Right-click to re-sort the spells actions into chronological order by delay.", 1,1,1,1)
 					GameTooltip:Show()
 				end)
@@ -2037,7 +2037,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 			-- NEED TO UPDATE THE ROWS IF WE ARE IN PHASE VAULT
 			if currentVault == "PERSONAL" then
-				spellLoadRows[rowNum].loadButton:SetText(EDIT)
+				--spellLoadRows[rowNum].loadButton:SetText(EDIT)
 				spellLoadRows[rowNum].saveToPhaseButton.commID = k
 				--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
 				--spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,1)
@@ -2050,7 +2050,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				end
 				
 			elseif currentVault == "PHASE" then
-				spellLoadRows[rowNum].loadButton:SetText("Load")
+				--spellLoadRows[rowNum].loadButton:SetText("Load")
 				spellLoadRows[rowNum].saveToPhaseButton:Hide()
 				--spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
 				--spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,1)
@@ -3139,50 +3139,117 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 	-- Gossip Menu Listener
 	elseif event == "GOSSIP_SHOW" then
+		local spellsToCast = {} -- outside the for loops so we don't reset it on every time
+		local shouldAutoHide = false
+		local shouldLoadSpellVault = false
+		
 		for i = 1, GetNumGossipOptions() do
 			--[[	-- Doesn't appear this is needed
 			_G["GossipTitleButton" .. i]:SetScript("OnClick", function()
 				SelectGossipOption(i)
 			end)
 			--]] 
-		local titleButton = _G["GossipTitleButton" .. i]
-		local titleButtonText = titleButton:GetText();
+			local titleButton = _G["GossipTitleButton" .. i]
+			local titleButtonText = titleButton:GetText();
 			if not titleButtonText then
 				local immersionButton = _G["ImmersionTitleButton"..i]
 				if immersionButton then titleButton = immersionButton; titleButtonText = immersionButton:GetText() end
 			end
-			if i == 1 and titleButtonText == "<arcanum_auto>" then
+			
+			if titleButtonText:match("<arcanum_") then titleButton:SetScript("OnClick", function() end) end
+			if titleButtonText:match("<arcanum_auto>") then
 				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
-					titleButton:SetText("<arcanum_auto:DM>");
-					titleButton:SetScript("OnClick", function() scforge_showhide("enableMMIcon") end)
+					titleButton:SetText(titleButtonText:gsub("<arcanum_auto>", "<arcanum_auto::DM>"));
+					titleButtonText = titleButton:GetText()
+					titleButton:HookScript("OnClick", function() scforge_showhide("enableMMIcon") end)
 					modifiedGossips[i] = titleButton
 				else
 					CloseGossip();
 					scforge_showhide("enableMMIcon");
 				end
+				
 			elseif titleButtonText:match("<arcanum_toggle>") then
-					if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
-						titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
-					else
-						titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", "<arcanum_toggle:DM>"));
-					end
-					titleButton:SetScript("OnClick", function() scforge_showhide("enableMMIcon") end)
-					modifiedGossips[i] = titleButton
-			--[[
-				elseif titleButtonText:match("<arcanum_cast") then
-				getSpellForgePhaseVault(callback)
-				if titleButtonText:match("<arcanum_cast:(.*)>") then
-				
-				elseif titleButtonText:match("<arcanum_cast_hide:") then
-				
-				elseif titleButtonText:match("<arcanum_cast_auto:") then
-				
-				elseif titleButtonText:match("<arcanum_cast_autohide:") then
-				
+				if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
+					titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
+					titleButtonText = titleButton:GetText()
+				else
+					titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", "<arcanum_toggle::DM>"));
+					titleButtonText = titleButton:GetText()
 				end
-			--]]
+				titleButton:HookScript("OnClick", function() scforge_showhide("enableMMIcon") end)
+				modifiedGossips[i] = titleButton
 			end
+					
+			if titleButtonText:match("<arcanum_cast") then
+				
+				shouldLoadSpellVault = true
+				
+				local patterns = {
+					"<arcanum_cast:(.*)>",
+					"<arcanum_cast_hide:(.*)>",
+					"<arcanum_cast_auto:(.*)>",
+					"<arcanum_cast_auto_hide:(.*)>",
+					}
+
+				for n = 1, #patterns do
+					if not titleButtonText then break; end
+					if titleButtonText:match(patterns[n]) then
+						local payLoad = string.match(titleButtonText, patterns[n]);
+						local shouldHide = false
+						
+						if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
+
+							if titleButtonText:match("<arcanum_cast_.*hide:") then -- Only close gossip frame if "hide" is part of the tag.
+								shouldHide = true
+							end
+
+							if titleButtonText:match("<arcanum_cast_auto.*:") then
+								table.insert(spellsToCast, payLoad)
+								dprint("Adding AutoCast from Gossip: '"..payLoad.."'.")
+								if shouldHide then shouldAutoHide = true end
+								titleButton:Hide()
+							end
+							titleButton:SetText(titleButtonText:gsub(patterns[n], ""));
+							titleButtonText = titleButton:GetText()
+						else
+							titleButton:SetText(titleButtonText:gsub(patterns[n], patterns[n]:gsub("%(%.%*%)",payLoad.."::DM")));
+							titleButtonText = titleButton:GetText()
+						end
+
+						titleButton:HookScript("OnClick", function() 
+							if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
+							for k,v in pairs(SCForge_PhaseVaultSpells) do
+								if v.commID == payLoad then
+									executeSpell(SCForge_PhaseVaultSpells[k].actions); 
+								end
+							end
+							if shouldHide then CloseGossip(); end 
+						end)
+						modifiedGossips[i] = titleButton
+						
+					end
+				end
+				if shouldAutoHide then CloseGossip(); end
+			end
+			
+			GossipResize(titleButton)
+			
 		end
+
+		if shouldLoadSpellVault then
+			getSpellForgePhaseVault(function(ready) 
+				if next(spellsToCast) == nil then dprint("No Auto Cast Spells in Gossip"); return; end
+				for i,j in pairs(spellsToCast) do
+					for k,v in pairs(SCForge_PhaseVaultSpells) do
+						if v.commID == j then
+							executeSpell(SCForge_PhaseVaultSpells[k].actions); 
+						end
+					end
+				end
+				spellsToCast = {} -- empty the table.
+			end)
+		end
+
 	elseif event == "GOSSIP_CLOSED" then
 		for k,v in pairs(modifiedGossips) do
 			v:SetScript("OnClick", function()
