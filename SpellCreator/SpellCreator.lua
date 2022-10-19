@@ -635,7 +635,7 @@ actionTypeData = {
 		["command"] = function(commID) executeSpell(SpellCreatorSavedSpells[commID].actions) end,
 		["description"] = "Cast another Arcanum Spell from your Personal Vault.",
 		["dataName"] = "Spell Command",
-		["inputDescription"] = "The Command key used to cast the spell\n\rExample: '/sf MySpell', where MySpell is the command key to input here.",
+		["inputDescription"] = "The Command key used to cast the ArcSpell\n\rExample: '/sf MySpell', where MySpell is the command key to input here.",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},
@@ -855,7 +855,7 @@ local function AddSpellRow()
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			self.Timer = C_Timer.NewTimer(0.7,function()
 				GameTooltip:SetText("Main Action Delay", nil, nil, nil, nil, true)
-				GameTooltip:AddLine("How long after 'casting' the spell this action triggers.\rCan be '0' for instant.",1,1,1,true)
+				GameTooltip:AddLine("How long after 'casting' the ArcSpell this action triggers.\rCan be '0' for instant.",1,1,1,true)
 				GameTooltip:Show()
 			end)
 		end)
@@ -1983,8 +1983,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Load spell '"..savedSpellFromVault[self.commID].commID.."' into the forge, where you can edit it.", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("Right-click to re-sort the spells actions into chronological order by delay.", 1,1,1,1)
+					GameTooltip:SetText("Load ArcSpell '"..savedSpellFromVault[self.commID].commID.."' into the forge, where you can edit it.", nil, nil, nil, nil, true)
+					GameTooltip:AddLine("Right-click to load the ArcSpell & re-sort it's actions into chronological order by delay.", 1,1,1,1)
 					GameTooltip:Show()
 				end)
 			end)
@@ -1994,6 +1994,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			end)
 			
 			
+			--[[
 			-- Transfer to Phase Button
 			spellLoadRows[rowNum].saveToPhaseButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum], "UIPanelButtonTemplate")
 			local button = spellLoadRows[rowNum].saveToPhaseButton
@@ -2020,6 +2021,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				GameTooltip_Hide()
 				self.Timer:Cancel()
 			end)
+			--]]
 		end
 		
 		-- Set the buttons stuff
@@ -2038,20 +2040,22 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			-- NEED TO UPDATE THE ROWS IF WE ARE IN PHASE VAULT
 			if currentVault == "PERSONAL" then
 				--spellLoadRows[rowNum].loadButton:SetText(EDIT)
-				spellLoadRows[rowNum].saveToPhaseButton.commID = k
+				--spellLoadRows[rowNum].saveToPhaseButton.commID = k
 				--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
 				--spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,1)
 				spellLoadRows[rowNum].deleteButton:Show()
 				
+				--[[	-- Replaced with the <-> Phase Vault button
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
-					--spellLoadRows[rowNum].saveToPhaseButton:Show()
+					spellLoadRows[rowNum].saveToPhaseButton:Show()
 				else
 					spellLoadRows[rowNum].saveToPhaseButton:Hide()
 				end
+				--]]
 				
 			elseif currentVault == "PHASE" then
 				--spellLoadRows[rowNum].loadButton:SetText("Load")
-				spellLoadRows[rowNum].saveToPhaseButton:Hide()
+				--spellLoadRows[rowNum].saveToPhaseButton:Hide()
 				--spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
 				--spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,1)
 				
@@ -2220,8 +2224,8 @@ end)
 SCForgeMainFrame.SaveSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Create your spell!", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Finish your spell & save to the vault.\nIt can then be casted using '/sf commandID' for quick use!\n\r",1,1,1,true)
+		GameTooltip:SetText("Create your ArcSpell!", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Finish your spell & save to your Personal Vault.\nIt can then be casted using '/sf commandID' for quick use!\n\r",1,1,1,true)
 		GameTooltip:AddLine("Right-click to over-write a previous spell with the same Command ID without confirmation.",1,1,1,true)
 		GameTooltip:Show()
 	end)
@@ -2246,8 +2250,8 @@ end)
 SCForgeMainFrame.LoadSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Access your Vault", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("All of your created & saved spells are stored here.\n\rYou can load & manage your spells from the vault.",1,1,1,true)
+		GameTooltip:SetText("Access your Vaults", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("You can load, edit, and manage all of your created/saved ArcSpells from the Personal Vault.\n\rThe Phase Vault can also be accessed here for any ArcSpells saved to the phase.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -2447,7 +2451,7 @@ SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnEnter", function
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Refresh Phase Vault", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Reload the Phase Vault from the server, getting any updates since opened.",1,1,1,true)
+		GameTooltip:AddLine("Reload the Phase Vault from the server, getting any new changes.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
