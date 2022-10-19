@@ -3144,20 +3144,27 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				SelectGossipOption(i)
 			end)
 			--]] 
-		local titleButtonText = _G["GossipTitleButton" .. i]:GetText();
+		local titleButton = _G["GossipTitleButton" .. i]
+		local titleButtonText = titleButton:GetText();
+			if not titleButtonText then
+				local immersionButton = _G["ImmersionTitleButton"..i]
+				if immersionButton then titleButton = immersionButton; titleButtonText = immersionButton:GetText() end
+			end
 			if i == 1 and titleButtonText == "<arcanum_auto>" then
 				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
-					_G["GossipTitleButton" .. i]:SetText("<arcanum_auto> :: DM Mode");
-					_G["GossipTitleButton" .. i]:SetScript("OnClick", function() scforge_showhide("enableMMIcon") end)
+					titleButton:SetText("<arcanum_auto (DM)>");
+					titleButton:SetScript("OnClick", function() scforge_showhide("enableMMIcon") end)
 				else
 					CloseGossip();
 					scforge_showhide("enableMMIcon");
 				end
 			elseif titleButtonText:match("<arcanum_toggle>") then
 					if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
-						_G["GossipTitleButton" .. i]:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
+						titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
+					else
+						titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", "<arcanum_toggle (DM)>"));
 					end
-					_G["GossipTitleButton" .. i]:SetScript("OnClick", function() scforge_showhide("enableMMIcon") end)
+					titleButton:SetScript("OnClick", function() scforge_showhide("enableMMIcon") end)
 			end
 		end
 	--elseif event == "GOSSIP_CLOSED" then
