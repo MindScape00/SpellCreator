@@ -1526,7 +1526,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 			actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
 			actionData.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
 			actionData.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
-			dprint(false, dump(actionData))
+			--dprint(false, dump(actionData))
 			table.insert(actionsToCommit, actionData)
 		end
 	end
@@ -1552,7 +1552,7 @@ else
 end
 
 local function loadSpell(spellToLoad)
-	dprint("Loading spell.. "..spellToLoad.commID)
+	--dprint("Loading spell.. "..spellToLoad.commID)
 	
 	SCForgeMainFrame.SpellInfoCommandBox:SetText(spellToLoad.commID)
 	SCForgeMainFrame.SpellInfoNameBox:SetText(spellToLoad.fullName)
@@ -3070,12 +3070,14 @@ SC_Addon_Listener:RegisterEvent("ADDON_LOADED");
 SC_Addon_Listener:RegisterEvent("SCENARIO_UPDATE")
 SC_Addon_Listener:RegisterEvent("UI_ERROR_MESSAGE");
 SC_Addon_Listener:RegisterEvent("GOSSIP_SHOW");
+SC_Addon_Listener:RegisterEvent("GOSSIP_CLOSED");
 
+local modifiedGossips = {}
 if not C_Epsilon.IsDM then C_Epsilon.IsDM = false end
 SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 	-- Phase Change Listener
 	if event == "SCENARIO_UPDATE" then -- SCENARIO_UPDATE fires whenever a phase change occurs. Lucky us.
-		dprint("Caught Phase Change - Refreshing Load Rows & Checking for Main Phase / Start") -- Commented out for performance.
+		--dprint("Caught Phase Change - Refreshing Load Rows & Checking for Main Phase / Start") -- Commented out for performance.
 		isSavingOrLoadingPhaseAddonData = false
 		C_Epsilon.IsDM = false
 		updateSpellLoadRows();
@@ -3089,8 +3091,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		return;
 		
 	-- Addon Loaded Handler
-	elseif event == "ADDON_LOADED" and name == "SpellCreator" then
-
+	elseif event == "ADDON_LOADED" and (name == "SpellCreator" or name == "SpellCreator-dev") then
 		SC_loadMasterTable();
 		LoadMinimapPosition();
 		aceCommInit()
@@ -3152,8 +3153,9 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			end
 			if i == 1 and titleButtonText == "<arcanum_auto>" then
 				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
-					titleButton:SetText("<arcanum_auto (DM)>");
+					titleButton:SetText("<arcanum_auto:DM>");
 					titleButton:SetScript("OnClick", function() scforge_showhide("enableMMIcon") end)
+					modifiedGossips[i] = titleButton
 				else
 					CloseGossip();
 					scforge_showhide("enableMMIcon");
@@ -3162,13 +3164,32 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 					if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
 						titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
 					else
-						titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", "<arcanum_toggle (DM)>"));
+						titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", "<arcanum_toggle:DM>"));
 					end
 					titleButton:SetScript("OnClick", function() scforge_showhide("enableMMIcon") end)
+					modifiedGossips[i] = titleButton
+			--[[
+				elseif titleButtonText:match("<arcanum_cast") then
+				getSpellForgePhaseVault(callback)
+				if titleButtonText:match("<arcanum_cast:(.*)>") then
+				
+				elseif titleButtonText:match("<arcanum_cast_hide:") then
+				
+				elseif titleButtonText:match("<arcanum_cast_auto:") then
+				
+				elseif titleButtonText:match("<arcanum_cast_autohide:") then
+				
+				end
+			--]]
 			end
 		end
-	--elseif event == "GOSSIP_CLOSED" then
-		
+	elseif event == "GOSSIP_CLOSED" then
+		for k,v in pairs(modifiedGossips) do
+			v:SetScript("OnClick", function()
+				SelectGossipOption(k)
+			end)
+			modifiedGossips[k] = nil
+		end
 	end
 
 end);
