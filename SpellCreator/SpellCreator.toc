@@ -5,7 +5,7 @@
 ## Notes: Combine a sequence of timed actions (like spells, emotes, animations, etc) to create your own unique custom spells!
 ## DefaultState: Enabled
 ## SavedVariables: SpellCreatorMasterTable, SpellCreatorSavedSpells
-## X-Date: October 18, 2022
+## X-Date: October 19, 2022
 ## X-Credits: MindScape
 
 SpellCreator.xml
