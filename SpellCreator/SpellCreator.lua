@@ -479,8 +479,10 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 end
 
 local actionsToCommit = {}
-local function executeSpell(actionsToCommit)
-	if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than start.") return; end
+local function executeSpell(actionsToCommit, byPassCheck)
+	if not byPassCheck then
+		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than start.") return; end
+	end
 	for _,spell in pairs(actionsToCommit) do
 		--dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
 		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
@@ -3296,7 +3298,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 							if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
 							for k,v in pairs(SCForge_PhaseVaultSpells) do
 								if v.commID == payLoad then
-									executeSpell(SCForge_PhaseVaultSpells[k].actions); 
+									executeSpell(SCForge_PhaseVaultSpells[k].actions, true); 
 								end
 							end
 							if shouldHide then CloseGossip(); end 
@@ -3318,7 +3320,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				for i,j in pairs(spellsToCast) do
 					for k,v in pairs(SCForge_PhaseVaultSpells) do
 						if v.commID == j then
-							executeSpell(SCForge_PhaseVaultSpells[k].actions); 
+							executeSpell(SCForge_PhaseVaultSpells[k].actions, true); 
 						end
 					end
 				end
