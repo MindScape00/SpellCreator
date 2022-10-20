@@ -1202,6 +1202,7 @@ SCForgeMainFrame.portrait:AddMaskTexture(SCForgeMainFrame.portrait.mask)
 SCForgeMainFrame.portrait.icon = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 6)
 SCForgeMainFrame.portrait.icon:SetTexture(arcaneGemPath..arcaneGemIcons[fastrandom(#arcaneGemIcons)])
 SCForgeMainFrame.portrait.icon:SetAllPoints(SCForgeMainFrame.portrait)
+SCForgeMainFrame.portrait.icon:SetAlpha(0.93)
 --SCForgeMainFrame.portrait.icon:SetBlendMode("ADD")
 
 SCForgeMainFrame.portrait.rune = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 7)
