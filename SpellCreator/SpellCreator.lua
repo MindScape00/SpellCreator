@@ -3164,7 +3164,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				if immersionButton then titleButton = immersionButton; titleButtonText = immersionButton:GetText() end
 			end
 			
-			--if titleButtonText:match("<arcanum_") then titleButton:SetScript("OnClick", function() end) end
+--			if titleButtonText:match("<arcanum_") then titleButton:SetScript("OnClick", function() end) end
 			if titleButtonText:match("<arcanum_auto>") then
 				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
 					titleButton:SetText(titleButtonText:gsub("<arcanum_auto>", "<arcanum_auto::DM>"));
