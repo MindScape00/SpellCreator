@@ -3081,6 +3081,7 @@ SC_Addon_Listener:RegisterEvent("GOSSIP_SHOW");
 SC_Addon_Listener:RegisterEvent("GOSSIP_CLOSED");
 
 local modifiedGossips = {}
+local isGossipLoaded
 if not C_Epsilon.IsDM then C_Epsilon.IsDM = false end
 SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 	-- Phase Change Listener
@@ -3147,12 +3148,13 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 	-- Gossip Menu Listener
 	elseif event == "GOSSIP_SHOW" then
+	
 		local spellsToCast = {} -- outside the for loops so we don't reset it on every time
 		local shouldAutoHide = false
 		local shouldLoadSpellVault = false
 		
 		for i = 1, GetNumGossipOptions() do
-			--[[	-- Doesn't appear this is needed
+			--[[	-- Replaced with a memory of modifiedGossips that we reset when gossip is closed instead.
 			_G["GossipTitleButton" .. i]:SetScript("OnClick", function()
 				SelectGossipOption(i)
 			end)
@@ -3244,7 +3246,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			
 		end
 
-		if shouldLoadSpellVault then
+		if shouldLoadSpellVault and not isGossipLoaded then
 			getSpellForgePhaseVault(function(ready) 
 				if next(spellsToCast) == nil then dprint("No Auto Cast Spells in Gossip"); return; end
 				for i,j in pairs(spellsToCast) do
@@ -3257,14 +3259,20 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				spellsToCast = {} -- empty the table.
 			end)
 		end
+		
+		isGossipLoaded = true
 
 	elseif event == "GOSSIP_CLOSED" then
+	
 		for k,v in pairs(modifiedGossips) do
 			v:SetScript("OnClick", function()
 				SelectGossipOption(k)
 			end)
 			modifiedGossips[k] = nil
 		end
+		
+		isGossipLoaded = false
+		
 	end
 
 end);
