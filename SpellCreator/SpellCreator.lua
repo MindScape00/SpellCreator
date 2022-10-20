@@ -125,8 +125,15 @@ local function eprint(text,rest)
 	end
 end
 
-local dump = DevTools_Dump or function(o)
---local function dump(o)
+--local dump = DevTools_Dump
+local function dump(o)
+
+	if not DevTools_Dump then
+		UIParentLoadAddOn("Blizzard_DebugTools");
+	end
+	DevTools_Dump(o);
+
+--[[ -- Old Table String-i-zer.. Replaced with Blizzard_DebugTools nice dump :)
    if type(o) == 'table' then
       local s = '{ '
       for k,v in pairs(o) do
@@ -137,6 +144,13 @@ local dump = DevTools_Dump or function(o)
    else
       return tostring(o)
    end
+--]]
+end
+
+local function ddump(o)
+	if SpellCreatorMasterTable.Options["debug"] then
+		dump(o)
+	end
 end
 
 local function get_keys(t)
@@ -303,6 +317,29 @@ initRuneIcon()
 -- debug over-ride, comment out when done
 -- runeIconOverlay = {tex = "Interface/AddOns/SpellCreator/assets/BookIcon"}
 
+------------- Background Models
+
+ -- 58836 (purple missile) 71960 (nightborne missile) 91994 (void) 92827 (void scroll) 31497 (arcane portal - SetCamDistanceScale(5)) 39581 (cam-5) 61420 (purple portal, cam-2.5 or 3) 66092 (bright purple cam 2.5 or 3), 74190 (bright blue, cam 2.5 or 3) 88991 (purple void cam 5?) 
+local minimapModels = {
+{disp = 58836, camScale = 1}, -- Purple Missle
+{disp = 71960, camScale = 1}, -- Nightborne Missle
+--{disp = 91994, camScale = 1}, -- Void Sporadic
+{disp = 92827, camScale = 0.95}, -- Void Scrolling
+{disp = 31497, camScale = 5, alpha=0.7}, -- Arcane Portal
+--{disp = 39581, camScale = 5}, -- Blue Portalish - not great
+{disp = 61420, camScale = 2.5}, -- Purple Portal
+{disp = 66092, camScale = 3, alpha=0.2}, -- Thick Purple Magic Ring
+{disp = 74190, camScale = 3, alpha=0.25}, -- Thick Blue Magic Ring
+{disp = 88991, camScale = 6.5}, -- Void Ring
+}
+
+local function modelFrameSetModel(frame, id, list)
+	id = tonumber(id)
+	frame:SetDisplayInfo(list[id].disp)
+	frame:SetCamDistanceScale(list[id].camScale)
+	frame:SetRotation(0)
+	frame:SetModelAlpha(list[id].alpha or 1)
+end
 
 --[[	-- Old Background System stuff
 local frameBackgroundOptions = {
@@ -888,7 +925,7 @@ local function AddSpellRow()
 				end
 				UIDropDownMenu_SetSelectedID(_G["spellRow"..arg1.."ActionSelectButton"], self:GetID())
 				--_G["spellRow"..arg1.."ActionSelectButtonText"]:SetText(menuItem.text)
-				dprint(false, dump(self))
+				ddump(self)
 				updateSpellRowOptions(arg1, menuItem.value)
 			end
 			table.insert(menuList, menuItem)
@@ -1187,6 +1224,19 @@ local function setRuneTex(texInfo)
 	SCForgeMainFrame.portrait.rune:SetAlpha(texInfo.alpha or 1)
 end
 setRuneTex(runeIconOverlay)
+
+SCForgeMainFrame.portrait.Model = CreateFrame("PLAYERMODEL", nil, SCForgeMainFrame, "MouseDisabledModelTemplate")
+SCForgeMainFrame.portrait.Model:SetAllPoints(SCForgeMainFramePortrait)
+SCForgeMainFrame.portrait.Model:SetFrameStrata("MEDIUM")
+SCForgeMainFrame.portrait.Model:SetFrameLevel(SCForgeMainFrame:GetFrameLevel())
+SCForgeMainFrame.portrait.Model:SetModelDrawLayer("OVERLAY")
+SCForgeMainFrame.portrait.Model:SetKeepModelOnHide(true)
+modelFrameSetModel(SCForgeMainFrame.portrait.Model, fastrandom(#minimapModels), minimapModels)
+SCForgeMainFrame.portrait.Model:SetScript("OnMouseDown", function()
+	local randID = fastrandom(#minimapModels)
+	modelFrameSetModel(SCForgeMainFrame.portrait.Model, randID, minimapModels)
+	dprint("Portrait Icon BG Model Set to ID "..randID)
+end)
 
 SCForgeMainFrame:SetTitle("Arcanum - Spell Forge")
 
@@ -1530,7 +1580,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 			actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
 			actionData.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
 			actionData.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
-			--dprint(false, dump(actionData))
+			ddump(actionData)
 			table.insert(actionsToCommit, actionData)
 		end
 	end
@@ -1636,7 +1686,8 @@ local function getSpellForgePhaseVault(callback)
 			if (#text < 1 or text == "") then noSpellsToLoad(); return; end
 			phaseVaultKeys = serialDecompressForAddonMsg(text)
 			if #phaseVaultKeys < 1 then noSpellsToLoad(); return; end
-			--dprint("Phase spell keys: "..dump(phaseVaultKeys))
+			--dprint("Phase spell keys: ")
+			--ddump(phaseVaultKeys)
 			local phaseVaultLoadingCount = 0
 			
 			local messageTicketQueue = {}
@@ -1729,7 +1780,8 @@ local function saveSpellToPhaseVault(commID)
 				--print(text)
 				if (text ~= "" and #text > 0) then phaseVaultKeys = serialDecompressForAddonMsg(text) else phaseVaultKeys = {} end
 
-				dprint("Phase spell keys: "..dump(phaseVaultKeys))
+				dprint("Phase spell keys: ")
+				ddump(phaseVaultKeys)
 				
 				for k,v in ipairs(phaseVaultKeys) do
 					if v == phaseSpellKey then
@@ -2706,6 +2758,18 @@ minimapButton.icon:SetTexture(mmIcon)
 minimapButton.icon:SetSize(22,22)
 minimapButton.icon:SetPoint("CENTER")
 
+minimapButton.Model = CreateFrame("PLAYERMODEL", nil, minimapButton, "MouseDisabledModelTemplate")
+minimapButton.Model:SetAllPoints()
+minimapButton.Model:SetFrameStrata("MEDIUM")
+minimapButton.Model:SetFrameLevel(minimapButton:GetFrameLevel())
+minimapButton.Model:SetModelDrawLayer("BORDER")
+minimapButton.Model:SetKeepModelOnHide(true)
+modelFrameSetModel(minimapButton.Model, 2, minimapModels)
+modelFrameSetModel(minimapButton.Model, fastrandom(#minimapModels), minimapModels)
+
+--SpellCreatorMinimapButton.Model
+--SpellCreatorMinimapButton.Model:SetCamDistanceScale()
+
 --[[
 minimapButton.rune = minimapButton:CreateTexture(nil, "OVERLAY", nil, 7)
 if runeIconOverlay.atlas then 
@@ -2797,6 +2861,7 @@ end)
 minimapButton:SetScript("OnMouseUp", function(self, button)
 	if button == "LeftButton" then
 		scforge_showhide()
+		modelFrameSetModel(minimapButton.Model, fastrandom(#minimapModels), minimapModels)
 	elseif button == "RightButton" then
 		scforge_showhide("options")
 	end
@@ -3316,12 +3381,13 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 			updateSpellLoadRows()
 		elseif msg == "listSpells" then
 			for k,v in orderedPairs(SpellCreatorSavedSpells) do
-				print(k, dump(v))
+				cprint("ArcSpell: "..k.." =")
+				dump(v)
 			end
 		elseif msg == "listSpellKeys" then -- debug to list all spell keys by alphabetical order.
 			local newTable = get_keys(SpellCreatorSavedSpells)
 			table.sort(newTable)
-			print(dump(newTable))
+			dump(newTable)
 		elseif msg == "resetPhaseSpellKeys" then
 			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", "")
 			dprint(true, "Wiped all Spell Keys from Phase Vault memory. This does not wipe the data itself of the spells, so they can technically be recovered by manually adding the key back, or begging Azar/Raz to give you the data and then running it thru libDeflate/AceSerializer/Decode. Yeah..")
@@ -3335,7 +3401,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 					phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
 					print(text)
 					phaseVaultKeys = serialDecompressForAddonMsg(text)
-					print(dump(phaseVaultKeys))
+					dump(phaseVaultKeys)
 				end
 			end)
 		
@@ -3346,26 +3412,20 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 	end
 end
 
-
+local testComVar
 SLASH_SCFORGETEST1 = '/sftest';
 function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
+	if testComVar and testComVar < #minimapModels then testComVar = testComVar+1 else testComVar = 1 end
+	modelFrameSetModel(SCForgeMainFrame.portrait.Model, testComVar, minimapModels)
+	print(testComVar)
 
-	if msg == "getPhaseKeys" then
-		local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
-
-		phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
-		
-		phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
-			if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
-				phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
-				print(text)
-				phaseVaultKeys = serialDecompressForAddonMsg(text)
-				print(dump(phaseVaultKeys))
-			end
-		end)
+--[[
+	if msg ~= "" then
+		modelFrameSetModel(minimapButton.Model, msg, minimapModels)
 	else
 		initRuneIcon()
 		setRuneTex(runeIconOverlay)
 	end
+--]]
 	
 end
