@@ -1,8 +1,11 @@
-local MYADDON, MyAddOn = ...
-local addonVersion, addonAuthor, addonName = GetAddOnMetadata(MYADDON, "Version"), GetAddOnMetadata(MYADDON, "Author"), GetAddOnMetadata(MYADDON, "Title")
+local addonName, addonTable = ...
+local addonVersion, addonAuthor, addonTitle = GetAddOnMetadata(addonName, "Version"), GetAddOnMetadata(addonName, "Author"), GetAddOnMetadata(addonName, "Title")
+local addonFileName = GetAddOnInfo(addonName)
 local addonColor = "|cff".."ce2eff" -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
 local addonMsgPrefix = "SCFORGE"
 local isAddonLoaded = false
+
+local addonPath = "Interface/AddOns/"..tostring(addonName)
 
 local localization = {}
 localization.SPELLNAME = STAT_CATEGORY_SPELL.." "..NAME
@@ -12,7 +15,7 @@ local savedSpellFromVault = {}
 
 -- localized frequent functions for speed
 local CTimerAfter = C_Timer.After
-
+local C_Timer = C_Timer
 
 --
 local curDate = date("*t")
@@ -86,7 +89,7 @@ local function RunMacroText(command)
 end
 
 local function cprint(text)
-	print(addonColor..addonName..": "..(text and text or "ERROR").."|r")
+	print(addonColor..addonTitle..": "..(text and text or "ERROR").."|r")
 end
 
 local function dprint(force, text, ...)
@@ -95,18 +98,18 @@ local function dprint(force, text, ...)
 			local rest = ... or ""
 			local line = strmatch(debugstack(2),":(%d+):")
 			if line then
-				print(addonColor..addonName.." DEBUG "..line..": "..text, rest, " |r")
+				print(addonColor..addonTitle.." DEBUG "..line..": "..text, rest, " |r")
 			else
-				print(addonColor..addonName.." DEBUG: "..text, rest, " |r")
+				print(addonColor..addonTitle.." DEBUG: "..text, rest, " |r")
 				print(debugstack(2))
 			end
 		end
 	elseif SpellCreatorMasterTable.Options["debug"] then
 		local line = strmatch(debugstack(2),":(%d+):")
 		if line then
-			print(addonColor..addonName.." DEBUG "..line..": "..force.." |r")
+			print(addonColor..addonTitle.." DEBUG "..line..": "..force.." |r")
 		else
-			print(addonColor..addonName.." DEBUG: "..force.." |r")
+			print(addonColor..addonTitle.." DEBUG: "..force.." |r")
 			print(debugstack(2))
 		end
 	end
@@ -115,14 +118,15 @@ end
 local function eprint(text,rest)
 	local line = strmatch(debugstack(2),":(%d+):")
 	if line then
-		print(addonColor..addonName.." Error @ "..line..": "..text.." | "..(rest and " | "..rest or "").." |r")
+		print(addonColor..addonTitle.." Error @ "..line..": "..text.." | "..(rest and " | "..rest or "").." |r")
 	else
-		print(addonColor..addonName.." @ ERROR: "..text.." | "..rest.." |r")
+		print(addonColor..addonTitle.." @ ERROR: "..text.." | "..rest.." |r")
 		print(debugstack(2))
 	end
 end
 
-local function dump(o)
+local dump = DevTools_Dump or function(o)
+--local function dump(o)
    if type(o) == 'table' then
       local s = '{ '
       for k,v in pairs(o) do
@@ -260,7 +264,7 @@ local frameIconOptions = {
 }
 --]]
 
-local arcaneGemPath = "Interface/AddOns/SpellCreator/assets/gem-icons/Gem"
+local arcaneGemPath = addonPath.."/assets/gem-icons/Gem"
 local arcaneGemIcons = {
 "Blue",
 --"Green",
@@ -290,7 +294,7 @@ local function initRuneIcon()
 		{atlas = "ChallengeMode-Runes-T-Glow", desat = true, x = 32, y = 32},
 		{atlas = "heartofazeroth-slot-minor-unactivated-rune", desat = true, x = 44, y = 44, alpha=0.8},
 		{atlas = "Darklink-active", desat = true},
-		{tex = "Interface/AddOns/SpellCreator/assets/BookIcon", desat = false, x = 26, y = 26},
+		{tex = addonPath.."/assets/BookIcon", desat = false, x = 26, y = 26},
 	}
 	runeIconOverlay = runeIconOverlays[fastrandom(#runeIconOverlays)]
 end
@@ -322,7 +326,7 @@ local frameBackgroundOptionsEdge = {
 }
 --]]
 
-local load_row_background = "Interface/AddOns/SpellCreator/assets/SpellForgeVaultPanelRow"
+local load_row_background = addonPath.."/assets/SpellForgeVaultPanelRow"
 
 local function get_Table_Position(str, tab)
 	for i = 1, #tab do
@@ -811,7 +815,7 @@ local function AddSpellRow()
 				
 		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND", nil, 5)
 		newRow.Background:SetAllPoints()
-		newRow.Background:SetTexture("Interface/AddOns/SpellCreator/assets/SpellForgeMainPanelRow1")
+		newRow.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
 		newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
 		newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
 		newRow.Background:SetAlpha(0.9)
@@ -819,7 +823,7 @@ local function AddSpellRow()
 		
 		newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
 		newRow.Background2:SetAllPoints()
-		newRow.Background2:SetTexture("Interface/AddOns/SpellCreator/assets/SpellForgeMainPanelRow2")
+		newRow.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
 		newRow.Background2:SetTexCoord(0.208,1-0.209,0,1)
 		newRow.Background2:SetPoint("TOPLEFT",-3,0)
 		newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
@@ -830,7 +834,7 @@ local function AddSpellRow()
 		newRow.RowGem:SetPoint("CENTER", newRow.Background2, "LEFT", 2, 0)
 		newRow.RowGem:SetHeight(40)
 		newRow.RowGem:SetWidth(40)
-		newRow.RowGem:SetTexture("Interface/AddOns/SpellCreator/assets/DragonGem")
+		newRow.RowGem:SetTexture(addonPath.."/assets/DragonGem")
 		--newRow.RowGem:SetTexCoord(0.208,1-0.209,0,1)
 		--newRow.RowGem:SetPoint("RIGHT",-9,0)
 		
@@ -1107,8 +1111,8 @@ SCForgeMainFrame.SettingsButton.icon:SetTexture("interface/buttons/ui-optionsbut
 SCForgeMainFrame.SettingsButton.icon:SetSize(16,16)
 SCForgeMainFrame.SettingsButton.icon:SetPoint("CENTER")
 SCForgeMainFrame.SettingsButton:SetScript("OnClick", function(self)
-	InterfaceOptionsFrame_OpenToCategory(addonName);
-	InterfaceOptionsFrame_OpenToCategory(addonName);
+	InterfaceOptionsFrame_OpenToCategory(addonTitle);
+	InterfaceOptionsFrame_OpenToCategory(addonTitle);
 end)
 SCForgeMainFrame.SettingsButton:SetScript("OnMouseDown", function(self)
 	local point, relativeTo, relativePoint, xOfs, yOfs = self.icon:GetPoint(1)
@@ -1128,9 +1132,9 @@ end)
 
 --NineSliceUtil.ApplyLayout(SCForgeMainFrame, "BFAMissionAlliance") -- You can use this to apply other nine-slice templates to a nine-slice frame. We want a custom Nine-Slice tho so below is my application of it.
 
-local myNineSliceFile_corners = "interface/addons/SpellCreator/assets/frame_border_corners"
-local myNineSliceFile_vert = "interface/addons/SpellCreator/assets/frame_border_vertical"
-local myNineSliceFile_horz = "interface/addons/SpellCreator/assets/frame_border_horizontal"
+local myNineSliceFile_corners = addonPath.."/assets/frame_border_corners"
+local myNineSliceFile_vert = addonPath.."/assets/frame_border_vertical"
+local myNineSliceFile_horz = addonPath.."/assets/frame_border_horizontal"
 local newNineSliceOverride = {
     TopLeftCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.263672, txb = 0.521484, }, --0.263672, 0.521484, 0.263672, 0.521484
     --TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.263672, txb = 0.521484, }, -- 0.00195312, 0.259766, 0.263672, 0.521484
@@ -1149,9 +1153,9 @@ end
 
 --local SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)] -- Old Random Icon Stuff
 --SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait) -- Switched to using our version.
---SCForgeMainFrame.portrait:SetTexture("Interface/AddOns/SpellCreator/assets/arcanum_icon")
+--SCForgeMainFrame.portrait:SetTexture(addonPath.."/assets/arcanum_icon")
 
-SCForgeMainFrame.portrait:SetTexture("Interface/AddOns/SpellCreator/assets/CircularBG")
+SCForgeMainFrame.portrait:SetTexture(addonPath.."/assets/CircularBG")
 SCForgeMainFrame.portrait:SetTexCoord(0.25,1-0.25,0,1)
 SCForgeMainFrame.portrait.mask = SCForgeMainFrame:CreateMaskTexture()
 SCForgeMainFrame.portrait.mask:SetAllPoints(SCForgeMainFrame.portrait)
@@ -1295,7 +1299,7 @@ SCForgeMainFrame.SpellInfoCommandBox.previousEditBox = SCForgeMainFrame.SpellInf
 SCForgeMainFrame.SpellInfoNameBox.previousEditBox = SCForgeMainFrame.SpellInfoDescBox
 
 local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, save a frame texture
-	background:SetTexture("Interface/AddOns/SpellCreator/assets/bookbackground_full")
+	background:SetTexture(addonPath.."/assets/bookbackground_full")
 	background:SetVertTile(false)
 	background:SetHorizTile(false)
 	background:SetAllPoints()
@@ -1914,19 +1918,19 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetSize(24,24)
 			--button:SetText("x")
 			
-			button:SetNormalTexture("Interface/AddOns/SpellCreator/assets/icon-x")
+			button:SetNormalTexture(addonPath.."/assets/icon-x")
 			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
-			button.DisabledTex:SetTexture("Interface/AddOns/SpellCreator/assets/icon-x")
+			button.DisabledTex:SetTexture(addonPath.."/assets/icon-x")
 			SetDesaturation(button.DisabledTex, true)
 			button.DisabledTex:SetVertexColor(.6,.6,.6)
 			button:SetDisabledTexture(button.DisabledTex)
 
 			button.PushedTex = button:CreateTexture(nil, "ARTWORK")
 			button.PushedTex:SetAllPoints(true)
-			button.PushedTex:SetTexture("Interface/AddOns/SpellCreator/assets/icon-x")
+			button.PushedTex:SetTexture(addonPath.."/assets/icon-x")
 			button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
 			button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
 			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
@@ -1954,19 +1958,19 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetSize(24,24)
 			--button:SetText(EDIT)
 			
-			button:SetNormalTexture("Interface/AddOns/SpellCreator/assets/icon-edit")
+			button:SetNormalTexture(addonPath.."/assets/icon-edit")
 			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
-			button.DisabledTex:SetTexture("Interface/AddOns/SpellCreator/assets/icon-edit")
+			button.DisabledTex:SetTexture(addonPath.."/assets/icon-edit")
 			SetDesaturation(button.DisabledTex, true)
 			button.DisabledTex:SetVertexColor(.6,.6,.6)
 			button:SetDisabledTexture(button.DisabledTex)
 
 			button.PushedTex = button:CreateTexture(nil, "ARTWORK")
 			button.PushedTex:SetAllPoints(true)
-			button.PushedTex:SetTexture("Interface/AddOns/SpellCreator/assets/icon-edit")
+			button.PushedTex:SetTexture(addonPath.."/assets/icon-edit")
 			button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
 			button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
 			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
@@ -2003,7 +2007,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetSize(24,24)
 			--button:SetText("P")
 			button.icon = button:CreateTexture(nil, "ARTWORK")
-			button.icon:SetTexture("Interface/AddOns/SpellCreator/assets/icon-transfer")
+			button.icon:SetTexture(addonPath.."/assets/icon-transfer")
 			--button.icon:SetTexCoord(0,1,1,0)
 			button.icon:SetAllPoints()
 			button:Hide()
@@ -2296,7 +2300,7 @@ end
 do
 	SCForgeMainFrame.LoadSpellFrame.Inset.Bg2 = SCForgeMainFrame.LoadSpellFrame.Inset:CreateTexture(nil, "BACKGROUND")
 	local background = SCForgeMainFrame.LoadSpellFrame.Inset.Bg2
-	background:SetTexture("Interface/AddOns/SpellCreator/assets/SpellForgeVaultBG")
+	background:SetTexture(addonPath.."/assets/SpellForgeVaultBG")
 	background:SetVertTile(false)
 	background:SetHorizTile(false)
 	background:SetTexCoord(0.0546875,1-0.0546875,0.228515625,1-0.228515625)
@@ -2316,7 +2320,7 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetSize(24*5,24)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetText("   Phase Vault")
 
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon = SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:CreateTexture(nil, "ARTWORK")
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture("Interface/AddOns/SpellCreator/assets/icon-transfer")
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture(addonPath.."/assets/icon-transfer")
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexCoord(0,1,1,0)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetPoint("TOPLEFT", 5, 0)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetSize(24,24)
@@ -2526,7 +2530,7 @@ function ChatFrame_OnHyperlinkShow(...)
 	local linkType, linkData, displayText = LinkUtil.ExtractLink(select(3, ...))
 	if linkType == "arcSpell" then
 		spellComm, charOrPhase, spellName, numActions, spellDesc = strsplit(":", linkData)
-		local spellIconPath = "Interface/AddOns/SpellCreator/assets/BookIcon"
+		local spellIconPath = addonPath.."/assets/BookIcon"
 		local spellIconSize = 24
 		local spellIconSequence = "|T"..spellIconPath..":"..spellIconSize.."|t "
 		local tooltipTitle = spellIconSequence..addonColor..spellName
@@ -2583,8 +2587,8 @@ end
 
 local function scforge_showhide(where)
 	if where == "options" then
-		InterfaceOptionsFrame_OpenToCategory(addonName);
-		InterfaceOptionsFrame_OpenToCategory(addonName);
+		InterfaceOptionsFrame_OpenToCategory(addonTitle);
+		InterfaceOptionsFrame_OpenToCategory(addonTitle);
 	else
 		if not SCForgeMainFrame:IsShown() then
 			SCForgeMainFrame:Show()
@@ -2688,7 +2692,7 @@ local function rainbowVertex(frame, parentIfNeeded)
 end
 
 minimapButton.bg = minimapButton:CreateTexture("$parentBg", "BACKGROUND")
-minimapButton.bg:SetTexture("Interface/AddOns/SpellCreator/assets/CircularBG")
+minimapButton.bg:SetTexture(addonPath.."/assets/CircularBG")
 minimapButton.bg:SetSize(24,24)
 minimapButton.bg:SetPoint("CENTER")
 minimapButton.bg.mask = minimapButton:CreateMaskTexture()
@@ -2724,7 +2728,7 @@ local mmBorders = {
 	{atlas = "Artifacts-PerkRing-Final", size=0.58, posx=1, posy=-1 },	-- 1 -- Thin Gold Border with gloss over the icon area like glass
 	{atlas = "auctionhouse-itemicon-border-purple", size=0.62, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
 	{atlas = "legionmission-portraitring-epicplus", size=0.65, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- thicker purple ring w/ gold edges & decor
-	{tex = "Interface/AddOns/SpellCreator/assets/Icon_Ring_Border", size=0.62, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
+	{tex = addonPath.."/assets/Icon_Ring_Border", size=0.62, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
 }
 
 local mmBorder = mmBorders[4]	-- put your table choice here
@@ -2803,7 +2807,7 @@ minimapButton:SetScript("OnEnter", function(self)
 	SetCursor("Interface/CURSOR/voidstorage.blp");
 	-- interface/cursor/argusteleporter.blp , interface/cursor/trainer.blp , 
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	GameTooltip:SetText(addonName)
+	GameTooltip:SetText(addonTitle)
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine("/arcanum - Toggle UI",1,1,1,true)
 	GameTooltip:AddLine("/sfdebug - Toggle Debug",1,1,1,true)
@@ -2812,7 +2816,7 @@ minimapButton:SetScript("OnEnter", function(self)
 	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options.",1,1,1,true)
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine("Mouse over most UI Elements to see tooltips for help! (Like this one!)",0.9,0.75,0.75,true)
-	GameTooltip:AddDoubleLine(" ", addonName.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
+	GameTooltip:AddDoubleLine(" ", addonTitle.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
 	GameTooltip:AddDoubleLine(" ", "by "..addonAuthor, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
 	GameTooltip:Show()
 	
@@ -2844,11 +2848,11 @@ end
 function CreateSpellCreatorInterfaceOptions()
 	SpellCreatorInterfaceOptions = {};
 	SpellCreatorInterfaceOptions.panel = CreateFrame( "Frame", "SpellCreatorInterfaceOptionsPanel", UIParent );
-	SpellCreatorInterfaceOptions.panel.name = addonName;
+	SpellCreatorInterfaceOptions.panel.name = addonTitle;
 	
 	local SpellCreatorInterfaceOptionsHeader = SpellCreatorInterfaceOptions.panel:CreateFontString("HeaderString", "OVERLAY", "GameFontNormalLarge")
 	SpellCreatorInterfaceOptionsHeader:SetPoint("TOPLEFT", 15, -15)
-	SpellCreatorInterfaceOptionsHeader:SetText(addonName.." v"..addonVersion.." by "..addonAuthor)
+	SpellCreatorInterfaceOptionsHeader:SetText(addonTitle.." v"..addonVersion.." by "..addonAuthor)
 		
 	
 	local scrollFrame = CreateFrame("ScrollFrame", nil, SpellCreatorInterfaceOptions.panel, "UIPanelScrollFrameTemplate")
@@ -3095,7 +3099,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		return;
 		
 	-- Addon Loaded Handler
-	elseif event == "ADDON_LOADED" and (name == "SpellCreator" or name == "SpellCreator-dev") then
+	elseif event == "ADDON_LOADED" and (name == addonName) then
 		SC_loadMasterTable();
 		LoadMinimapPosition();
 		aceCommInit()
@@ -3160,7 +3164,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				if immersionButton then titleButton = immersionButton; titleButtonText = immersionButton:GetText() end
 			end
 			
-			if titleButtonText:match("<arcanum_") then titleButton:SetScript("OnClick", function() end) end
+			--if titleButtonText:match("<arcanum_") then titleButton:SetScript("OnClick", function() end) end
 			if titleButtonText:match("<arcanum_auto>") then
 				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
 					titleButton:SetText(titleButtonText:gsub("<arcanum_auto>", "<arcanum_auto::DM>"));
