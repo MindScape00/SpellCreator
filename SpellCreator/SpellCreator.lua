@@ -1,11 +1,10 @@
 local addonName, addonTable = ...
 local addonVersion, addonAuthor, addonTitle = GetAddOnMetadata(addonName, "Version"), GetAddOnMetadata(addonName, "Author"), GetAddOnMetadata(addonName, "Title")
-local addonFileName = GetAddOnInfo(addonName)
+local addonPath = "Interface/AddOns/"..tostring(addonName)
+
 local addonColor = "|cff".."ce2eff" -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
 local addonMsgPrefix = "SCFORGE"
 local isAddonLoaded = false
-
-local addonPath = "Interface/AddOns/"..tostring(addonName)
 
 local localization = {}
 localization.SPELLNAME = STAT_CATEGORY_SPELL.." "..NAME
@@ -127,7 +126,6 @@ end
 
 --local dump = DevTools_Dump
 local function dump(o)
-
 	if not DevTools_Dump then
 		UIParentLoadAddOn("Blizzard_DebugTools");
 	end
@@ -149,6 +147,8 @@ end
 
 local function ddump(o)
 	if SpellCreatorMasterTable.Options["debug"] then
+		local line = strmatch(debugstack(2),":(%d+):")
+		print(addonColor..addonTitle.." DEBUG-DUMP "..line..":|r")
 		dump(o)
 	end
 end
@@ -481,7 +481,7 @@ end
 local actionsToCommit = {}
 local function executeSpell(actionsToCommit, byPassCheck)
 	if not byPassCheck then
-		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than start.") return; end
+		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than Dranosh Valley.") return; end
 	end
 	for _,spell in pairs(actionsToCommit) do
 		--dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
@@ -1399,7 +1399,7 @@ end
 --This is a sub-frame of the Main Frame.. Should it be? Idk..
 SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame)
 SCForgeMainFrame.TitleBar:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 25, -10)
-SCForgeMainFrame.TitleBar:SetSize(mainFrameSize.x-50, 20)
+SCForgeMainFrame.TitleBar:SetSize(mainFrameSize.x-60, 20)
 --SCForgeMainFrame.TitleBar:SetHeight(20)
 setResizeWithMainFrame(SCForgeMainFrame.TitleBar)
 
@@ -1571,6 +1571,7 @@ SCForgeMainFrame.ExecuteSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFram
 SCForgeMainFrame.ExecuteSpellButton:SetPoint("BOTTOM", 0, 3)
 SCForgeMainFrame.ExecuteSpellButton:SetSize(24*4,24)
 SCForgeMainFrame.ExecuteSpellButton:SetText(ACTION_SPELL_CAST_SUCCESS:gsub("^%l", string.upper))
+SCForgeMainFrame.ExecuteSpellButton:SetMotionScriptsWhileDisabled(true)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 	local actionsToCommit = {}
 	for i = 1, numberOfSpellRows do
@@ -1593,7 +1594,11 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Cast the above Actions.", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Useful to test your spell before saving.",1,1,1,true)
+		if self:IsEnabled() then
+			GameTooltip:AddLine("Useful to test your spell before saving.",1,1,1,true)
+		else
+			GameTooltip:AddLine("You cannot cast spells in main-phase Dranosh Valley.",1,1,1,true)
+		end
 		GameTooltip:Show()
 	end)
 end)
@@ -1826,9 +1831,11 @@ local function setSelectedVaultRow(rowID)
 		else
 			SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
 		end
+		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Enable()
 	else
 		selectedVaultRow = nil
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
+		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Disable()
 	end
 end
 
@@ -1864,6 +1871,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.30,0.10,0.40,0.5)
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
+		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Hide()
 		if next(savedSpellFromVault) == nil then
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty")
 		else
@@ -1875,6 +1883,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Disable()
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Hide()
+		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.20,0.40,0.50,0.5)
 		if fromPhaseDataLoaded then 
 			-- called from getSpellForgePhaseVault() - that means our saved spell from Vault is ready
@@ -2043,7 +2052,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
 					GameTooltip:SetText("Load ArcSpell '"..savedSpellFromVault[self.commID].commID.."' into the forge, where you can edit it.", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("Right-click to load the ArcSpell & re-sort it's actions into chronological order by delay.", 1,1,1,1)
+					GameTooltip:AddLine("\nRight-click to load the ArcSpell, and re-sort it's actions into chronological order by delay.", 1,1,1,1)
 					GameTooltip:Show()
 				end)
 			end)
@@ -2092,8 +2101,12 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum].commID = k -- used in new Transfer to Phase Button
 			spellLoadRows[rowNum].rowID = rowNum
 			
-			spellLoadRows[rowNum].deleteButton:SetScript("OnClick", function(self)
-				deleteSpellConf(self.commID, currentVault)
+			spellLoadRows[rowNum].deleteButton:SetScript("OnClick", function(self, button)
+				if button == "LeftButton" then
+					deleteSpellConf(self.commID, currentVault)
+				elseif button == "RightButton" then
+					
+				end
 			end)
 			
 			-- NEED TO UPDATE THE ROWS IF WE ARE IN PHASE VAULT
@@ -2207,14 +2220,22 @@ StaticPopupDialogs["SCFORGE_CONFIRM_DELETE"] = {
 	preferredIndex = 3,
 }
 
-local function saveSpell(mousebutton)
+local function saveSpell(mousebutton, fromPhaseVault)
 
 	local wasOverwritten = false
 	local newSpellData = {}
-	newSpellData.commID = SCForgeMainFrame.SpellInfoCommandBox:GetText()
-	newSpellData.fullName = SCForgeMainFrame.SpellInfoNameBox:GetText()
-	newSpellData.description = SCForgeMainFrame.SpellInfoDescBox:GetText()
-	newSpellData.actions = {}
+	if fromPhaseVault then
+		newSpellData.commID = SCForge_PhaseVaultSpells[fromPhaseVault].commID
+		newSpellData.fullName = SCForge_PhaseVaultSpells[fromPhaseVault].fullName
+		newSpellData.description = SCForge_PhaseVaultSpells[fromPhaseVault].description or nil
+		newSpellData.actions = SCForge_PhaseVaultSpells[fromPhaseVault].actions
+		dprint("Saving Spell from Phase Vault, fake commID: "..fromPhaseVault..", real commID: "..newSpellData.commID)
+	else
+		newSpellData.commID = SCForgeMainFrame.SpellInfoCommandBox:GetText()
+		newSpellData.fullName = SCForgeMainFrame.SpellInfoNameBox:GetText()
+		newSpellData.description = SCForgeMainFrame.SpellInfoDescBox:GetText()
+		newSpellData.actions = {}
+	end
 	if isNotDefined(newSpellData.fullName) or isNotDefined(newSpellData.commID) then
 		cprint("Spell Name and/or Spell Command cannot be blank.")
 		return;
@@ -2227,7 +2248,7 @@ local function saveSpell(mousebutton)
 				--cprint("Duplicate Spell Command Detected.. Press Save with right-click to over-write the old spell.")
 				StaticPopupDialogs["SCFORGE_CONFIRM_OVERWRITE"] = {
 					text = "Spell '"..newSpellData.commID.."' Already exists.\n\rDo you want to overwrite the spell ("..newSpellData.fullName..")".."?",
-					OnAccept = function() saveSpell("RightButton") end,
+					OnAccept = function() saveSpell("RightButton", (fromPhaseVault and fromPhaseVault or nil)) end,
 					button1 = "Overwrite",
 					button2 = "Cancel",
 					hideOnEscape = true,
@@ -2238,7 +2259,8 @@ local function saveSpell(mousebutton)
 			end
 		end
 
-	for i = 1, numberOfSpellRows do
+	if not fromPhaseVault then
+		for i = 1, numberOfSpellRows do
 		
 			local actionData = {}
 			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())
@@ -2256,6 +2278,7 @@ local function saveSpell(mousebutton)
 			else
 				dprint(false,"Action Row "..i.." Failed to save - invalid Main Delay.")
 			end
+		end
 	end
 	
 	if #newSpellData.actions >= 1 then
@@ -2269,7 +2292,9 @@ local function saveSpell(mousebutton)
 	else
 		cprint("Spell has no valid actions and was not saved. Please double check your actions & try again. You can turn on debug mode to see more information when trying to save (/sfdebug).")
 	end
-	updateSpellLoadRows()
+	if not fromPhaseVault then
+		updateSpellLoadRows()
+	end
 end
 
 SCForgeMainFrame.SaveSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
@@ -2372,7 +2397,8 @@ SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelButtonNoTooltipTemplate")
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetPoint("BOTTOM", 0, 3)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetSize(24*5,24)
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetText("   Phase Vault")
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetText("    Phase Vault")
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetMotionScriptsWhileDisabled(true)
 
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon = SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:CreateTexture(nil, "ARTWORK")
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture(addonPath.."/assets/icon-transfer")
@@ -2397,8 +2423,6 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnable", functi
 	self.icon:SetDesaturated(false)
 end)
 
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetMotionScriptsWhileDisabled(true)
-
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
@@ -2406,7 +2430,11 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnter", functio
 		if self:IsEnabled() then
 			GameTooltip:AddLine("Transfer the spell to the Phase Vault.",1,1,1,true)
 		else
-			GameTooltip:AddLine("You do not currently have permissions to upload to this phase's vault.\n\rIf you were just given officer, rejoin the phase.",1,1,1,true)
+			if selectedVaultRow then
+				GameTooltip:AddLine("You do not currently have permissions to upload to this phase's vault.\n\rIf you were just given officer, rejoin the phase.",1,1,1,true)
+			else
+				GameTooltip:AddLine("Select a spell above to transfer it.",1,1,1,true)
+			end
 		end
 		GameTooltip:Show()
 	end)
@@ -2418,6 +2446,62 @@ end)
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnShow", function(self)
 	if not selectedVaultRow then self:Disable(); end
 end)
+
+------------
+
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelButtonNoTooltipTemplate")
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetPoint("BOTTOM", 0, 3)
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetSize(24*5.5,24)
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetText("     Personal Vault")
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetMotionScriptsWhileDisabled(true)
+
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon = SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:CreateTexture(nil, "ARTWORK")
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetTexture(addonPath.."/assets/icon-transfer")
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetTexCoord(0,1,1,0)
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetPoint("TOPLEFT", 5, 0)
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetSize(24,24)
+
+
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnClick", function(self)
+	if selectedVaultRow then
+		commID = spellLoadRows[selectedVaultRow].commID
+		ddump(SCForge_PhaseVaultSpells[commID]) -- Dump the table of the phase vault spell for debug
+		saveSpell(nil, commID)
+	end
+end)
+
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnDisable", function(self)
+	self.icon:SetDesaturated(true)
+end)
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnEnable", function(self)
+	self.icon:SetDesaturated(false)
+end)
+
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Transfer to Personal Vault.", nil, nil, nil, nil, true)
+		if self:IsEnabled() then
+			GameTooltip:AddLine("Transfer the spell to your Personal Vault.",1,1,1,true)
+		else
+			if selectedVaultRow then
+				GameTooltip:AddLine("Idk how you are seeing this text but report it as a bug lol..",1,1,1,true)
+			else
+				GameTooltip:AddLine("Select a spell above to transfer it.",1,1,1,true)
+			end
+		end
+		GameTooltip:Show()
+	end)
+end)
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnShow", function(self)
+	if not selectedVaultRow then self:Disable(); end
+end)
+
+---------
 
 
 SCForgeMainFrame.LoadSpellFrame:Hide()
@@ -3217,7 +3301,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 	-- Gossip Menu Listener
 	elseif event == "GOSSIP_SHOW" then
 	
-		local spellsToCast = {} -- outside the for loops so we don't reset it on every time
+		local spellsToCast = {} -- outside the for loops so we don't reset it every loop iteration
 		local shouldAutoHide = false
 		local shouldLoadSpellVault = false
 		
@@ -3362,6 +3446,10 @@ function SlashCmdList.SCFORGEHELP(msg, editbox) -- 4.
 	else
 		scforge_showhide()
 	end
+end
+
+function CastARC(commID)
+	SlashCmdList.SCFORGEHELP(commID)
 end
 
 SLASH_SCFORGEDEBUG1 = '/sfdebug';
