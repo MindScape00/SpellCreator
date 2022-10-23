@@ -117,7 +117,7 @@ end
 local function eprint(text,rest)
 	local line = strmatch(debugstack(2),":(%d+):")
 	if line then
-		print(addonColor..addonTitle.." Error @ "..line..": "..text.." | "..(rest and " | "..rest or "").." |r")
+		print(addonColor..addonTitle.." Error @ "..line..": "..text..""..(rest and " | "..rest or "").." |r")
 	else
 		print(addonColor..addonTitle.." @ ERROR: "..text.." | "..rest.." |r")
 		print(debugstack(2))
@@ -1766,6 +1766,7 @@ local function deleteSpellFromPhaseVault(commID, callback)
 	end)
 end
 
+local uploadAsPrivateSpell = false
 local function saveSpellToPhaseVault(commID)
 	if not commID then
 		eprint("Invalid CommID.")
@@ -1802,7 +1803,9 @@ local function saveSpellToPhaseVault(commID)
 				end
 				
 				-- Passed checking for duplicates. NOW we can save it.
-				local str = serialCompressForAddonMsg(SpellCreatorSavedSpells[commID])
+				local _spellData = SpellCreatorSavedSpells[commID]
+				if uploadAsPrivateSpell then _spellData.private = true end
+				local str = serialCompressForAddonMsg(_spellData)
 				
 				local key = "SCFORGE_S_"..phaseSpellKey
 				C_Epsilon.SetPhaseAddonData(key, str)
@@ -1900,38 +1903,40 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	
 	local spellLoadFrame = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.scrollChild
 	local rowNum = 0
+	local realRowNum = 0 
+	local numSkippedRows = 0
 	local columnWidth = spellLoadFrame:GetWidth()
 		
 	for k,v in orderedPairs(savedSpellFromVault) do
 	-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
+		--[[
+		realRowNum = realRowNum+1
+		rowNum = realRowNum-numSkippedRows
+		--]]
 		rowNum = rowNum+1
-		
+			
 		if spellLoadRows[rowNum] then
 			spellLoadRows[rowNum]:Show()
 			dprint(false,"SCForge Load Row "..rowNum.." Already existed - showing & setting it")
+			
+			-- Position the Rows
+			if rowNum == 1 or rowNum-1-numSkippedRows < 1 then
+				spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
+			else
+				spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
+			end
 			
 		else
 			dprint(false,"SCForge Load Row "..rowNum.." Didn't exist - making it!")
 			spellLoadRows[rowNum] = CreateFrame("CheckButton", "scForgeLoadRow"..rowNum, spellLoadFrame)
 
 			-- Position the Rows
-			if vaultStyle == 2 then
-				if rowNum == 1 then
-					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
-				else
-					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-1], "BOTTOMLEFT", 0, -loadRowSpacing)
-				end
-				spellLoadRows[rowNum]:SetWidth(columnWidth-20)
+			if rowNum == 1 or rowNum-1-numSkippedRows < 1 then
+				spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
 			else
-				if rowNum == 1 then
-					spellLoadRows[rowNum]:SetPoint("TOPRIGHT", spellLoadFrame, "TOP", -5, -5)
-				elseif rowNum == 2 then
-					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOP", 5, -5)
-				else
-					spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-2], "BOTTOMLEFT", 0, -loadRowSpacing)
-				end
-				spellLoadRows[rowNum]:SetWidth(columnWidth-15)
+				spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
 			end
+			spellLoadRows[rowNum]:SetWidth(columnWidth-20)
 			spellLoadRows[rowNum]:SetHeight(loadRowHeight)
 						
 			-- A nice lil background to make them easier to tell apart			
@@ -2190,7 +2195,11 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				if fontHeight-1 <= 8 then break; end
 			end
 		end
-
+		
+		if currentVault=="PHASE" and v.private and not (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
+			spellLoadRows[rowNum]:Hide()
+			numSkippedRows = numSkippedRows+1
+		end
 	end
 	updateFrameChildScales(SCForgeMainFrame)
 end
@@ -2443,8 +2452,37 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnLeave", functio
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
+
+------------
+SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle = CreateFrame("CHECKBUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UICheckButtonTemplate")
+local _frame = SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle
+_frame:SetPoint("LEFT", SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton, "RIGHT", 0, 0)
+_frame:SetSize(26,26)
+_frame.text:SetText("Private")
+--_frame.text:SetPoint("LEFT", 0, 0)
+_frame:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Upload as Private Spell.", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("\nWhen uploaded as a private spell, only Officers+ will be able to see it in the Phase Vault - however, the spell's data will still be available and can be used in Gossip integrations.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+_frame:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+_frame:SetScript("OnClick", function(self)
+	uploadAsPrivateSpell = not uploadAsPrivateSpell
+end)
+
+----------
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnShow", function(self)
 	if not selectedVaultRow then self:Disable(); end
+	SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle:Show()
+end)
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnHide", function(self)
+	SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle:Hide()
 end)
 
 ------------
