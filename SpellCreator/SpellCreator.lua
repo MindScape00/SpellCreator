@@ -57,7 +57,7 @@ local sfCmd_ReplacerChar = "@N@"
 
 -- local main = Epsilon.main
 
-ARCVAR = {}
+
 
 -------------------------------------------------------------------------------
 -- Simple Chat & Helper Functions
@@ -77,10 +77,6 @@ end
 
 local function sendchat(text)
   SendChatMessage(text, "SAY");
-end
-
-function arc_c(text)
-	SendChatMessage("."..text, "GUILD");
 end
 
 -- Macro & /Slash Command Processing
@@ -208,6 +204,63 @@ end
 local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
 local isSavingOrLoadingPhaseAddonData = false
+
+-------------------------------------------------------------------------------
+-- Pseudo Scripting API Helpers
+-------------------------------------------------------------------------------
+
+ARC = {}
+ARC.VAR = {}
+
+-- SYNTAX: ARC:C("command here") - i.e., ARC:C("cheat fly")
+function ARC:C(text)
+	if text then
+		cmdWithDotCheck(text)
+	else
+		cprint('ARC:API SYNTAX - C - Sends a Command to the Server.')
+		print(addonColor..'Function: |cffFFAAAAARC:C("command here")|r')
+		print(addonColor..'Example: |cffFFAAAAARC:C("cheat fly")')
+	end
+end
+
+-- SYNTAX: ARC:IF(tag, Command if True, Command if False, [Variables for True], [Variables for False])
+function ARC:IF(tag, command1, command2, var1, var2)
+	if (tag and command1 and command2) then
+		command1 = command1..(var1 and " "..var1 or "")
+		command2 = command2..(var2 and " "..var2 or var1 and " "..var1 or "")
+		if ARC.VAR[tag] then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
+	else
+		cprint('ARC:API SYNTAX - IF - Checks if "tag" is true, and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands.')
+		print(addonColor..'Function: |cffFFAAAAARC:IF("tag", "CommandTrue", "CommandFalse", "Var1")|r')
+		print(addonColor..'Example 1: |cffFFAAAAARC:IF("ToggleLight","aura 243893", "unau 243893")|r')
+		print(addonColor..'Example 2: |cffFFAAAAARC:IF("ToggleLight","aura", "unau", "243893")|r')
+		print(addonColor.."Both of these will result in the same outcome - If ToggleLight is true, then apply the aura, else unaura.|r")
+	end
+end
+
+function ARC:TOG(tag)
+	if tag then
+		if ARC.VAR[tag] then ARC.VAR[tag] = false else ARC.VAR[tag] = true end
+		dprint(tostring(ARC.VAR[tag]))
+	else
+		cprint('ARC:API SYNTAX - TOG - Toggles an ArcTag (ARC.VAR) between true and false.')
+		print(addonColor..'Function: |cffFFAAAAARC:TOG("tag")|r')
+		print(addonColor..'Example: |cffFFAAAAARC:TOG("ToggleLight")|r')
+		print(addonColor.."Use alongside ARC:IF to make toggle spells.|r")
+	end
+end
+
+function ARC:SET(tag, str)
+	if tag and str then
+		ARC.VAR[tag] = str
+	else
+		cprint('ARC:API SYNTAX - SET - Set an ArcTag (ARC.VAR) to a specific value.')
+		print(addonColor..'Function: |cffFFAAAAARC:SET("tag", "value")|r')
+		print(addonColor..'Example 1: |cffFFAAAAARC:SET("ToggleLight","2")|r')
+		print(addonColor..'Example 2: |cffFFAAAAARC:SET("ToggleLight","3")|r')
+		print(addonColor.."This is likely only useful for power-users and super specific spells.|r")
+	end
+end
 
 -------------------------------------------------------------------------------
 -- Saved Variable Initialization
@@ -653,7 +706,7 @@ actionTypeData = {
 		["command"] = function(command) RunMacroText(command); end,
 		["description"] = "Any line that can be processed in a macro (any slash commands & macro flags).\n\rYou can use this for pretty much ANYTHING, technically, including custom short Lua scripts.",
 		["dataName"] = "/command",
-		["inputDescription"] = "Any /commands that can be processed in a macro-script, including emotes, addon commands, Lua run scripts, etc.\n\rI.e., '/emote begins to conjur up a fireball in their hand.' ",
+		["inputDescription"] = "Any /commands that can be processed in a macro-script, including emotes, addon commands, Lua run scripts, etc.\n\rI.e., '/emote begins to conjur up a fireball in their hand.'\n\rYou can use any part of the ARC:API here as well. Use /arc for more info.",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},
@@ -3532,8 +3585,8 @@ end);
 -- Version / Help / Toggle
 -------------------------------------------------------------------------------
 
-SLASH_SCFORGEHELP1, SLASH_SCFORGEHELP2 = '/arcanum', '/sf'; -- 3.
-function SlashCmdList.SCFORGEHELP(msg, editbox) -- 4.
+SLASH_SCFORGEMAIN1, SLASH_SCFORGEMAIN2 = '/arcanum', '/sf'; -- 3.
+function SlashCmdList.SCFORGEMAIN(msg, editbox) -- 4.
 	if #msg > 0 then
 		dprint(false,"Casting Arcanum Spell by CommID: "..msg)
 		if SpellCreatorSavedSpells[msg] then
@@ -3549,7 +3602,35 @@ function SlashCmdList.SCFORGEHELP(msg, editbox) -- 4.
 end
 
 function CastARC(commID)
-	SlashCmdList.SCFORGEHELP(commID)
+	SlashCmdList.SCFORGEMAIN(commID)
+end
+
+SLASH_SCFORGEAPI1 = '/arc'; -- 3.
+function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
+	local command, rest = msg:match("^(%S*)%s*(.-)$")
+	if not command or command == "" then
+		cprint("Commands & API")
+		print(addonColor.."Main Commands:")
+		print(addonColor.."/arcanum [$commID] - Cast an ArcSpell by it's command ID you gave it (aka CommID), or open the Spell Forge UI if left blank.")
+		print(addonColor.."/sf [$commID] - Shorter Alternative to /arcanum.")
+		print(" ")
+		print(addonColor.."API Commands:")
+		print(addonColor.."/arc ..")
+		print(addonColor.."     .. cast $commID - The same as /arcanum or /sf")
+		print(addonColor.."     .. c $command - Runs the server $command specified (i.e., 'cheat fly').")
+		print("               Direct Function: |cffFFAAAA/run ARC:C()|r".." - Run this for a better description.")
+		print(addonColor..'     .. if $tag "$commandTrue" "$commandFalse" ["$var1"]')
+		print(addonColor.."          Checks if the $tag is true and runs the $commandTrue (with $var1 added if given), or $commandFalse if not true (with $var1 added if given).")
+		print("               Direct Function: |cffFFAAAA/run ARC:IF()|r".." - Run this for a better description.")
+		print(addonColor.."     .. tog $tag - Toggles the $tag between true & false, used with ARC:IF (/arc if).")
+		print("             Direct Function: |cffFFAAAA/run ARC:TOG()|r".." - Run this for a better description.")
+		print(addonColor..'     .. set $tag "$value" - Sets the $tag to a specific "$value". You will need to querie the ARC.VAR[tag] directly to use this.')
+		print("               Direct Function: |cffFFAAAA/run ARC:SET()|r".." - Run this for a better description.")
+		print(addonColor.."/sfdebug - List all the Debug Commands. WARNING: These are for DEBUG, not for you to play with and complain you broke something.")
+		return;
+	elseif command == "cast" then
+		SlashCmdList.SCFORGEMAIN(rest)
+	end
 end
 
 local _phaseSpellDebugDataTable = {}
