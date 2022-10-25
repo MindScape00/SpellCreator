@@ -45,6 +45,7 @@ local function serialDecompressForAddonMsg(str)
 	return str;
 end
 
+-- This is deprecated, vault style 1 is no longer supported.
 local vaultStyle = 2	-- 1 = pop-up window, 2 = attached tray
 
 local sfCmd_ReplacerChar = "@N@"
@@ -56,6 +57,7 @@ local sfCmd_ReplacerChar = "@N@"
 
 -- local main = Epsilon.main
 
+ARCVAR = {}
 
 -------------------------------------------------------------------------------
 -- Simple Chat & Helper Functions
@@ -75,6 +77,10 @@ end
 
 local function sendchat(text)
   SendChatMessage(text, "SAY");
+end
+
+function arc_c(text)
+	SendChatMessage("."..text, "GUILD");
 end
 
 -- Macro & /Slash Command Processing
@@ -1469,8 +1475,8 @@ if useRevertCheckbox then
 	SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.RevertCheck, "RIGHT", 0, 0)
 	SCForgeMainFrame.TitleBar.RevertDelay:SetText("Delay")
 else
-	SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 30, 0)
-	SCForgeMainFrame.TitleBar.RevertDelay:SetText("R-Delay")
+	SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 25, 0)
+	SCForgeMainFrame.TitleBar.RevertDelay:SetText("Revert")
 end
 
 SCForgeMainFrame.ResizeDragger = CreateFrame("BUTTON", nil, SCForgeMainFrame)
@@ -1586,6 +1592,7 @@ SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(SCForgeMainFrame.RemoveSpellRowButton, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Remove the last Action row.", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Shift-Click to clear & reset all rows.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -1593,9 +1600,7 @@ SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
-SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnClick", function(self)
-	RemoveSpellRow()
-end)
+-- OnClick moved below loadSpell()
 
 SCForgeMainFrame.ExecuteSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
 SCForgeMainFrame.ExecuteSpellButton:SetPoint("BOTTOM", 0, 3)
@@ -1606,7 +1611,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 	local actionsToCommit = {}
 	for i = 1, numberOfSpellRows do
 		if isNotDefined(tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())) then 
-			cprint("Action Row "..i.." Invalid, Delay Not Set") 
+			dprint("Action Row "..i.." Invalid, Delay Not Set") 
 		else
 			local actionData = {}
 			actionData.actionType = (_G["spellRow"..i.."SelectedAction"])
@@ -1671,14 +1676,20 @@ local function loadSpell(spellToLoad)
 	-- Loop thru actions & set their data
 	local rowNum, actionData
 	for rowNum, actionData in ipairs(spellActions) do
-		for k,v in pairs(_G["spellRow"..rowNum].menuList) do
-			v.checked = false
+		if actionData.actionType == "reset" then
+			UIDropDownMenu_SetSelectedID(_G["spellRow"..rowNum.."ActionSelectButton"], 0)
+			_G["spellRow"..rowNum.."ActionSelectButtonText"]:SetText("Action")
+			updateSpellRowOptions(rowNum)
+		else
+			for k,v in pairs(_G["spellRow"..rowNum].menuList) do
+				v.checked = false
+			end
+			UIDropDownMenu_SetSelectedID(_G["spellRow"..rowNum.."ActionSelectButton"], get_Table_Position(actionData.actionType, actionTypeDataList))
+			_G["spellRow"..rowNum.."ActionSelectButtonText"]:SetText(actionTypeData[actionData.actionType].name)
+			updateSpellRowOptions(rowNum, actionData.actionType)
 		end
-		UIDropDownMenu_SetSelectedID(_G["spellRow"..rowNum.."ActionSelectButton"], get_Table_Position(actionData.actionType, actionTypeDataList))
-		_G["spellRow"..rowNum.."ActionSelectButtonText"]:SetText(actionTypeData[actionData.actionType].name)
-		updateSpellRowOptions(rowNum, actionData.actionType)
 		
-		_G["spellRow"..rowNum.."MainDelayBox"]:SetText(tonumber(actionData.delay)) --delay
+		_G["spellRow"..rowNum.."MainDelayBox"]:SetText(tonumber(actionData.delay) or "") --delay
 		if actionData.selfOnly then _G["spellRow"..rowNum.."SelfCheckbox"]:SetChecked(true) else _G["spellRow"..rowNum.."SelfCheckbox"]:SetChecked(false) end --SelfOnly
 		if actionData.vars then _G["spellRow"..rowNum.."InputEntryBox"]:SetText(actionData.vars) else _G["spellRow"..rowNum.."InputEntryBox"]:SetText("") end --Input Entrybox
 		if actionData.revertDelay then
@@ -1693,6 +1704,19 @@ local function loadSpell(spellToLoad)
 		end
 	end
 end
+
+SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnClick", function(self)
+	if IsShiftKeyDown() then
+		-- load an empty spell to effectively reset the UI
+		local emptySpell = {
+			["fullName"] = "", ["commID"] = "", ["description"] = "",
+			["actions"] = { { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, },
+		}
+		loadSpell(emptySpell)
+	else
+		RemoveSpellRow()
+	end
+end)
 
 local phaseVaultKeys
 local SCForge_PhaseVaultSpells = {}
@@ -2234,7 +2258,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			end
 		end
 		
-		if currentVault=="PHASE" and v.private and not (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
+		if currentVault=="PHASE" and v.private and not (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() or SpellCreatorMasterTable.Options["debug"]) then
 			spellLoadRows[rowNum]:Hide()
 			numSkippedRows = numSkippedRows+1
 		end
@@ -2502,7 +2526,7 @@ _frame:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Upload as Private Spell.", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("\nWhen uploaded as a private spell, only Officers+ will be able to see it in the Phase Vault - however, it can still be used by anyone (i.e., via Gossip integration).",1,1,1,true)
+		GameTooltip:AddLine("\nWhen uploaded as a private spell, only Officers+ will be able to see it in the Phase Vault - however, it can still be used by anyone (i.e., via Gossip integration).\n\rThe main use of this is to reduce clutter for normal players if you have specific ArcSpells for background use, like an NPC Gossip.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
