@@ -206,7 +206,7 @@ local phaseAddonDataListener2 = CreateFrame("Frame")
 local isSavingOrLoadingPhaseAddonData = false
 
 -------------------------------------------------------------------------------
--- Pseudo Scripting API Helpers
+-- Pseudo Scripting/API Helpers
 -------------------------------------------------------------------------------
 
 ARC = {}
@@ -214,7 +214,7 @@ ARC.VAR = {}
 
 -- SYNTAX: ARC:C("command here") - i.e., ARC:C("cheat fly")
 function ARC:C(text)
-	if text then
+	if text and text ~= "" then
 		cmdWithDotCheck(text)
 	else
 		cprint('ARC:API SYNTAX - C - Sends a Command to the Server.')
@@ -225,7 +225,9 @@ end
 
 -- SYNTAX: ARC:IF(tag, Command if True, Command if False, [Variables for True], [Variables for False])
 function ARC:IF(tag, command1, command2, var1, var2)
-	if (tag and command1 and command2) then
+	if (tag and command1 and command2) and (tag ~= "" and command1 ~= "" and command2 ~= "") then
+		if var1 == "" then var1 = nil end
+		if var2 == "" then var2 = nil end
 		command1 = command1..(var1 and " "..var1 or "")
 		command2 = command2..(var2 and " "..var2 or var1 and " "..var1 or "")
 		if ARC.VAR[tag] then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
@@ -239,7 +241,7 @@ function ARC:IF(tag, command1, command2, var1, var2)
 end
 
 function ARC:TOG(tag)
-	if tag then
+	if tag and tag ~= "" then
 		if ARC.VAR[tag] then ARC.VAR[tag] = false else ARC.VAR[tag] = true end
 		dprint(tostring(ARC.VAR[tag]))
 	else
@@ -251,6 +253,8 @@ function ARC:TOG(tag)
 end
 
 function ARC:SET(tag, str)
+	if tag == "" then tag = nil end
+	if str == "" then str = nil end
 	if tag and str then
 		ARC.VAR[tag] = str
 	else
@@ -259,6 +263,16 @@ function ARC:SET(tag, str)
 		print(addonColor..'Example 1: |cffFFAAAAARC:SET("ToggleLight","2")|r')
 		print(addonColor..'Example 2: |cffFFAAAAARC:SET("ToggleLight","3")|r')
 		print(addonColor.."This is likely only useful for power-users and super specific spells.|r")
+	end
+end
+
+function ARC:GET(tag)
+	if tag and tag ~= nil then
+		return ARC.VAR[tag];
+	else
+		cprint("ARC:API SYNTAX - GET - Get the value of an ArcTag (ARC.VAR).")
+		print(addonColor..'Function: |cffFFAAAAARC:GET("tag")|r')
+		print(addonColor..'Example 1: |cffFFAAAAARC:GET("ToggleLight")|r')
 	end
 end
 
@@ -3624,12 +3638,23 @@ function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
 		print("               Direct Function: |cffFFAAAA/run ARC:IF()|r".." - Run this for a better description.")
 		print(addonColor.."     .. tog $tag - Toggles the $tag between true & false, used with ARC:IF (/arc if).")
 		print("             Direct Function: |cffFFAAAA/run ARC:TOG()|r".." - Run this for a better description.")
-		print(addonColor..'     .. set $tag "$value" - Sets the $tag to a specific "$value". You will need to querie the ARC.VAR[tag] directly to use this.')
+		print(addonColor..'     .. set $tag "$value" - Sets the $tag to a specific "$value". You will need to query with ARC:GET and compare directly.')
 		print("               Direct Function: |cffFFAAAA/run ARC:SET()|r".." - Run this for a better description.")
 		print(addonColor.."/sfdebug - List all the Debug Commands. WARNING: These are for DEBUG, not for you to play with and complain you broke something.")
 		return;
 	elseif command == "cast" then
 		SlashCmdList.SCFORGEMAIN(rest)
+	elseif command == "tog" then
+		ARC:TOG(rest)
+	elseif command == "if" then
+		print(rest)
+		local tag, command1, command2, var1, var2
+		tag, rest = rest:match("^(%S*)%s*(.-)$")
+		command1, rest = rest:match("^(%S*)%s*(.-)$")
+		command2, rest = rest:match("^(%S*)%s*(.-)$")
+		var1, rest = rest:match("^(%S*)%s*(.-)$")
+		var2, rest = rest:match("^(%S*)%s*(.-)$")
+		ARC:IF(tag, command1,command2,var1,var2)
 	end
 end
 
