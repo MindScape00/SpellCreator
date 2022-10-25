@@ -1660,6 +1660,7 @@ local function loadSpell(spellToLoad)
 			_G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(true) --Revert Checkbox
 		else
 			_G["spellRow"..rowNum.."RevertDelayBox"]:SetText("") --revertDelay
+			_G["spellRow"..rowNum.."RevertDelayBox"]:Disable() --revertDelay
 			_G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(false) --Revert Checkbox
 		end
 	end
@@ -3609,13 +3610,13 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 		cprint("DEBUG LIST")
 		cprint("Version: "..addonVersion)
 		--cprint("RuneIcon: "..runeIconOverlay.atlas or runeIconOverlay.tex)
-		cprint("Debug Commands: ")
-		print(" - resetSpells: reset your vault to empty. Cannot be undone.")
-		print(" - listSpells: List all your vault spells.. this is alot of stuff.")
-		print(" - listSpellKeys: List all your vault spells by just keys. Easier to read.")
-		print(" - resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, and can be exported to your WTF file by using getPhaseSpellData below.")
-		print(" - getPhaseKeys: Lists all the vault spells by keys.")
-		print(" - getPhaseSpellData [$commID/key]: Exports the spell data for the specified commID/key, or all detected keys in the vault if unspecified, to your '..epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua' file.")
+		cprint("Debug Commands (/sfdebug ...): ")
+		print("... resetSpells: reset your vault to empty. Cannot be undone.")
+		print("... listSpells: List all your vault spells.. this is alot of stuff.")
+		print("... listSpellKeys: List all your vault spells by just keys. Easier to read.")
+		print("... resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, and can be exported to your WTF file by using getPhaseSpellData below.")
+		print("... getPhaseKeys: Lists all the vault spells by keys.")
+		print("... getPhaseSpellData [$commID/key]: Exports the spell data for all current keys, or the specified commID/key, to your '|cffFFAAAA..epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua|r' file.")
 	end
 end
 
