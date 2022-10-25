@@ -5,6 +5,7 @@ local addonPath = "Interface/AddOns/"..tostring(addonName)
 local addonColor = "|cff".."ce2eff" -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
 local addonMsgPrefix = "SCFORGE"
 local isAddonLoaded = false
+local useRevertCheckbox = false
 
 local localization = {}
 localization.SPELLNAME = STAT_CATEGORY_SPELL.." "..NAME
@@ -712,6 +713,7 @@ local delayColumnWidth = 100
 local actionColumnWidth = 100
 local selfColumnWidth = 41
 local InputEntryColumnWidth = 100
+if not useRevertCheckbox then InputEntryColumnWidth = InputEntryColumnWidth+42 end
 local revertCheckColumnWidth = 60
 local revertDelayColumnWidth = 100
 
@@ -722,6 +724,7 @@ local function genStaticDropdownChild( parent, dropdownName, menuList, title, wi
 	if not title then title = "Select" end
 	if not width then width = 55 end
 	local newDropdown = CreateFrame("Frame", dropdownName, parent, "UIDropDownMenuTemplate")
+	parent.Dropdown = newDropdown
 	newDropdown:SetPoint("CENTER")
 		
 	local function newDropdown_Initialize( dropdownName, level )
@@ -823,7 +826,9 @@ local function RemoveSpellRow()
 		
 		theSpellRow.SelfCheckbox:SetChecked(false)
 		theSpellRow.InputEntryBox:SetText("")
-		theSpellRow.RevertCheckbox:SetChecked(false)
+		if useRevertCheckbox then
+			theSpellRow.RevertCheckbox:SetChecked(false)
+		end
 		theSpellRow.RevertDelayBox:SetText("")
 	end
 
@@ -943,7 +948,7 @@ local function AddSpellRow()
 		
 		-- Self Checkbox
 		newRow.SelfCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."SelfCheckbox", newRow, "UICheckButtonTemplate")
-		newRow.SelfCheckbox:SetPoint("LEFT", newRow.actionSelectButton, "RIGHT", 0, 2)
+		newRow.SelfCheckbox:SetPoint("LEFT", newRow.actionSelectButton, "RIGHT", -5, 2)
 		newRow.SelfCheckbox:Disable()
 		newRow.SelfCheckbox:SetMotionScriptsWhileDisabled(true)
 		newRow.SelfCheckbox:SetScript("OnEnter", function(self)
@@ -1007,23 +1012,25 @@ local function AddSpellRow()
 
 		
 		-- Revert Checkbox
-		newRow.RevertCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."RevertCheckbox", newRow, "UICheckButtonTemplate")
-		newRow.RevertCheckbox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 10, 0)
-		newRow.RevertCheckbox.RowID = numberOfSpellRows
-		newRow.RevertCheckbox:Disable()
-		newRow.RevertCheckbox:SetMotionScriptsWhileDisabled(true)
-		newRow.RevertCheckbox:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-			self.Timer = C_Timer.NewTimer(0.7,function()
-				GameTooltip:SetText("Revert the Action", nil, nil, nil, nil, true)
-				GameTooltip:AddLine("Enabling causes the action to revert (reverse, undo) after the specified Revert Delay time.\n\rSee actions tooltip info for what the revert action is.", 1,1,1,true)
-				GameTooltip:Show()
+		if useRevertCheckbox then
+			newRow.RevertCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."RevertCheckbox", newRow, "UICheckButtonTemplate")
+			newRow.RevertCheckbox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 10, 0)
+			newRow.RevertCheckbox.RowID = numberOfSpellRows
+			newRow.RevertCheckbox:Disable()
+			newRow.RevertCheckbox:SetMotionScriptsWhileDisabled(true)
+			newRow.RevertCheckbox:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					GameTooltip:SetText("Revert the Action", nil, nil, nil, nil, true)
+					GameTooltip:AddLine("Enabling causes the action to revert (reverse, undo) after the specified Revert Delay time.\n\rSee actions tooltip info for what the revert action is.", 1,1,1,true)
+					GameTooltip:Show()
+				end)
 			end)
-		end)
-		newRow.RevertCheckbox:SetScript("OnLeave", function(self)
-			GameTooltip_Hide()
-			self.Timer:Cancel()
-		end)		
+			newRow.RevertCheckbox:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
+		end
 		
 		-- Revert Delay Box
 		
@@ -1036,7 +1043,11 @@ local function AddSpellRow()
 		newRow.RevertDelayBox:SetAutoFocus(false)
 		newRow.RevertDelayBox:Disable()
 		newRow.RevertDelayBox:SetSize(delayColumnWidth,23)
-		newRow.RevertDelayBox:SetPoint("LEFT", newRow.RevertCheckbox, "RIGHT", 25, 0)
+		if useRevertCheckbox then
+			newRow.RevertDelayBox:SetPoint("LEFT", newRow.RevertCheckbox, "RIGHT", 25, 0)
+		else
+			newRow.RevertDelayBox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 25, 0)			
+		end
 		newRow.RevertDelayBox:SetMaxLetters(9)
 		
 		newRow.RevertDelayBox:HookScript("OnTextChanged", function(self)
@@ -1065,11 +1076,13 @@ local function AddSpellRow()
 		end)
 		
 		--Sync Revert Delaybox & Checkbox Disable/Enable
-		newRow.RevertCheckbox:SetScript("OnClick", function(self)
-			local checked = self:GetChecked()
-			local rowID = self.RowID
-			if checked then _G["spellRow"..rowID.."RevertDelayBox"]:Enable() else _G["spellRow"..rowID.."RevertDelayBox"]:Disable() end
-		end)
+		if useRevertCheckbox then
+			newRow.RevertCheckbox:SetScript("OnClick", function(self)
+				local checked = self:GetChecked()
+				local rowID = self.RowID
+				if checked then _G["spellRow"..rowID.."RevertDelayBox"]:Enable() else _G["spellRow"..rowID.."RevertDelayBox"]:Disable() end
+			end)
+		end
 
 	-- Make Tab work to switch edit boxes
 	
@@ -1105,13 +1118,19 @@ function updateSpellRowOptions(row, selectedAction)
 			_G["spellRow"..row.."InputEntryBox"]:Disable()
 			_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("n/a") 
 		end
-		if actionTypeData[selectedAction].revert then _G["spellRow"..row.."RevertCheckbox"]:Enable(); _G["spellRow"..row.."RevertDelayBox"]:Enable() else _G["spellRow"..row.."RevertCheckbox"]:Disable(); _G["spellRow"..row.."RevertDelayBox"]:Disable() end
+		if actionTypeData[selectedAction].revert then 
+			if useRevertCheckbox then _G["spellRow"..row.."RevertCheckbox"]:Enable(); end
+			_G["spellRow"..row.."RevertDelayBox"]:Enable();
+		else 
+			if useRevertCheckbox then _G["spellRow"..row.."RevertCheckbox"]:Disable(); end
+			_G["spellRow"..row.."RevertDelayBox"]:Disable();
+		end
 	else
 		_G["spellRow"..row.."SelectedAction"] = nil
 		_G["spellRow"..row.."SelfCheckbox"]:Disable()
 		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("select an action...")
 		_G["spellRow"..row.."InputEntryBox"]:Disable()
-		_G["spellRow"..row.."RevertCheckbox"]:Disable();
+		if useRevertCheckbox then _G["spellRow"..row.."RevertCheckbox"]:Disable(); end
 		_G["spellRow"..row.."RevertDelayBox"]:Disable()
 	end
 end
@@ -1435,17 +1454,24 @@ SCForgeMainFrame.TitleBar.InputEntry:SetJustifyH("CENTER")
 SCForgeMainFrame.TitleBar.InputEntry:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Self, "RIGHT", 5, 0)
 SCForgeMainFrame.TitleBar.InputEntry:SetText("Input")
 
-SCForgeMainFrame.TitleBar.RevertCheck = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-SCForgeMainFrame.TitleBar.RevertCheck:SetWidth(revertCheckColumnWidth+10)
-SCForgeMainFrame.TitleBar.RevertCheck:SetJustifyH("CENTER")
-SCForgeMainFrame.TitleBar.RevertCheck:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 5, 0)
-SCForgeMainFrame.TitleBar.RevertCheck:SetText("Revert")
+if useRevertCheckbox then
+	SCForgeMainFrame.TitleBar.RevertCheck = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
+	SCForgeMainFrame.TitleBar.RevertCheck:SetWidth(revertCheckColumnWidth+10)
+	SCForgeMainFrame.TitleBar.RevertCheck:SetJustifyH("CENTER")
+	SCForgeMainFrame.TitleBar.RevertCheck:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 5, 0)
+	SCForgeMainFrame.TitleBar.RevertCheck:SetText("Revert")
+end
 
 SCForgeMainFrame.TitleBar.RevertDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
 SCForgeMainFrame.TitleBar.RevertDelay:SetWidth(revertDelayColumnWidth)
 SCForgeMainFrame.TitleBar.RevertDelay:SetJustifyH("CENTER")
-SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.RevertCheck, "RIGHT", 0, 0)
-SCForgeMainFrame.TitleBar.RevertDelay:SetText("Delay")
+if useRevertCheckbox then
+	SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.RevertCheck, "RIGHT", 0, 0)
+	SCForgeMainFrame.TitleBar.RevertDelay:SetText("Delay")
+else
+	SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 30, 0)
+	SCForgeMainFrame.TitleBar.RevertDelay:SetText("R-Delay")
+end
 
 SCForgeMainFrame.ResizeDragger = CreateFrame("BUTTON", nil, SCForgeMainFrame)
 SCForgeMainFrame.ResizeDragger:SetSize(16,16)
@@ -1657,11 +1683,13 @@ local function loadSpell(spellToLoad)
 		if actionData.vars then _G["spellRow"..rowNum.."InputEntryBox"]:SetText(actionData.vars) else _G["spellRow"..rowNum.."InputEntryBox"]:SetText("") end --Input Entrybox
 		if actionData.revertDelay then
 			_G["spellRow"..rowNum.."RevertDelayBox"]:SetText(actionData.revertDelay) --revertDelay
-			_G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(true) --Revert Checkbox
+			if useRevertCheckbox then _G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(true); end--Revert Checkbox
 		else
 			_G["spellRow"..rowNum.."RevertDelayBox"]:SetText("") --revertDelay
-			_G["spellRow"..rowNum.."RevertDelayBox"]:Disable() --revertDelay
-			_G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(false) --Revert Checkbox
+			if useRevertCheckbox then 
+				_G["spellRow"..rowNum.."RevertDelayBox"]:Disable() --revertDelay
+				_G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(false) --Revert Checkbox
+			end
 		end
 	end
 end
@@ -3546,7 +3574,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 				end)
 			else
 				dprint(true, "Retrieving Phase Vault Data based on Phase Vault Keys...")
-				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
+				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS2")
 				dprint("ticketID = "..messageTicketID)
 				phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
 				phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
