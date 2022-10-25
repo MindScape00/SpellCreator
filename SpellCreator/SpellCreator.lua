@@ -3528,6 +3528,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 			phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 				if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 					phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
+					SpellCreatorMasterTable.Options["debugPhaseKeys"] = text
 					print(text)
 					phaseVaultKeys = serialDecompressForAddonMsg(text)
 					dump(phaseVaultKeys)
