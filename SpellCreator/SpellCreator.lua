@@ -1673,18 +1673,19 @@ local function deleteSpellConf(spellKey, where)
 	if dialog then dialog.data = spellKey; dialog.data2 = where end
 end
 
+local function noSpellsToLoad(fake)
+	dprint("Phase Has No Spells to load.");
+	phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" ); 
+	if not fake then
+		SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty");
+		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Enable();
+	end
+	isSavingOrLoadingPhaseAddonData = false;
+end
+
 local function getSpellForgePhaseVault(callback)
 	SCForge_PhaseVaultSpells = {} -- reset the table
 	dprint("Phase Spell Vault Loading...")
-	
-	local function noSpellsToLoad()
-		dprint("Phase Has No Spells to load.");
-		phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" ); 
-		SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty");
-		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Enable();
-		isSavingOrLoadingPhaseAddonData = false;
-	end
-	
 	
 	--if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again shortly."); return; end
 	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
@@ -1694,36 +1695,40 @@ local function getSpellForgePhaseVault(callback)
 	phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 		if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 			phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
-			
+
 			if (#text < 1 or text == "") then noSpellsToLoad(); return; end
 			phaseVaultKeys = serialDecompressForAddonMsg(text)
 			if #phaseVaultKeys < 1 then noSpellsToLoad(); return; end
 			dprint("Phase spell keys: ")
 			ddump(phaseVaultKeys)
 			local phaseVaultLoadingCount = 0
-			
+			local phaseVaultLoadingExpected = #phaseVaultKeys
 			local messageTicketQueue = {}
+			
+			-- set up the phaseAddonDataListener2 ahead of time, and only once..
+			phaseAddonDataListener2:RegisterEvent("CHAT_MSG_ADDON")
+			phaseAddonDataListener2:SetScript("OnEvent", function (self, event, prefix, text, channel, sender, ...)
+				if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
+					messageTicketQueue[prefix] = nil -- remove it from the queue.. We'll reset the table next time anyways but whatever.
+					phaseVaultLoadingCount = phaseVaultLoadingCount+1
+					interAction = serialDecompressForAddonMsg(text)
+					dprint("Spell found & adding to Phase Vault Table: "..interAction.commID)
+					tinsert(SCForge_PhaseVaultSpells, interAction)
+					--print("phaseVaultLoadingCount: ",phaseVaultLoadingCount," | phaseVaultLoadingExpected: ",phaseVaultLoadingExpected)
+					if phaseVaultLoadingCount == phaseVaultLoadingExpected then
+						callback(true);
+						phaseAddonDataListener2:UnregisterEvent("CHAT_MSG_ADDON")
+						isSavingOrLoadingPhaseAddonData = false
+					end
+				end
+			end)
+			
 			for k,v in ipairs(phaseVaultKeys) do
-				local phaseVaultLoadingExpected = k
+				--phaseVaultLoadingExpected = k
 				dprint("Trying to load spell from phase: "..v)
-				messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S_"..v)
+				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S_"..v)
 				messageTicketQueue[messageTicketID] = true -- add it to a fake queue table so we can watch for multiple prefixes...
 				
-				phaseAddonDataListener2:RegisterEvent("CHAT_MSG_ADDON")
-				phaseAddonDataListener2:SetScript("OnEvent", function (self, event, prefix, text, channel, sender, ...)
-					if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
-						messageTicketQueue[prefix] = nil -- remove it from the queue.. We'll reset the table next time anyways but whatever.
-						phaseVaultLoadingCount = phaseVaultLoadingCount+1
-						interAction = serialDecompressForAddonMsg(text)
-						dprint("Spell found & adding to Phase Vault Table: "..interAction.commID)
-						tinsert(SCForge_PhaseVaultSpells, interAction)
-						if phaseVaultLoadingCount == phaseVaultLoadingExpected then
-							callback(true);
-							phaseAddonDataListener2:UnregisterEvent("CHAT_MSG_ADDON")
-							isSavingOrLoadingPhaseAddonData = false
-						end
-					end
-				end)
 			end
 		end
 	end)
@@ -3494,21 +3499,14 @@ function CastARC(commID)
 	SlashCmdList.SCFORGEHELP(commID)
 end
 
+local _phaseSpellDebugDataTable = {}
 SLASH_SCFORGEDEBUG1 = '/sfdebug';
 function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 	local command, rest = msg:match("^(%S*)%s*(.-)$")
 	if SpellCreatorMasterTable.Options["debug"] and msg ~= "" then
 		if command == "debug" then
-			cprint("DEBUG LIST")
-			cprint("Version: "..addonVersion)
-			--cprint("RuneIcon: "..runeIconOverlay.atlas or runeIconOverlay.tex)
-			cprint("Debug Commands: ")
-			print(" - resetSpells: reset your vault to empty. Cannot be undone.")
-			print(" - listSpells: List all your vault spells.. this is alot of stuff.")
-			print(" - listSpellKeys: List all your vault spells by just keys. Easier to read.")
-			print(" - resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, but cannot be restored without manual help from MindScape.")
-			print(" - getPhaseKeys: Lists all the vault spells by keys.")
-			
+			SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
+			dprint(true, "SC-Forge Debug Set to: "..tostring(SpellCreatorMasterTable.Options["debug"]))
 		elseif command == "resetSpells" then
 			dprint(true, "All Arcaum Spells reset. #GoodBye #ThisCannotBeUndoneHopeYouDidn'tFuckUp!")
 			SpellCreatorSavedSpells = {}
@@ -3524,8 +3522,9 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 			dump(newTable)
 		elseif command == "resetPhaseSpellKeys" then
 			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", "")
-			dprint(true, "Wiped all Spell Keys from Phase Vault memory. This does not wipe the data itself of the spells, so they can technically be recovered by manually adding the key back, or either exporting the data yourself from C_Epsilon.GetPhaseAddonData (good luck) or asking Raz/Azar to give you the data, then running it thru the decode/decompress/deserialize ...")
+			dprint(true, "Wiped all Spell Keys from Phase Vault memory. This does not wipe the data itself of the spells, so they can technically be recovered by manually adding the key back, or either exporting the data yourself using '/sfdebug getPhaseSpellData $commID' where commID is the command it was saved as...")
 		elseif command == "getPhaseSpellData" then
+			local interAction
 			if rest and rest ~= "" then 
 				dprint(true, "Retrieving Phase Vault Data for Key: '"..rest.."'")
 				
@@ -3536,15 +3535,16 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 				phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 						phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
-						
-
-
-
+						interAction = serialDecompressForAddonMsg(text)
+						_phaseSpellDebugDataTable[interAction.fullName] = {
+							["encoded"] = text,
+							["decoded"] = interAction,
+						}
+						dump(interAction)
 					end
 				end)
 			else
 				dprint(true, "Retrieving Phase Vault Data based on Phase Vault Keys...")
-				local _phaseSpellDataTable = {}
 				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 				dprint("ticketID = "..messageTicketID)
 				phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
@@ -3552,11 +3552,11 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 						phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
 						
-						if (#text < 1 or text == "") then noSpellsToLoad(); return; end
+						if (#text < 1 or text == "") then noSpellsToLoad(true); return; end
 						phaseVaultKeys = serialDecompressForAddonMsg(text)
-						if #phaseVaultKeys < 1 then noSpellsToLoad(); return; end
+						if #phaseVaultKeys < 1 then noSpellsToLoad(true); return; end
 						local phaseVaultLoadingCount = 0
-						
+						local phaseVaultLoadingExpected = #phaseVaultKeys
 						local messageTicketQueue = {}
 						
 						-- set up the phaseAddonDataListener2 ahead of time instead of EVERY SINGLE FUCKING ITERATION..
@@ -3567,9 +3567,9 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 								messageTicketQueue[prefix] = nil -- remove it from the queue.. We'll reset the table next time anyways but whatever.
 								phaseVaultLoadingCount = phaseVaultLoadingCount+1
 								interAction = serialDecompressForAddonMsg(text)
-								_phaseSpellDataTable[phaseVaultLoadingCount] = {
+								_phaseSpellDebugDataTable[interAction.fullName] = {
 									["encoded"] = text,
-									["name"] = interAction.fullName,
+									["decoded"] = interAction,
 								}
 								dprint(true, interAction.fullName.." saved to debugPhaseData")
 								if phaseVaultLoadingCount == phaseVaultLoadingExpected then
@@ -3579,7 +3579,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 						end)
 						
 						for k,v in ipairs(phaseVaultKeys) do
-							local phaseVaultLoadingExpected = k
+							--phaseVaultLoadingExpected = k
 							dprint(true, "Trying to load spell from phase: "..v)
 							local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S_"..v)
 							messageTicketQueue[messageTicketID] = true -- add it to a fake queue table so we can watch for multiple prefixes...
@@ -3587,7 +3587,8 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 					end
 				end)
 			end
-			SpellCreatorMasterTable.Options["debugPhaseData"] = _phaseSpellDataTable
+			SpellCreatorMasterTable.Options["debugPhaseData"] = _phaseSpellDebugDataTable
+			dprint(true, "Phase Vault key data cached for this single reload to the 'epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua' file.")
 		elseif command == "getPhaseKeys" then
 			local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 
@@ -3605,8 +3606,16 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 		
 		end
 	else
-		SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
-		dprint(true, "SC-Forge Debug Set to: "..tostring(SpellCreatorMasterTable.Options["debug"]))
+		cprint("DEBUG LIST")
+		cprint("Version: "..addonVersion)
+		--cprint("RuneIcon: "..runeIconOverlay.atlas or runeIconOverlay.tex)
+		cprint("Debug Commands: ")
+		print(" - resetSpells: reset your vault to empty. Cannot be undone.")
+		print(" - listSpells: List all your vault spells.. this is alot of stuff.")
+		print(" - listSpellKeys: List all your vault spells by just keys. Easier to read.")
+		print(" - resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, and can be exported to your WTF file by using getPhaseSpellData below.")
+		print(" - getPhaseKeys: Lists all the vault spells by keys.")
+		print(" - getPhaseSpellData [$commID/key]: Exports the spell data for the specified commID/key, or all detected keys in the vault if unspecified, to your '..epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua' file.")
 	end
 end
 
