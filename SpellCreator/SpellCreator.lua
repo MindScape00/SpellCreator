@@ -1694,8 +1694,8 @@ local function getSpellForgePhaseVault(callback)
 			if (#text < 1 or text == "") then noSpellsToLoad(); return; end
 			phaseVaultKeys = serialDecompressForAddonMsg(text)
 			if #phaseVaultKeys < 1 then noSpellsToLoad(); return; end
-			--dprint("Phase spell keys: ")
-			--ddump(phaseVaultKeys)
+			dprint("Phase spell keys: ")
+			ddump(phaseVaultKeys)
 			local phaseVaultLoadingCount = 0
 			
 			local messageTicketQueue = {}
@@ -3521,6 +3521,20 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", "")
 			dprint(true, "Wiped all Spell Keys from Phase Vault memory. This does not wipe the data itself of the spells, so they can technically be recovered by manually adding the key back, or begging Azar/Raz to give you the data and then running it thru libDeflate/AceSerializer/Decode. Yeah..")
 		elseif msg == "getPhaseKeys" then
+			local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
+
+			phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
+			
+			phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
+				if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
+					phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
+					SpellCreatorMasterTable.Options["debugPhaseKeys"] = text
+					print(text)
+					phaseVaultKeys = serialDecompressForAddonMsg(text)
+					dump(phaseVaultKeys)
+				end
+			end)
+		elseif msg == "getPhaseSpellData" then
 			local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 
 			phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
