@@ -784,11 +784,11 @@ local mainFrameSize = {
 -- Column Widths
 local delayColumnWidth = 100
 local actionColumnWidth = 100
-local selfColumnWidth = 41
-local InputEntryColumnWidth = 100
+local selfColumnWidth = 32
+local InputEntryColumnWidth = 140
 if not useRevertCheckbox then InputEntryColumnWidth = InputEntryColumnWidth+42 end
 local revertCheckColumnWidth = 60
-local revertDelayColumnWidth = 100
+local revertDelayColumnWidth = 80
 
 -- Drop Down Generator
 local function genStaticDropdownChild( parent, dropdownName, menuList, title, width )
@@ -960,11 +960,16 @@ local function AddSpellRow()
 		--newRow.RowGem:SetPoint("RIGHT",-9,0)
 		
 		-- main delay entry box
-		newRow.mainDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."MainDelayBox", newRow, "InputBoxTemplate")
+		newRow.mainDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."MainDelayBox", newRow, "InputBoxInstructionsTemplate")
+		newRow.mainDelayBox:SetFontObject(ChatFontNormal)
+		newRow.mainDelayBox.disabledColor = GRAY_FONT_COLOR
+		newRow.mainDelayBox.enabledColor = HIGHLIGHT_FONT_COLOR
+		newRow.mainDelayBox.Instructions:SetText("(Seconds)")
+		newRow.mainDelayBox.Instructions:SetTextColor(0.5,0.5,0.5)
 		newRow.mainDelayBox:SetAutoFocus(false)
 		newRow.mainDelayBox:SetSize(delayColumnWidth,23)
 		newRow.mainDelayBox:SetPoint("LEFT", 40, 0)
-		newRow.mainDelayBox:SetMaxLetters(9)
+		newRow.mainDelayBox:SetMaxLetters(10)
 		newRow.mainDelayBox:SetScript("OnTextChanged", function(self)
 			if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
 				self:SetTextColor(255,255,255,1)
@@ -1021,7 +1026,7 @@ local function AddSpellRow()
 		
 		-- Self Checkbox
 		newRow.SelfCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."SelfCheckbox", newRow, "UICheckButtonTemplate")
-		newRow.SelfCheckbox:SetPoint("LEFT", newRow.actionSelectButton, "RIGHT", -5, 2)
+		newRow.SelfCheckbox:SetPoint("LEFT", newRow.actionSelectButton, "RIGHT", -5, 1)
 		newRow.SelfCheckbox:Disable()
 		newRow.SelfCheckbox:SetMotionScriptsWhileDisabled(true)
 		newRow.SelfCheckbox:SetScript("OnEnter", function(self)
@@ -1041,15 +1046,15 @@ local function AddSpellRow()
 		if SpellCreatorMasterTable.Options["biggerInputBox"] == true then
 			newRow.InputEntryScrollFrame = CreateFrame("ScrollFrame", "spellRow"..numberOfSpellRows.."InputEntryScrollFrame", newRow, "InputScrollFrameTemplate")
 			newRow.InputEntryScrollFrame.CharCount:Hide()
-			newRow.InputEntryScrollFrame:SetSize(InputEntryColumnWidth+20,40)
-			newRow.InputEntryScrollFrame:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 15, 0)
+			newRow.InputEntryScrollFrame:SetSize(InputEntryColumnWidth,40)
+			newRow.InputEntryScrollFrame:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 15, 1)
 			newRow.InputEntryBox = newRow.InputEntryScrollFrame.EditBox
 			_G["spellRow"..numberOfSpellRows.."InputEntryBox"] = newRow.InputEntryBox
 			newRow.InputEntryBox:SetWidth(newRow.InputEntryScrollFrame:GetWidth()-18)
 		else
 			newRow.InputEntryBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."InputEntryBox", newRow, "InputBoxInstructionsTemplate")
-			newRow.InputEntryBox:SetSize(InputEntryColumnWidth+20,23)
-			newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 15, 0)
+			newRow.InputEntryBox:SetSize(InputEntryColumnWidth,23)
+			newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 15, 1)
 		end
 
 		newRow.InputEntryBox:SetFontObject(ChatFontNormal)
@@ -1115,13 +1120,13 @@ local function AddSpellRow()
 		newRow.RevertDelayBox.Instructions:SetTextColor(0.5,0.5,0.5)
 		newRow.RevertDelayBox:SetAutoFocus(false)
 		newRow.RevertDelayBox:Disable()
-		newRow.RevertDelayBox:SetSize(delayColumnWidth,23)
+		newRow.RevertDelayBox:SetSize(revertDelayColumnWidth,23)
 		if useRevertCheckbox then
 			newRow.RevertDelayBox:SetPoint("LEFT", newRow.RevertCheckbox, "RIGHT", 25, 0)
 		else
 			newRow.RevertDelayBox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 25, 0)			
 		end
-		newRow.RevertDelayBox:SetMaxLetters(9)
+		newRow.RevertDelayBox:SetMaxLetters(10)
 		
 		newRow.RevertDelayBox:HookScript("OnTextChanged", function(self)
 			if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
@@ -1176,6 +1181,8 @@ local function AddSpellRow()
 	
 	updateFrameChildScales(SCForgeMainFrame)
 	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable() return; end -- hard cap
+	
+	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
 end
 
 function updateSpellRowOptions(row, selectedAction) 
@@ -1492,37 +1499,43 @@ end
 	scrollFrame.ScrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, 18)
 	scrollFrame.ScrollBar.scrollStep = rowHeight
 
---This is a sub-frame of the Main Frame.. Should it be? Idk..
-SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame)
-SCForgeMainFrame.TitleBar:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 25, -10)
-SCForgeMainFrame.TitleBar:SetSize(mainFrameSize.x-60, 20)
+SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame.Inset)
+SCForgeMainFrame.TitleBar:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 25, -8)
+SCForgeMainFrame.TitleBar:SetSize(mainFrameSize.x-50, 24)
 --SCForgeMainFrame.TitleBar:SetHeight(20)
-setResizeWithMainFrame(SCForgeMainFrame.TitleBar)
 
-SCForgeMainFrame.TitleBar.Background = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND")
+SCForgeMainFrame.TitleBar.Background = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 5)
 SCForgeMainFrame.TitleBar.Background:SetAllPoints()
 SCForgeMainFrame.TitleBar.Background:SetColorTexture(0,0,0,0.25)
+local titleBackgroundClamp = 0
+SCForgeMainFrame.TitleBar.Background:SetPoint("TOPLEFT",-3+titleBackgroundClamp,0)
+SCForgeMainFrame.TitleBar.Background:SetPoint("BOTTOMRIGHT",-8-titleBackgroundClamp,0)
+
+SCForgeMainFrame.TitleBar.Overlay = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 6)
+SCForgeMainFrame.TitleBar.Overlay:SetAllPoints(SCForgeMainFrame.TitleBar.Background)
+SCForgeMainFrame.TitleBar.Overlay:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.208,1-0.209,0,1-0)
 
 SCForgeMainFrame.TitleBar.MainDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
 SCForgeMainFrame.TitleBar.MainDelay:SetWidth(delayColumnWidth)
 SCForgeMainFrame.TitleBar.MainDelay:SetJustifyH("CENTER")
-SCForgeMainFrame.TitleBar.MainDelay:SetPoint("TOPLEFT", SCForgeMainFrame.TitleBar, "TOPLEFT", 13+25, 0)
+SCForgeMainFrame.TitleBar.MainDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar, "LEFT", 13+25, 0)
 SCForgeMainFrame.TitleBar.MainDelay:SetText("Delay")
 
 SCForgeMainFrame.TitleBar.Action = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-SCForgeMainFrame.TitleBar.Action:SetWidth(actionColumnWidth+52)
+SCForgeMainFrame.TitleBar.Action:SetWidth(actionColumnWidth+50)
 SCForgeMainFrame.TitleBar.Action:SetJustifyH("CENTER")
 SCForgeMainFrame.TitleBar.Action:SetPoint("LEFT", SCForgeMainFrame.TitleBar.MainDelay, "RIGHT", 0, 0)
 SCForgeMainFrame.TitleBar.Action:SetText("Action")
 
 SCForgeMainFrame.TitleBar.Self = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-SCForgeMainFrame.TitleBar.Self:SetWidth(selfColumnWidth)
-SCForgeMainFrame.TitleBar.Self:SetJustifyH("LEFT")
-SCForgeMainFrame.TitleBar.Self:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Action, "RIGHT", 0, 0)
+SCForgeMainFrame.TitleBar.Self:SetWidth(selfColumnWidth+10)
+SCForgeMainFrame.TitleBar.Self:SetJustifyH("CENTER")
+SCForgeMainFrame.TitleBar.Self:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Action, "RIGHT", -9, 0)
 SCForgeMainFrame.TitleBar.Self:SetText("Self")
 
 SCForgeMainFrame.TitleBar.InputEntry = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-SCForgeMainFrame.TitleBar.InputEntry:SetWidth(InputEntryColumnWidth+10)
+SCForgeMainFrame.TitleBar.InputEntry:SetWidth(InputEntryColumnWidth)
 SCForgeMainFrame.TitleBar.InputEntry:SetJustifyH("CENTER")
 SCForgeMainFrame.TitleBar.InputEntry:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Self, "RIGHT", 5, 0)
 SCForgeMainFrame.TitleBar.InputEntry:SetText("Input")
