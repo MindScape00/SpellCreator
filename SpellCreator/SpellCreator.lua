@@ -2325,9 +2325,9 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 						local text = self.editBox:GetText();
 						if self.insertedFrame.button:GetChecked() then cmd("ph fo np go te ad "..text.."<arcanum_cast_auto_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go te ad "..text.."<arcanum_cast_auto:"..savedSpellFromVault[data].commID..">") end
 					end,
-					button1 = "Cast on Click",
-					button2 = "Cast on Open",
-					button3 = "AutoCast (No Option)",
+					button1 = "Option - Click",
+					button2 = "Option - Auto",
+					button3 = "No Option - Auto",
 					extraButton = CANCEL,
 					hideOnEscape = true,
 					whileDead = true,
