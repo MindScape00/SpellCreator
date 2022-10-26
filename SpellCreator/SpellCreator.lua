@@ -970,7 +970,7 @@ local function AddSpellRow()
 		newRow.mainDelayBox:SetSize(delayColumnWidth,23)
 		newRow.mainDelayBox:SetPoint("LEFT", 40, 0)
 		newRow.mainDelayBox:SetMaxLetters(10)
-		newRow.mainDelayBox:SetScript("OnTextChanged", function(self)
+		newRow.mainDelayBox:HookScript("OnTextChanged", function(self)
 			if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
 				self:SetTextColor(255,255,255,1)
 			elseif self:GetText() == "" then
