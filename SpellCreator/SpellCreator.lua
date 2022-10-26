@@ -13,12 +13,15 @@ localization.SPELLCOMM = STAT_CATEGORY_SPELL.." "..COMMAND
 
 local savedSpellFromVault = {}
 
+local modifiedGossips = {}
+local isGossipLoaded
+
 -- localized frequent functions for speed
 local CTimerAfter = C_Timer.After
 local C_Timer = C_Timer
 
 --
-local curDate = date("*t")
+-- local curDate = date("*t") -- Current Date for surprise launch - disabled since it's over anyways
 
 local LibDeflate
 local AceSerializer
@@ -56,8 +59,6 @@ local sfCmd_ReplacerChar = "@N@"
 -- local tabs = utils.tabs
 
 -- local main = Epsilon.main
-
-
 
 -------------------------------------------------------------------------------
 -- Simple Chat & Helper Functions
@@ -295,12 +296,15 @@ local function SC_loadMasterTable()
 	if isNotDefined(SpellCreatorMasterTable.Options["showVaultOnShow"]) then SpellCreatorMasterTable.Options["showVaultOnShow"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["clearRowOnRemove"]) then SpellCreatorMasterTable.Options["clearRowOnRemove"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["loadChronologically"]) then SpellCreatorMasterTable.Options["loadChronologically"] = false end
+	if isNotDefined(SpellCreatorMasterTable.Options["minimapIcon"]) then SpellCreatorMasterTable.Options["minimapIcon"] = true end
 	
 	if not SpellCreatorSavedSpells then SpellCreatorSavedSpells = {} end
 	
+	--[[ -- Current Date Check for past Oct 25, 2022. Disabled since we are past that anyways now.
 	if (curDate.year >= 2023 or curDate.yday >= 298) then -- Only default to showing the minimap icon after October 25th, 2022
-		if isNotDefined(SpellCreatorMasterTable.Options["minimapIcon"]) then SpellCreatorMasterTable.Options["minimapIcon"] = true end
+		
 	end
+	--]]
 	
 	-- reset these so we are not caching debug data longer than a single reload.
 	SpellCreatorMasterTable.Options["debugPhaseData"] = nil
@@ -1513,7 +1517,10 @@ SCForgeMainFrame.TitleBar.Background:SetPoint("BOTTOMRIGHT",-8-titleBackgroundCl
 
 SCForgeMainFrame.TitleBar.Overlay = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 6)
 SCForgeMainFrame.TitleBar.Overlay:SetAllPoints(SCForgeMainFrame.TitleBar.Background)
-SCForgeMainFrame.TitleBar.Overlay:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+--SCForgeMainFrame.TitleBar.Overlay:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+SCForgeMainFrame.TitleBar.Overlay:SetAtlas("search-select")
+SCForgeMainFrame.TitleBar.Overlay:SetDesaturated(true)
+SCForgeMainFrame.TitleBar.Overlay:SetVertexColor(0.35,0.7,0.85)
 SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.208,1-0.209,0,1-0)
 
 SCForgeMainFrame.TitleBar.MainDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
@@ -1909,7 +1916,8 @@ local function deleteSpellFromPhaseVault(commID, callback)
 end
 
 local uploadAsPrivateSpell = false
-local function saveSpellToPhaseVault(commID)
+local function saveSpellToPhaseVault(commID, overwrite)
+	local needToOverwrite = false
 	if not commID then
 		eprint("Invalid CommID.")
 		return;
@@ -1936,25 +1944,42 @@ local function saveSpellToPhaseVault(commID)
 				
 				for k,v in ipairs(phaseVaultKeys) do
 					if v == phaseSpellKey then
-						-- phase already has this ID saved.. Handle over-write... ( see saveSpell() to steal the code if we want to change it later.. )
-						eprint("Phase already has a spell saved by Command '"..phaseSpellKey.."'. You must delete it first before you can save a new one with that code.")
-						isSavingOrLoadingPhaseAddonData = false
-						sendPhaseVaultIOLock(false)
-						return;
+						if not overwrite then
+							-- phase already has this ID saved.. Handle over-write... ( see saveSpell() to steal the code if we want to change it later.. )
+							dprint("Phase already has a spell saved by Command '"..phaseSpellKey.."'. Prompting to confirm over-write.")
+							
+							StaticPopupDialogs["SCFORGE_CONFIRM_POVERWRITE"] = {
+								text = "Spell '"..phaseSpellKey.."' Already exists in the Phase Vault.\n\rDo you want to overwrite the spell?",
+								OnAccept = function() saveSpellToPhaseVault(phaseSpellKey, true) end,
+								button1 = "Overwrite",
+								button2 = CANCEL,
+								hideOnEscape = true,
+								whileDead = true,
+							}
+							StaticPopup_Show("SCFORGE_CONFIRM_POVERWRITE")
+							
+							isSavingOrLoadingPhaseAddonData = false
+							sendPhaseVaultIOLock(false)
+							return;
+						else
+							needToOverwrite = true
+						end
 					end
 				end
 				
 				-- Passed checking for duplicates. NOW we can save it.
 				local _spellData = SpellCreatorSavedSpells[commID]
-				if uploadAsPrivateSpell then _spellData.private = true end
+				if uploadAsPrivateSpell then _spellData.private = true else _spellData.private = nil end
 				local str = serialCompressForAddonMsg(_spellData)
 				
 				local key = "SCFORGE_S_"..phaseSpellKey
 				C_Epsilon.SetPhaseAddonData(key, str)
 				
-				tinsert(phaseVaultKeys, phaseSpellKey)
-				phaseVaultKeys = serialCompressForAddonMsg(phaseVaultKeys)
-				C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
+				if not needToOverwrite then
+					tinsert(phaseVaultKeys, phaseSpellKey)
+					phaseVaultKeys = serialCompressForAddonMsg(phaseVaultKeys)
+					C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
+				end
 				
 				cprint("Spell '"..phaseSpellKey.."' saved to the Phase Vault.")
 				isSavingOrLoadingPhaseAddonData = false
@@ -1994,6 +2019,45 @@ local function clearSpellLoadRadios(self)
 		end
 	end
 end
+
+local gossipAddMenuHideCheckButton = CreateFrame("FRAME")
+gossipAddMenuHideCheckButton:SetSize(110,26)
+gossipAddMenuHideCheckButton:Hide()
+gossipAddMenuHideCheckButton.button = CreateFrame("CHECKBUTTON", nil, gossipAddMenuHideCheckButton, "UICheckButtonTemplate")
+gossipAddMenuHideCheckButton.button:SetSize(26,26)
+gossipAddMenuHideCheckButton.button:SetPoint("BOTTOMLEFT", 0, -7)
+gossipAddMenuHideCheckButton.button.text:SetText("Hide after Casted")
+gossipAddMenuHideCheckButton.button:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Hide the Gossip menu after Casting.", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("\nShould the gossip be hidden after casting? If you enable this and select Cast on Show (Auto), the frame will closed immediately before they see it.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+gossipAddMenuHideCheckButton.button:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+gossipAddMenuHideCheckButton.button:SetScript("OnHide", function(self)
+	self:SetChecked(false)
+end)
+--[[
+gossipAddMenuHideCheckButton.button:SetScript("OnClick", function(self)
+	local parent = self:GetParent():GetParent()
+	if parent.editBox then
+		if self:GetChecked() then
+			parent.editBox:Hide()
+			local height = parent:GetHeight() - parent.editBox:GetHeight()
+			parent:SetHeight(height)
+		else
+			parent.editBox:Show()
+			local height = parent:GetHeight() + parent.editBox:GetHeight()
+			parent:SetHeight(height)
+		end
+	end
+end)
+--]]
 
 local loadRowHeight = 45
 local loadRowSpacing = 5
@@ -2208,6 +2272,124 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				self.Timer:Cancel()
 			end)
 			
+			--
+			
+			spellLoadRows[rowNum].gossipButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum])
+			local button = spellLoadRows[rowNum].gossipButton
+			button.commID = k
+			button:SetPoint("TOP", spellLoadRows[rowNum].deleteButton, "BOTTOM", 0, 0)
+			button:SetSize(16,16)
+			
+			button:SetNormalAtlas("groupfinder-waitdot")
+			button.normal = button:GetNormalTexture()
+			button.normal:SetVertexColor(1,0.8,0)
+			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+			
+			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
+			button.DisabledTex:SetAllPoints(true)
+			button.DisabledTex:SetAtlas("groupfinder-waitdot")
+			SetDesaturation(button.DisabledTex, true)
+			button.DisabledTex:SetVertexColor(.6,.6,.6)
+			button:SetDisabledTexture(button.DisabledTex)
+
+			button.PushedTex = button:CreateTexture(nil, "ARTWORK")
+			button.PushedTex:SetAllPoints(true)
+			button.PushedTex:SetAtlas("groupfinder-waitdot")
+			button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+			button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+			button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+			button:SetPushedTexture(button.PushedTex)
+			
+			button:SetMotionScriptsWhileDisabled(true)
+			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+			button:SetScript("OnClick", function(self, button)
+				StaticPopupDialogs["SCFORGE_ADD_GOSSIP"] = {
+					text = "Add ArcSpell Gossip Option",
+					subText = "ArcSpell: '"..savedSpellFromVault[self.commID].fullName.."' ("..savedSpellFromVault[self.commID].commID..")",
+					closeButton = true,
+					hasEditBox = true,
+					enterClicksFirstButton = true,
+					editBoxInstructions = "Gossip Option Label Text (i.e., 'Cast the Spell!')",
+					editBoxWidth = 350,
+					maxLetters = 255-25-20-#savedSpellFromVault[self.commID].commID, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
+					OnButton1 = function(self, data) 
+						local text = self.editBox:GetText();
+						if self.insertedFrame.button:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast:"..savedSpellFromVault[data].commID..">") end
+					end,
+					OnButton2 = function(self, data) 
+						local text = self.editBox:GetText();
+						if self.insertedFrame.button:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_auto_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast_auto:"..savedSpellFromVault[data].commID..">") end
+					end,
+					OnButton3 = function(self, data)
+						local text = self.editBox:GetText();
+						if self.insertedFrame.button:GetChecked() then cmd("ph fo np go te ad "..text.."<arcanum_cast_auto_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go te ad "..text.."<arcanum_cast_auto:"..savedSpellFromVault[data].commID..">") end
+					end,
+					button1 = "Cast on Click",
+					button2 = "Cast on Open",
+					button3 = "AutoCast (No Option)",
+					extraButton = CANCEL,
+					hideOnEscape = true,
+					whileDead = true,
+				}
+				local dialog = StaticPopup_Show("SCFORGE_ADD_GOSSIP", nil, nil, nil, gossipAddMenuHideCheckButton)
+				dialog.data = self.commID
+			end)
+
+			button:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					GameTooltip:SetText("Add to Gossip Menu", nil, nil, nil, nil, true)
+					GameTooltip:AddLine("\nWith a gossip menu open, click here to add this ArcSpell to an NPC's gossip.", 1,1,1,1)
+					GameTooltip:Show()
+				end)
+			end)
+			button:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
+			
+			
+			-------------
+			spellLoadRows[rowNum].privateIconButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum])
+			local button = spellLoadRows[rowNum].privateIconButton
+			button.commID = k
+			button:SetSize(16,16)
+			button:SetPoint("RIGHT", spellLoadRows[rowNum].gossipButton, "LEFT", -8, 0)
+			
+			button:SetNormalAtlas("UI_Editor_Eye_Icon")
+			button.normal = button:GetNormalTexture()
+			button.normal:SetVertexColor(1,0.8,0)
+			--button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+			
+			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
+			button.DisabledTex:SetAllPoints(true)
+			button.DisabledTex:SetAtlas("UI_Editor_Eye_Icon")
+			SetDesaturation(button.DisabledTex, true)
+			button.DisabledTex:SetVertexColor(.6,.6,.6)
+			button:SetDisabledTexture(button.DisabledTex)
+			
+			button:SetMotionScriptsWhileDisabled(true)
+			
+			button:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					if self:IsEnabled() then
+						GameTooltip:SetText("'"..savedSpellFromVault[self.commID].fullName.."' is visible to everyone.", nil, nil, nil, nil, true)
+					else
+						GameTooltip:SetText("'"..savedSpellFromVault[self.commID].fullName.."' is visible only to Officers+.", nil, nil, nil, nil, true)
+					end
+					GameTooltip:AddLine("\nTo change this spells privacy, please re-upload it with the privacy desired.", 1,1,1,1)
+					GameTooltip:Show()
+				end)
+			end)
+			button:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
+			----------
+			
+			--
 			
 			--[[
 			-- Transfer to Phase Button
@@ -2245,6 +2427,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			spellLoadRows[rowNum].spellName:SetText(v.fullName)
 			spellLoadRows[rowNum].loadButton.commID = k
 			spellLoadRows[rowNum].deleteButton.commID = k
+			spellLoadRows[rowNum].gossipButton.commID = k
+			spellLoadRows[rowNum].privateIconButton.commID = k
 			spellLoadRows[rowNum].commID = k -- used in new Transfer to Phase Button
 			spellLoadRows[rowNum].rowID = rowNum
 			
@@ -2263,6 +2447,9 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
 				--spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,1)
 				spellLoadRows[rowNum].deleteButton:Show()
+				spellLoadRows[rowNum].deleteButton:SetPoint("RIGHT")
+				spellLoadRows[rowNum].gossipButton:Hide()
+				spellLoadRows[rowNum].privateIconButton:Hide()
 				
 				--[[	-- Replaced with the <-> Phase Vault button
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
@@ -2280,8 +2467,18 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					spellLoadRows[rowNum].deleteButton:Show()
+					spellLoadRows[rowNum].deleteButton:SetPoint("TOPRIGHT")
+					spellLoadRows[rowNum].gossipButton:Show()
+					spellLoadRows[rowNum].privateIconButton:Show()
+					if isGossipLoaded then
+						spellLoadRows[rowNum].gossipButton:Enable()
+					else
+						spellLoadRows[rowNum].gossipButton:Disable()
+					end
 				else
 					spellLoadRows[rowNum].deleteButton:Hide()
+					spellLoadRows[rowNum].gossipButton:Hide()
+					spellLoadRows[rowNum].privateIconButton:Hide()
 				end
 			end		
 			
@@ -2341,6 +2538,11 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		if currentVault=="PHASE" and v.private and not (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() or SpellCreatorMasterTable.Options["debug"]) then
 			spellLoadRows[rowNum]:Hide()
 			numSkippedRows = numSkippedRows+1
+		end
+		if v.private then
+			spellLoadRows[rowNum].privateIconButton:Disable()
+		else
+			spellLoadRows[rowNum].privateIconButton:Enable()
 		end
 	end
 	updateFrameChildScales(SCForgeMainFrame)
@@ -2558,12 +2760,10 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetPoint("TOPLEFT", 5, 
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetSize(24,24)
 
 
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnClick", function(self)
+SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnClick", function(self, button)
 	if selectedVaultRow then
-		--print(selectedVaultRow)
 		commID = spellLoadRows[selectedVaultRow].commID
-		--print(commID)
-		saveSpellToPhaseVault(commID)
+		saveSpellToPhaseVault(commID, IsShiftKeyDown())
 	end
 end)
 
@@ -2579,7 +2779,7 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnter", functio
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Transfer to Phase Vault.", nil, nil, nil, nil, true)
 		if self:IsEnabled() then
-			GameTooltip:AddLine("Transfer the spell to the Phase Vault.",1,1,1,true)
+			GameTooltip:AddLine("Transfer the spell to the Phase Vault.\n\rShift-Click to automatically over-write any spell with the same command ID in the Phase Vault.",1,1,1,true)
 		else
 			if selectedVaultRow then
 				GameTooltip:AddLine("You do not currently have permissions to upload to this phase's vault.\n\rIf you were just given officer, rejoin the phase.",1,1,1,true)
@@ -2601,7 +2801,6 @@ local _frame = SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle
 _frame:SetPoint("LEFT", SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton, "RIGHT", 0, 0)
 _frame:SetSize(26,26)
 _frame.text:SetText("Private")
---_frame.text:SetPoint("LEFT", 0, 0)
 _frame:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
@@ -3142,7 +3341,7 @@ minimapButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetText(addonTitle)
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine("/arcanum - Toggle UI",1,1,1,true)
-	GameTooltip:AddLine("/sfdebug - Toggle Debug",1,1,1,true)
+	GameTooltip:AddLine("/sf - Shortcut Command!",1,1,1,true)
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine("|cffFFD700Left-Click|r to toggle the main UI!",1,1,1,true)
 	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options.",1,1,1,true)
@@ -3412,8 +3611,13 @@ SC_Addon_Listener:RegisterEvent("UI_ERROR_MESSAGE");
 SC_Addon_Listener:RegisterEvent("GOSSIP_SHOW");
 SC_Addon_Listener:RegisterEvent("GOSSIP_CLOSED");
 
-local modifiedGossips = {}
-local isGossipLoaded
+local function updateGossipVaultButtons(enable)
+	local spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
+	for i = 1, #spellLoadRows do
+		spellLoadRows[i].gossipButton:SetEnabled(enable)
+	end
+end
+
 if not C_Epsilon.IsDM then C_Epsilon.IsDM = false end
 SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 	-- Phase Change Listener
@@ -3480,7 +3684,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 	-- Gossip Menu Listener
 	elseif event == "GOSSIP_SHOW" then
-	
+		
 		local spellsToCast = {} -- outside the for loops so we don't reset it every loop iteration
 		local shouldAutoHide = false
 		local shouldLoadSpellVault = false
@@ -3520,6 +3724,9 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				end
 				titleButton:HookScript("OnClick", function() scforge_showhide("enableMMIcon") end)
 				modifiedGossips[i] = titleButton
+			elseif titleButtonText:match("<arcanum_save:.*>") then
+				local payLoad = titleButtonText:match("<arcanum_save:(.*)>")
+				
 			end
 					
 			if titleButtonText:match("<arcanum_cast") then
@@ -3593,6 +3800,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		end
 		
 		isGossipLoaded = true
+		updateGossipVaultButtons(true)
 
 	elseif event == "GOSSIP_CLOSED" then
 	
@@ -3604,6 +3812,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		end
 		
 		isGossipLoaded = false
+		updateGossipVaultButtons(false)
 		
 	end
 
@@ -3693,8 +3902,37 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 			table.sort(newTable)
 			dump(newTable)
 		elseif command == "resetPhaseSpellKeys" then
-			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", "")
-			dprint(true, "Wiped all Spell Keys from Phase Vault memory. This does not wipe the data itself of the spells, so they can technically be recovered by manually adding the key back, or either exporting the data yourself using '/sfdebug getPhaseSpellData $commID' where commID is the command it was saved as...")
+			if reset == "confirm" then
+				C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", "")
+				dprint(true, "Wiped all Spell Keys from Phase Vault memory. This does not wipe the data itself of the spells, so they can technically be recovered by manually adding the key back, or either exporting the data yourself using '/sfdebug getPhaseSpellData $commID' where commID is the command it was saved as...")
+			else
+				dprint(true, "resetPhaseSpellKeys -- WARNING: YOU ARE ABOUT TO WIPE ALL OF YOUR PHASE VAULT. You need to add 'confirm' after this command in order for it to work.")
+			end
+		elseif command == "removePhaseKey" then
+			if rest and tonumber(rest) then
+				rest = tonumber(rest)
+				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
+
+				phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
+				
+				phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
+					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
+						phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
+						phaseVaultKeys = serialDecompressForAddonMsg(text)
+						local theDeletedKey = phaseVaultKeys[rest]
+						if theDeletedKey then
+							table.remove(phaseVaultKeys, rest)
+							phaseVaultKeys = serialCompressForAddonMsg(phaseVaultKeys)
+							dprint(true, "Deleted Phase Key: ["..rest.."] = "..theDeletedKey)
+							C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
+						else
+							dprint(true, "Phase Key ID ["..rest.."] doesn't seem to exist.")
+						end
+					end
+				end)
+			else
+				dprint(true, "removePhaseKey -- You need to prove the numerical ID (from getPhaseKeys) of the key to remove. This does not remove the spells data, only removes it's key from the key list, although you will not be able to access the spell afterwords.")
+			end		
 		elseif command == "getPhaseSpellData" then
 			local interAction
 			if rest and rest ~= "" then 
@@ -3717,7 +3955,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 				end)
 			else
 				dprint(true, "Retrieving Phase Vault Data based on Phase Vault Keys...")
-				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS2")
+				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 				dprint("ticketID = "..messageTicketID)
 				phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
 				phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
