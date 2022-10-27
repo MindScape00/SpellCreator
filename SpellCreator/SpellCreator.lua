@@ -2406,7 +2406,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetPoint("RIGHT", thisRow.gossipButton, "LEFT", -8, 0)
 			
 			--button:SetNormalAtlas("UI_Editor_Eye_Icon")
-			button:SetNormalTexture(addonPath.."/assets/visible_icon_64")
+			button:SetNormalTexture(addonPath.."/assets/icon_visible_32")
 			button.normal = button:GetNormalTexture()
 			button.normal:SetVertexColor(0.9,0.65,0)
 			--button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
@@ -2414,7 +2414,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
 			--button.DisabledTex:SetAtlas("transmog-icon-hidden")
-			button.DisabledTex:SetTexture(addonPath.."/assets/hidden_icon_64")
+			button.DisabledTex:SetTexture(addonPath.."/assets/icon_hidden_32")
 			--button.DisabledTex:SetDesaturated(true)
 			button.DisabledTex:SetVertexColor(.6,.6,.6)
 			button:SetDisabledTexture(button.DisabledTex)
@@ -2497,7 +2497,10 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				--thisRow.Background:SetVertexColor(0.75,0.70,0.8)
 				--thisRow.Background:SetTexCoord(0,1,0,1)
 				thisRow.deleteButton:Show()
+				thisRow.deleteButton:ClearAllPoints()
 				thisRow.deleteButton:SetPoint("RIGHT")
+				thisRow.loadButton:ClearAllPoints()
+				thisRow.loadButton:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
 				thisRow.gossipButton:Hide()
 				thisRow.privateIconButton:Hide()
 				thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
@@ -2519,7 +2522,10 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					thisRow.deleteButton:Show()
+					thisRow.deleteButton:ClearAllPoints()
 					thisRow.deleteButton:SetPoint("TOPRIGHT")
+					thisRow.loadButton:ClearAllPoints()
+					thisRow.loadButton:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
 					thisRow.gossipButton:Show()
 					thisRow.privateIconButton:Show()
 					if isGossipLoaded then
@@ -2529,6 +2535,10 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					end
 				else
 					thisRow.deleteButton:Hide()
+					thisRow.deleteButton:ClearAllPoints()
+					thisRow.deleteButton:SetPoint("RIGHT")
+					thisRow.loadButton:ClearAllPoints()
+					thisRow.loadButton:SetPoint("CENTER", thisRow.deleteButton, "CENTER", 0, 0)
 					thisRow.gossipButton:Hide()
 					thisRow.privateIconButton:Hide()
 				end
@@ -3699,6 +3709,12 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		AddSpellRow()
 		
 		isAddonLoaded = true
+
+		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then
+			SCForgeMainFrame.ExecuteSpellButton:Disable()
+		else
+			SCForgeMainFrame.ExecuteSpellButton:Enable()
+		end
 
 	-- Phase DM Toggle Listener
 	elseif event == "UI_ERROR_MESSAGE" then
