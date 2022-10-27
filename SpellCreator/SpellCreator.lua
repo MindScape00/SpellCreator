@@ -1728,7 +1728,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())
 			if actionData.delay > maxDelay then maxDelay = actionData.delay end
 			actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
-			if actionData.revertDelay > maxDelay then maxDelay = actionData.revertDelay end
+			if actionData.revertDelay and actionData.revertDelay > maxDelay then maxDelay = actionData.revertDelay end
 			actionData.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
 			actionData.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
 			ddump(actionData)
