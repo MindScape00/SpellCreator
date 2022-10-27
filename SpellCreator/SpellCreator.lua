@@ -1470,6 +1470,8 @@ local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, sav
 	background:SetHorizTile(false)
 	background:SetAllPoints()
 	
+	background.Overlay = SCForgeMainFrame.Inset:CreateTexture(nil, "BACKGROUND")
+	
 --[[ -- Old Background Setup
 
 --- The Inner Frame
@@ -2299,6 +2301,12 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.normal:SetVertexColor(1,0.8,0)
 			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 			
+			button.speechIcon = button:CreateTexture(nil, "ARTWORK", nil, 7)
+			button.speechIcon:SetTexture("interface/gossipframe/chatbubblegossipicon")
+			button.speechIcon:SetSize(10,10)
+			button.speechIcon:SetTexCoord(1,0,0,1)
+			button.speechIcon:SetPoint("CENTER", button, "TOPRIGHT",-2,-1)
+			
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
 			button.DisabledTex:SetAtlas("groupfinder-waitdot")
@@ -2361,6 +2369,14 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetScript("OnLeave", function(self)
 				GameTooltip_Hide()
 				self.Timer:Cancel()
+			end)
+			button:SetScript("OnDisable", function(self)
+				self.speechIcon:SetDesaturated(true)
+				self.speechIcon:SetVertexColor(.6,.6,.6)
+			end)
+			button:SetScript("OnEnable", function(self)
+				self.speechIcon:SetDesaturated(false)
+				self.speechIcon:SetVertexColor(1,1,1)
 			end)
 			
 			
