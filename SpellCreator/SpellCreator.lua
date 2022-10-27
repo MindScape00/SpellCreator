@@ -2181,10 +2181,12 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			thisRow.Background:SetTexture(load_row_background)
 			thisRow.Background:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
 			
+			--[[
 			thisRow.BGOverlay = thisRow:CreateTexture(nil,"BACKGROUND",nil,6)
 			thisRow.BGOverlay:SetAllPoints(thisRow.Background)
 			thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
 			thisRow.BGOverlay:SetAlpha(0.25)
+			--]]
 			
 			thisRow:SetCheckedTexture("Interface\\AddOns\\SpellCreator\\assets\\l_row_selected")
 			thisRow.CheckedTexture = thisRow:GetCheckedTexture()
@@ -2503,7 +2505,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				thisRow.loadButton:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
 				thisRow.gossipButton:Hide()
 				thisRow.privateIconButton:Hide()
-				thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
+				--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
 				
 				--[[	-- Replaced with the <-> Phase Vault button
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
@@ -2518,7 +2520,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				--thisRow.saveToPhaseButton:Hide()
 				--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
 				--thisRow.Background:SetTexCoord(0,1,0,1)
-				thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Epic")
+				--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Epic")
 				
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					thisRow.deleteButton:Show()
