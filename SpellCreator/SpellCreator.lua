@@ -207,77 +207,6 @@ local phaseAddonDataListener2 = CreateFrame("Frame")
 local isSavingOrLoadingPhaseAddonData = false
 
 -------------------------------------------------------------------------------
--- Pseudo Scripting/API Helpers
--------------------------------------------------------------------------------
-
-ARC = {}
-ARC.VAR = {}
-
--- SYNTAX: ARC:C("command here") - i.e., ARC:C("cheat fly")
-function ARC:C(text)
-	if text and text ~= "" then
-		cmdWithDotCheck(text)
-	else
-		cprint('ARC:API SYNTAX - C - Sends a Command to the Server.')
-		print(addonColor..'Function: |cffFFAAAAARC:C("command here")|r')
-		print(addonColor..'Example: |cffFFAAAAARC:C("cheat fly")')
-	end
-end
-
--- SYNTAX: ARC:IF(tag, Command if True, Command if False, [Variables for True], [Variables for False])
-function ARC:IF(tag, command1, command2, var1, var2)
-	if (tag and command1 and command2) and (tag ~= "" and command1 ~= "" and command2 ~= "") then
-		if var1 == "" then var1 = nil end
-		if var2 == "" then var2 = nil end
-		command1 = command1..(var1 and " "..var1 or "")
-		command2 = command2..(var2 and " "..var2 or var1 and " "..var1 or "")
-		if ARC.VAR[tag] then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
-	else
-		cprint('ARC:API SYNTAX - IF - Checks if "tag" is true, and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands.')
-		print(addonColor..'Function: |cffFFAAAAARC:IF("tag", "CommandTrue", "CommandFalse", "Var1")|r')
-		print(addonColor..'Example 1: |cffFFAAAAARC:IF("ToggleLight","aura 243893", "unau 243893")|r')
-		print(addonColor..'Example 2: |cffFFAAAAARC:IF("ToggleLight","aura", "unau", "243893")|r')
-		print(addonColor.."Both of these will result in the same outcome - If ToggleLight is true, then apply the aura, else unaura.|r")
-	end
-end
-
-function ARC:TOG(tag)
-	if tag and tag ~= "" then
-		if ARC.VAR[tag] then ARC.VAR[tag] = false else ARC.VAR[tag] = true end
-		dprint(tostring(ARC.VAR[tag]))
-	else
-		cprint('ARC:API SYNTAX - TOG - Toggles an ArcTag (ARC.VAR) between true and false.')
-		print(addonColor..'Function: |cffFFAAAAARC:TOG("tag")|r')
-		print(addonColor..'Example: |cffFFAAAAARC:TOG("ToggleLight")|r')
-		print(addonColor.."Use alongside ARC:IF to make toggle spells.|r")
-	end
-end
-
-function ARC:SET(tag, str)
-	if tag == "" then tag = nil end
-	if str == "" then str = nil end
-	if tag and str then
-		ARC.VAR[tag] = str
-	else
-		cprint('ARC:API SYNTAX - SET - Set an ArcTag (ARC.VAR) to a specific value.')
-		print(addonColor..'Function: |cffFFAAAAARC:SET("tag", "value")|r')
-		print(addonColor..'Example 1: |cffFFAAAAARC:SET("ToggleLight","2")|r')
-		print(addonColor..'Example 2: |cffFFAAAAARC:SET("ToggleLight","3")|r')
-		print(addonColor.."This is likely only useful for power-users and super specific spells.|r")
-	end
-end
-
-function ARC:GET(tag)
-	if tag and tag ~= nil then
-		return ARC.VAR[tag];
-	else
-		cprint("ARC:API SYNTAX - GET - Get the value of an ArcTag (ARC.VAR).")
-		print(addonColor..'Function: |cffFFAAAAARC:GET("tag")|r')
-		print(addonColor..'Example 1: |cffFFAAAAARC:GET("ToggleLight")|r')
-	end
-end
-
--------------------------------------------------------------------------------
 -- Saved Variable Initialization
 -------------------------------------------------------------------------------
 
@@ -1659,19 +1588,22 @@ end)
 SCForgeMainFrame.AddSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
 SCForgeMainFrame.AddSpellRowButton:SetPoint("BOTTOMRIGHT", -40, 2)
 SCForgeMainFrame.AddSpellRowButton:SetSize(24,24)
-SCForgeMainFrame.AddSpellRowButton:SetNormalAtlas("communities-chat-icon-plus")
+
+--local _atlas = "Garr_Building-AddFollowerPlus"
+local _atlas = "communities-chat-icon-plus"
+SCForgeMainFrame.AddSpellRowButton:SetNormalAtlas(_atlas)
 SCForgeMainFrame.AddSpellRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 
 SCForgeMainFrame.AddSpellRowButton.DisabledTex = SCForgeMainFrame.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
 SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetAllPoints(true)
-SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetAtlas("communities-chat-icon-plus")
-SetDesaturation(SCForgeMainFrame.AddSpellRowButton.DisabledTex, true)
+SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetAtlas(_atlas)
+SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetDesaturated(true)
 SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
 SCForgeMainFrame.AddSpellRowButton:SetDisabledTexture(SCForgeMainFrame.AddSpellRowButton.DisabledTex)
 
 SCForgeMainFrame.AddSpellRowButton.PushedTex = SCForgeMainFrame.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
 SCForgeMainFrame.AddSpellRowButton.PushedTex:SetAllPoints(true)
-SCForgeMainFrame.AddSpellRowButton.PushedTex:SetAtlas("communities-chat-icon-plus")
+SCForgeMainFrame.AddSpellRowButton.PushedTex:SetAtlas(_atlas)
 SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
 SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
 SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
@@ -1680,7 +1612,7 @@ SCForgeMainFrame.AddSpellRowButton:SetPushedTexture(SCForgeMainFrame.AddSpellRow
 
 SCForgeMainFrame.AddSpellRowButton:SetMotionScriptsWhileDisabled(true)
 SCForgeMainFrame.AddSpellRowButton:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(SCForgeMainFrame.AddSpellRowButton, "ANCHOR_LEFT")
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Add another Action row.", nil, nil, nil, nil, true)
 		GameTooltip:AddLine("Max number of Rows: "..maxNumberOfSpellRows,1,1,1,true)
@@ -1699,20 +1631,22 @@ end)
 SCForgeMainFrame.RemoveSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
 SCForgeMainFrame.RemoveSpellRowButton:SetPoint("RIGHT", SCForgeMainFrame.AddSpellRowButton, "LEFT", -5, 0)
 SCForgeMainFrame.RemoveSpellRowButton:SetSize(24,24)
+--local _atlas = "transmog-icon-remove"
+local _atlas = "communities-chat-icon-minus"
 
-SCForgeMainFrame.RemoveSpellRowButton:SetNormalAtlas("communities-chat-icon-minus", true)
+SCForgeMainFrame.RemoveSpellRowButton:SetNormalAtlas(_atlas)
 SCForgeMainFrame.RemoveSpellRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 
 SCForgeMainFrame.RemoveSpellRowButton.DisabledTex = SCForgeMainFrame.RemoveSpellRowButton:CreateTexture(nil, "ARTWORK")
 SCForgeMainFrame.RemoveSpellRowButton.DisabledTex:SetAllPoints(true)
-SCForgeMainFrame.RemoveSpellRowButton.DisabledTex:SetAtlas("communities-chat-icon-minus")
-SetDesaturation(SCForgeMainFrame.RemoveSpellRowButton.DisabledTex, true)
+SCForgeMainFrame.RemoveSpellRowButton.DisabledTex:SetAtlas(_atlas)
+SCForgeMainFrame.RemoveSpellRowButton.DisabledTex:SetDesaturated(true)
 SCForgeMainFrame.RemoveSpellRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
 SCForgeMainFrame.RemoveSpellRowButton:SetDisabledTexture(SCForgeMainFrame.RemoveSpellRowButton.DisabledTex)
 
 SCForgeMainFrame.RemoveSpellRowButton.PushedTex = SCForgeMainFrame.RemoveSpellRowButton:CreateTexture(nil, "ARTWORK")
 SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetAllPoints(true)
-SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetAtlas("communities-chat-icon-minus")
+SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetAtlas(_atlas)
 SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
 SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
 SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
@@ -1721,10 +1655,9 @@ SCForgeMainFrame.RemoveSpellRowButton:SetPushedTexture(SCForgeMainFrame.RemoveSp
 
 SCForgeMainFrame.RemoveSpellRowButton:SetMotionScriptsWhileDisabled(true)
 SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(SCForgeMainFrame.RemoveSpellRowButton, "ANCHOR_LEFT")
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Remove the last Action row.", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Shift-Click to clear & reset all rows.",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -1732,8 +1665,51 @@ SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
+SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnClick", function(self)
+	RemoveSpellRow()
+end)
+
+-- Revert Forge UI Rows Button
+SCForgeMainFrame.ResetUIButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
+local button = SCForgeMainFrame.ResetUIButton
+button:SetPoint("RIGHT", SCForgeMainFrame.RemoveSpellRowButton, "LEFT", -5, 0)
+button:SetSize(24,24)
+
+button:SetNormalAtlas("transmog-icon-revert")
+button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
+button.DisabledTex:SetAllPoints(true)
+button.DisabledTex:SetAtlas("transmog-icon-revert")
+button.DisabledTex:SetDesaturated(true)
+button.DisabledTex:SetVertexColor(.6,.6,.6)
+button:SetDisabledTexture(button.DisabledTex)
+
+button.PushedTex = button:CreateTexture(nil, "ARTWORK")
+button.PushedTex:SetAllPoints(true)
+button.PushedTex:SetAtlas("transmog-icon-revert")
+button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+button:SetPushedTexture(button.PushedTex)
+
+button:SetMotionScriptsWhileDisabled(true)
+button:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Clear & Reset all rows.", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("WARNING: You'll lose any data that hasn't been saved yet using 'Create'!",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+button:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
 -- OnClick moved below loadSpell()
 
+-- Cast Spell Button
 SCForgeMainFrame.ExecuteSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
 SCForgeMainFrame.ExecuteSpellButton:SetPoint("BOTTOM", 0, 3)
 SCForgeMainFrame.ExecuteSpellButton:SetSize(24*4,24)
@@ -1842,17 +1818,13 @@ local function loadSpell(spellToLoad)
 	end
 end
 
-SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnClick", function(self)
-	if IsShiftKeyDown() then
-		-- load an empty spell to effectively reset the UI
-		local emptySpell = {
-			["fullName"] = "", ["commID"] = "", ["description"] = "",
-			["actions"] = { { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, },
-		}
-		loadSpell(emptySpell)
-	else
-		RemoveSpellRow()
-	end
+SCForgeMainFrame.ResetUIButton:SetScript("OnClick", function(self)
+	-- load an empty spell to effectively reset the UI
+	local emptySpell = {
+		["fullName"] = "", ["commID"] = "", ["description"] = "",
+		["actions"] = { { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, },
+	}
+	loadSpell(emptySpell)
 end)
 
 local phaseVaultKeys
@@ -1867,7 +1839,11 @@ local function noSpellsToLoad(fake)
 	dprint("Phase Has No Spells to load.");
 	phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" ); 
 	if not fake then
-		SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty");
+		if C_Epsilon.IsOfficer() then 
+			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty\n\rC'mon, add something fun!");
+		else 
+			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty");
+		end
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Enable();
 	end
 	isSavingOrLoadingPhaseAddonData = false;
@@ -2257,7 +2233,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
 			button.DisabledTex:SetTexture(addonPath.."/assets/icon-x")
-			SetDesaturation(button.DisabledTex, true)
+			button.DisabledTex:SetDesaturated(true)
 			button.DisabledTex:SetVertexColor(.6,.6,.6)
 			button:SetDisabledTexture(button.DisabledTex)
 
@@ -2297,7 +2273,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
 			button.DisabledTex:SetTexture(addonPath.."/assets/icon-edit")
-			SetDesaturation(button.DisabledTex, true)
+			button.DisabledTex:SetDesaturated(true)
 			button.DisabledTex:SetVertexColor(.6,.6,.6)
 			button:SetDisabledTexture(button.DisabledTex)
 
@@ -2352,7 +2328,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
 			button.DisabledTex:SetAtlas("groupfinder-waitdot")
-			SetDesaturation(button.DisabledTex, true)
+			button.DisabledTex:SetDesaturated(true)
 			button.DisabledTex:SetVertexColor(.6,.6,.6)
 			button:SetDisabledTexture(button.DisabledTex)
 
@@ -2391,7 +2367,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					end,
 					button1 = "Option - Click",
 					button2 = "Option - Auto",
-					button3 = "No Option - Auto",
+					button3 = "Main Text - Auto",
 					extraButton = CANCEL,
 					hideOnEscape = true,
 					whileDead = true,
@@ -2437,7 +2413,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
 			button.DisabledTex:SetAtlas("transmog-icon-hidden")
-			SetDesaturation(button.DisabledTex, true)
+			button.DisabledTex:SetDesaturated(true)
 			button.DisabledTex:SetVertexColor(.6,.6,.6)
 			button:SetDisabledTexture(button.DisabledTex)
 			
@@ -3812,13 +3788,16 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 							titleButtonText = titleButton:GetText()
 						end
 
-						titleButton:HookScript("OnClick", function() 
+						titleButton:HookScript("OnClick", function()
 							if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
+							local spellRanSuccessfully
 							for k,v in pairs(SCForge_PhaseVaultSpells) do
 								if v.commID == payLoad then
-									executeSpell(SCForge_PhaseVaultSpells[k].actions, true); 
+									executeSpell(SCForge_PhaseVaultSpells[k].actions, true);
+									spellRanSuccessfully = true
 								end
 							end
+							if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault. Please let a phase officer know.") end
 							if shouldHide then CloseGossip(); end 
 						end)
 						modifiedGossips[i] = titleButton
@@ -3835,13 +3814,16 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		if shouldLoadSpellVault and not isGossipLoaded then
 			getSpellForgePhaseVault(function(ready) 
 				if next(spellsToCast) == nil then dprint("No Auto Cast Spells in Gossip"); return; end
+				local spellRanSuccessfully
 				for i,j in pairs(spellsToCast) do
 					for k,v in pairs(SCForge_PhaseVaultSpells) do
 						if v.commID == j then
-							executeSpell(SCForge_PhaseVaultSpells[k].actions, true); 
+							executeSpell(SCForge_PhaseVaultSpells[k].actions, true);
+							spellRanSuccessfully = true
 						end
 					end
 				end
+				if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault. Please let a phase officer know.") end
 				spellsToCast = {} -- empty the table.
 			end)
 		end
@@ -3864,6 +3846,101 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 	end
 
 end);
+
+
+-------------------------------------------------------------------------------
+-- Pseudo Scripting/API Helpers
+-------------------------------------------------------------------------------
+
+ARC = {}
+ARC.VAR = {}
+
+-- SYNTAX: ARC:C("command here") - i.e., ARC:C("cheat fly")
+function ARC:C(text)
+	if text and text ~= "" then
+		cmdWithDotCheck(text)
+	else
+		cprint('ARC:API SYNTAX - C - Sends a Command to the Server.')
+		print(addonColor..'Function: |cffFFAAAAARC:C("command here")|r')
+		print(addonColor..'Example: |cffFFAAAAARC:C("cheat fly")')
+	end
+end
+
+-- SYNTAX: ARC:RUNP("commID") - i.e., ARC:RUNP("teleportEffectsSpell")
+function ARC:RUNP(text)
+	if text and text ~= "" then
+		local spellRanSuccessfully
+		if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
+		for k,v in pairs(SCForge_PhaseVaultSpells) do
+			if v.commID == text then
+				executeSpell(SCForge_PhaseVaultSpells[k].actions, true);
+				spellRanSuccessfully = true
+			end
+		end
+		if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault (or vault was not loaded). Please let a phase officer know.") end
+	else
+		cprint('ARC:API SYNTAX - RUNP - Casts a Spell from the Phase Vault.')
+		print(addonColor..'Function: |cffFFAAAAARC:RUNP("commID")|r')
+		print(addonColor..'Example: |cffFFAAAAARC:RUNP("teleportEffectsSpell")')
+		print(addonColor..'Silently Fails if there is no spell by that commID in the vault.')
+	end
+end
+
+-- SYNTAX: ARC:IF(tag, Command if True, Command if False, [Variables for True], [Variables for False])
+function ARC:IF(tag, command1, command2, var1, var2)
+	if (tag and command1 and command2) and (tag ~= "" and command1 ~= "" and command2 ~= "") then
+		if var1 == "" then var1 = nil end
+		if var2 == "" then var2 = nil end
+		command1 = command1..(var1 and " "..var1 or "")
+		command2 = command2..(var2 and " "..var2 or var1 and " "..var1 or "")
+		if ARC.VAR[tag] then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
+	else
+		cprint('ARC:API SYNTAX - IF - Checks if "tag" is true, and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands.')
+		print(addonColor..'Function: |cffFFAAAAARC:IF("tag", "CommandTrue", "CommandFalse", "Var1")|r')
+		print(addonColor..'Example 1: |cffFFAAAAARC:IF("ToggleLight","aura 243893", "unau 243893")|r')
+		print(addonColor..'Example 2: |cffFFAAAAARC:IF("ToggleLight","aura", "unau", "243893")|r')
+		print(addonColor.."Both of these will result in the same outcome - If ToggleLight is true, then apply the aura, else unaura.|r")
+	end
+end
+
+function ARC:TOG(tag)
+	if tag and tag ~= "" then
+		if ARC.VAR[tag] then ARC.VAR[tag] = false else ARC.VAR[tag] = true end
+		dprint(tostring(ARC.VAR[tag]))
+	else
+		cprint('ARC:API SYNTAX - TOG - Toggles an ArcTag (ARC.VAR) between true and false.')
+		print(addonColor..'Function: |cffFFAAAAARC:TOG("tag")|r')
+		print(addonColor..'Example: |cffFFAAAAARC:TOG("ToggleLight")|r')
+		print(addonColor.."Use alongside ARC:IF to make toggle spells.|r")
+	end
+end
+
+function ARC:SET(tag, str)
+	if tag == "" then tag = nil end
+	if str == "" then str = nil end
+	if tag and str then
+		ARC.VAR[tag] = str
+	else
+		cprint('ARC:API SYNTAX - SET - Set an ArcTag (ARC.VAR) to a specific value.')
+		print(addonColor..'Function: |cffFFAAAAARC:SET("tag", "value")|r')
+		print(addonColor..'Example 1: |cffFFAAAAARC:SET("ToggleLight","2")|r')
+		print(addonColor..'Example 2: |cffFFAAAAARC:SET("ToggleLight","3")|r')
+		print(addonColor.."This is likely only useful for power-users and super specific spells.|r")
+	end
+end
+
+function ARC:GET(tag)
+	if tag and tag ~= nil then
+		return ARC.VAR[tag];
+	else
+		cprint("ARC:API SYNTAX - GET - Get the value of an ArcTag (ARC.VAR).")
+		print(addonColor..'Function: |cffFFAAAAARC:GET("tag")|r')
+		print(addonColor..'Example 1: |cffFFAAAAARC:GET("ToggleLight")|r')
+	end
+end
+
+
+
 -------------------------------------------------------------------------------
 -- Version / Help / Toggle
 -------------------------------------------------------------------------------
