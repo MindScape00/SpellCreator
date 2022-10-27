@@ -1759,7 +1759,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 			table.insert(actionsToCommit, actionData)
 		end
 	end
-	C_Timer.After(maxDelay, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.3); UIFrameFadeOut(SCForgeMainFrame.Inset.Bg.Overlay, 0.1, 0.3, 0) end)
+	C_Timer.After(maxDelay, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.1); UIFrameFadeOut(SCForgeMainFrame.Inset.Bg.Overlay, 0.1, 0.3, 0) end)
 	executeSpell(actionsToCommit)
 end)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnEnter", function(self)
