@@ -471,7 +471,11 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	local varTable
 	
 	if vars then
-		varTable = { strsplit(",", vars) }
+		if actionData.doNotDelimit then
+			varTable = { vars }
+		else
+			varTable = { strsplit(",", vars) }
+		end
 	end
 	
 	if actionData.comTarget == "func" then
@@ -727,6 +731,7 @@ actionTypeData = {
 		["inputDescription"] = "Any /commands that can be processed in a macro-script, including emotes, addon commands, Lua run scripts, etc.\n\rI.e., '/emote begins to conjur up a fireball in their hand.'\n\rYou can use any part of the ARC:API here as well. Use /arc for more info.",
 		["comTarget"] = "func",
 		["revert"] = nil,
+		["doNotDelimit"] = true,
 		},
 	["Command"] = {
 		["name"] = "Server .Command",
@@ -736,6 +741,7 @@ actionTypeData = {
 		["inputDescription"] = "You can use any server command here, without the '.', and it will run after the delay.\n\rTechnically accepts multiple commands, separated by commas.\n\rExample: 'mod drunk 100'.",
 		["comTarget"] = "func",
 		["revert"] = nil,
+		["doNotDelimit"] = true,
 		},
 	["MogitEquip"] = {
 		["name"] = "Equip Mogit Set",
