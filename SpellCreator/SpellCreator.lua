@@ -1521,7 +1521,7 @@ SCForgeMainFrame.TitleBar.Overlay:SetAllPoints(SCForgeMainFrame.TitleBar.Backgro
 SCForgeMainFrame.TitleBar.Overlay:SetAtlas("search-select")
 SCForgeMainFrame.TitleBar.Overlay:SetDesaturated(true)
 SCForgeMainFrame.TitleBar.Overlay:SetVertexColor(0.35,0.7,0.85)
-SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.208,1-0.209,0,1-0)
+--SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.208,1-0.209,0,1-0)
 
 SCForgeMainFrame.TitleBar.MainDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
 SCForgeMainFrame.TitleBar.MainDelay:SetWidth(delayColumnWidth)
@@ -2112,6 +2112,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	local realRowNum = 0 
 	local numSkippedRows = 0
 	local columnWidth = spellLoadFrame:GetWidth()
+	local thisRow
 		
 	for k,v in orderedPairs(savedSpellFromVault) do
 	-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
@@ -2122,72 +2123,79 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		rowNum = rowNum+1
 			
 		if spellLoadRows[rowNum] then
-			spellLoadRows[rowNum]:Show()
+			thisRow = spellLoadRows[rowNum]
+			thisRow:Show()
 			dprint(false,"SCForge Load Row "..rowNum.." Already existed - showing & setting it")
 			
 			-- Position the Rows
 			if rowNum == 1 or rowNum-1-numSkippedRows < 1 then
-				spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
+				thisRow:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
 			else
-				spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
+				thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
 			end
 			
 		else
 			dprint(false,"SCForge Load Row "..rowNum.." Didn't exist - making it!")
 			spellLoadRows[rowNum] = CreateFrame("CheckButton", "scForgeLoadRow"..rowNum, spellLoadFrame)
+			thisRow = spellLoadRows[rowNum]
 
 			-- Position the Rows
 			if rowNum == 1 or rowNum-1-numSkippedRows < 1 then
-				spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
+				thisRow:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
 			else
-				spellLoadRows[rowNum]:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
+				thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
 			end
-			spellLoadRows[rowNum]:SetWidth(columnWidth-20)
-			spellLoadRows[rowNum]:SetHeight(loadRowHeight)
+			thisRow:SetWidth(columnWidth-20)
+			thisRow:SetHeight(loadRowHeight)
 						
 			-- A nice lil background to make them easier to tell apart			
-			spellLoadRows[rowNum].Background = spellLoadRows[rowNum]:CreateTexture(nil,"BACKGROUND")
-			spellLoadRows[rowNum].Background:SetPoint("TOPLEFT",-3,0)
-			spellLoadRows[rowNum].Background:SetPoint("BOTTOMRIGHT",0,0)
-			spellLoadRows[rowNum].Background:SetTexture(load_row_background)
-			spellLoadRows[rowNum].Background:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
+			thisRow.Background = thisRow:CreateTexture(nil,"BACKGROUND",nil,5)
+			thisRow.Background:SetPoint("TOPLEFT",-3,0)
+			thisRow.Background:SetPoint("BOTTOMRIGHT",0,0)
+			thisRow.Background:SetTexture(load_row_background)
+			thisRow.Background:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
 			
-			spellLoadRows[rowNum]:SetCheckedTexture("Interface\\AddOns\\SpellCreator\\assets\\l_row_selected")
-			spellLoadRows[rowNum].CheckedTexture = spellLoadRows[rowNum]:GetCheckedTexture()
-			spellLoadRows[rowNum].CheckedTexture:SetAllPoints(spellLoadRows[rowNum].Background)
-			spellLoadRows[rowNum].CheckedTexture:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
-			spellLoadRows[rowNum].CheckedTexture:SetAlpha(0.75)
-			--spellLoadRows[rowNum].CheckedTexture:SetPoint("RIGHT", spellLoadRows[rowNum].Background, "RIGHT", 5, 0)
+			thisRow.BGOverlay = thisRow:CreateTexture(nil,"BACKGROUND",nil,6)
+			thisRow.BGOverlay:SetAllPoints(thisRow.Background)
+			thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
+			thisRow.BGOverlay:SetAlpha(0.25)
+			
+			thisRow:SetCheckedTexture("Interface\\AddOns\\SpellCreator\\assets\\l_row_selected")
+			thisRow.CheckedTexture = thisRow:GetCheckedTexture()
+			thisRow.CheckedTexture:SetAllPoints(thisRow.Background)
+			thisRow.CheckedTexture:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
+			thisRow.CheckedTexture:SetAlpha(0.75)
+			--thisRow.CheckedTexture:SetPoint("RIGHT", thisRow.Background, "RIGHT", 5, 0)
 			
 			-- Original Atlas based texture with vertex shading for a unique look. Actually looked pretty good imo.
-			--spellLoadRows[rowNum].Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
-			--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8) -- Let T color it naturally :)
-			--spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
+			--thisRow.Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
+			--thisRow.Background:SetVertexColor(0.75,0.70,0.8) -- Let T color it naturally :)
+			--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
 			
 			--[[ -- Disabled, not needed on the new load row backgrounds
-			spellLoadRows[rowNum].spellNameBackground = spellLoadRows[rowNum]:CreateTexture(nil, "BACKGROUND")
-			spellLoadRows[rowNum].spellNameBackground:SetPoint("TOPLEFT", spellLoadRows[rowNum].Background, "TOPLEFT", 5, -2)
-			spellLoadRows[rowNum].spellNameBackground:SetPoint("BOTTOMRIGHT", spellLoadRows[rowNum].Background, "BOTTOM", 10, 2) -- default position - move it later with the actual name font string.
+			thisRow.spellNameBackground = thisRow:CreateTexture(nil, "BACKGROUND")
+			thisRow.spellNameBackground:SetPoint("TOPLEFT", thisRow.Background, "TOPLEFT", 5, -2)
+			thisRow.spellNameBackground:SetPoint("BOTTOMRIGHT", thisRow.Background, "BOTTOM", 10, 2) -- default position - move it later with the actual name font string.
 
-			spellLoadRows[rowNum].spellNameBackground:SetColorTexture(1,1,1,0.25)
-			spellLoadRows[rowNum].spellNameBackground:SetGradient("HORIZONTAL", 0.5,0.5,0.5,1,1,1)
-			spellLoadRows[rowNum].spellNameBackground:SetBlendMode("MOD")
+			thisRow.spellNameBackground:SetColorTexture(1,1,1,0.25)
+			thisRow.spellNameBackground:SetGradient("HORIZONTAL", 0.5,0.5,0.5,1,1,1)
+			thisRow.spellNameBackground:SetBlendMode("MOD")
 			--]]
 
 			
 			-- Make the Spell Name Text
-			spellLoadRows[rowNum].spellName = spellLoadRows[rowNum]:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
-			spellLoadRows[rowNum].spellName:SetWidth(columnWidth*2/3)
-			spellLoadRows[rowNum].spellName:SetJustifyH("LEFT")
-			spellLoadRows[rowNum].spellName:SetPoint("LEFT", 10, 0)
-			spellLoadRows[rowNum].spellName:SetText(v.fullName) -- initial text, reset later when it needs updated
-			spellLoadRows[rowNum].spellName:SetShadowColor(0, 0, 0)
-			spellLoadRows[rowNum].spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
---			spellLoadRows[rowNum].spellNameBackground:SetPoint("RIGHT", spellLoadRows[rowNum].spellName, "RIGHT", 0, 0) -- move the right edge of the gradient to the right edge of the name
+			thisRow.spellName = thisRow:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
+			thisRow.spellName:SetWidth(columnWidth*2/3)
+			thisRow.spellName:SetJustifyH("LEFT")
+			thisRow.spellName:SetPoint("LEFT", 10, 0)
+			thisRow.spellName:SetText(v.fullName) -- initial text, reset later when it needs updated
+			thisRow.spellName:SetShadowColor(0, 0, 0)
+			thisRow.spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
+--			thisRow.spellNameBackground:SetPoint("RIGHT", thisRow.spellName, "RIGHT", 0, 0) -- move the right edge of the gradient to the right edge of the name
 
 			-- Make the delete saved spell button
-			spellLoadRows[rowNum].deleteButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum])
-			local button = spellLoadRows[rowNum].deleteButton
+			thisRow.deleteButton = CreateFrame("BUTTON", nil, thisRow)
+			local button = thisRow.deleteButton
 			button.commID = k
 			button:SetPoint("RIGHT", 0, 0)
 			button:SetSize(24,24)
@@ -2226,10 +2234,10 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 
 			-- Make the load button
-			spellLoadRows[rowNum].loadButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum])
-			local button = spellLoadRows[rowNum].loadButton
+			thisRow.loadButton = CreateFrame("BUTTON", nil, thisRow)
+			local button = thisRow.loadButton
 			button.commID = k
-			button:SetPoint("RIGHT", spellLoadRows[rowNum].deleteButton, "LEFT", 0, 0)
+			button:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
 			button:SetSize(24,24)
 			--button:SetText(EDIT)
 			
@@ -2274,10 +2282,10 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 			--
 			
-			spellLoadRows[rowNum].gossipButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum])
-			local button = spellLoadRows[rowNum].gossipButton
+			thisRow.gossipButton = CreateFrame("BUTTON", nil, thisRow)
+			local button = thisRow.gossipButton
 			button.commID = k
-			button:SetPoint("TOP", spellLoadRows[rowNum].deleteButton, "BOTTOM", 0, 0)
+			button:SetPoint("TOP", thisRow.deleteButton, "BOTTOM", 0, 0)
 			button:SetSize(16,16)
 			
 			button:SetNormalAtlas("groupfinder-waitdot")
@@ -2351,11 +2359,11 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 			
 			-------------
-			spellLoadRows[rowNum].privateIconButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum])
-			local button = spellLoadRows[rowNum].privateIconButton
+			thisRow.privateIconButton = CreateFrame("BUTTON", nil, thisRow)
+			local button = thisRow.privateIconButton
 			button.commID = k
 			button:SetSize(16,16)
-			button:SetPoint("RIGHT", spellLoadRows[rowNum].gossipButton, "LEFT", -8, 0)
+			button:SetPoint("RIGHT", thisRow.gossipButton, "LEFT", -8, 0)
 			
 			button:SetNormalAtlas("UI_Editor_Eye_Icon")
 			button.normal = button:GetNormalTexture()
@@ -2364,7 +2372,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
-			button.DisabledTex:SetAtlas("UI_Editor_Eye_Icon")
+			button.DisabledTex:SetAtlas("transmog-icon-hidden")
 			SetDesaturation(button.DisabledTex, true)
 			button.DisabledTex:SetVertexColor(.6,.6,.6)
 			button:SetDisabledTexture(button.DisabledTex)
@@ -2393,10 +2401,10 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 			--[[
 			-- Transfer to Phase Button
-			spellLoadRows[rowNum].saveToPhaseButton = CreateFrame("BUTTON", nil, spellLoadRows[rowNum], "UIPanelButtonTemplate")
-			local button = spellLoadRows[rowNum].saveToPhaseButton
+			thisRow.saveToPhaseButton = CreateFrame("BUTTON", nil, thisRow, "UIPanelButtonTemplate")
+			local button = thisRow.saveToPhaseButton
 			button.commID = k
-			button:SetPoint("RIGHT", spellLoadRows[rowNum].loadButton, "LEFT", 0, 0)
+			button:SetPoint("RIGHT", thisRow.loadButton, "LEFT", 0, 0)
 			button:SetSize(24,24)
 			--button:SetText("P")
 			button.icon = button:CreateTexture(nil, "ARTWORK")
@@ -2424,15 +2432,15 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		-- Set the buttons stuff
 		do
 			-- make sure to set the data, otherwise it will still use old data if new spells have been saved since last.
-			spellLoadRows[rowNum].spellName:SetText(v.fullName)
-			spellLoadRows[rowNum].loadButton.commID = k
-			spellLoadRows[rowNum].deleteButton.commID = k
-			spellLoadRows[rowNum].gossipButton.commID = k
-			spellLoadRows[rowNum].privateIconButton.commID = k
-			spellLoadRows[rowNum].commID = k -- used in new Transfer to Phase Button
-			spellLoadRows[rowNum].rowID = rowNum
+			thisRow.spellName:SetText(v.fullName)
+			thisRow.loadButton.commID = k
+			thisRow.deleteButton.commID = k
+			thisRow.gossipButton.commID = k
+			thisRow.privateIconButton.commID = k
+			thisRow.commID = k -- used in new Transfer to Phase Button
+			thisRow.rowID = rowNum
 			
-			spellLoadRows[rowNum].deleteButton:SetScript("OnClick", function(self, button)
+			thisRow.deleteButton:SetScript("OnClick", function(self, button)
 				if button == "LeftButton" then
 					deleteSpellConf(self.commID, currentVault)
 				elseif button == "RightButton" then
@@ -2442,48 +2450,50 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			
 			-- NEED TO UPDATE THE ROWS IF WE ARE IN PHASE VAULT
 			if currentVault == "PERSONAL" then
-				--spellLoadRows[rowNum].loadButton:SetText(EDIT)
-				--spellLoadRows[rowNum].saveToPhaseButton.commID = k
-				--spellLoadRows[rowNum].Background:SetVertexColor(0.75,0.70,0.8)
-				--spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,1)
-				spellLoadRows[rowNum].deleteButton:Show()
-				spellLoadRows[rowNum].deleteButton:SetPoint("RIGHT")
-				spellLoadRows[rowNum].gossipButton:Hide()
-				spellLoadRows[rowNum].privateIconButton:Hide()
+				--thisRow.loadButton:SetText(EDIT)
+				--thisRow.saveToPhaseButton.commID = k
+				--thisRow.Background:SetVertexColor(0.75,0.70,0.8)
+				--thisRow.Background:SetTexCoord(0,1,0,1)
+				thisRow.deleteButton:Show()
+				thisRow.deleteButton:SetPoint("RIGHT")
+				thisRow.gossipButton:Hide()
+				thisRow.privateIconButton:Hide()
+				thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
 				
 				--[[	-- Replaced with the <-> Phase Vault button
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
-					spellLoadRows[rowNum].saveToPhaseButton:Show()
+					thisRow.saveToPhaseButton:Show()
 				else
-					spellLoadRows[rowNum].saveToPhaseButton:Hide()
+					thisRow.saveToPhaseButton:Hide()
 				end
 				--]]
 				
 			elseif currentVault == "PHASE" then
-				--spellLoadRows[rowNum].loadButton:SetText("Load")
-				--spellLoadRows[rowNum].saveToPhaseButton:Hide()
-				--spellLoadRows[rowNum].Background:SetVertexColor(0.73,0.63,0.8)
-				--spellLoadRows[rowNum].Background:SetTexCoord(0,1,0,1)
+				--thisRow.loadButton:SetText("Load")
+				--thisRow.saveToPhaseButton:Hide()
+				--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
+				--thisRow.Background:SetTexCoord(0,1,0,1)
+				thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Epic")
 				
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
-					spellLoadRows[rowNum].deleteButton:Show()
-					spellLoadRows[rowNum].deleteButton:SetPoint("TOPRIGHT")
-					spellLoadRows[rowNum].gossipButton:Show()
-					spellLoadRows[rowNum].privateIconButton:Show()
+					thisRow.deleteButton:Show()
+					thisRow.deleteButton:SetPoint("TOPRIGHT")
+					thisRow.gossipButton:Show()
+					thisRow.privateIconButton:Show()
 					if isGossipLoaded then
-						spellLoadRows[rowNum].gossipButton:Enable()
+						thisRow.gossipButton:Enable()
 					else
-						spellLoadRows[rowNum].gossipButton:Disable()
+						thisRow.gossipButton:Disable()
 					end
 				else
-					spellLoadRows[rowNum].deleteButton:Hide()
-					spellLoadRows[rowNum].gossipButton:Hide()
-					spellLoadRows[rowNum].privateIconButton:Hide()
+					thisRow.deleteButton:Hide()
+					thisRow.gossipButton:Hide()
+					thisRow.privateIconButton:Hide()
 				end
 			end		
 			
 			-- Update the main row frame for mouse over - this allows us to hover & shift-click for links
-			spellLoadRows[rowNum]:SetScript("OnEnter", function(self)
+			thisRow:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
 					GameTooltip:SetText(v.fullName, nil, nil, nil, nil, true)
@@ -2498,11 +2508,11 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					GameTooltip:Show()
 				end)
 			end)
-			spellLoadRows[rowNum]:SetScript("OnLeave", function(self)
+			thisRow:SetScript("OnLeave", function(self)
 				GameTooltip_Hide()
 				self.Timer:Cancel()
 			end)
-			spellLoadRows[rowNum]:SetScript("OnClick", function(self)
+			thisRow:SetScript("OnClick", function(self)
 				if IsModifiedClick("CHATLINK") then
 					ChatEdit_InsertLink(generateSpellChatLink(k, currentVault));
 					self:SetChecked(not self:GetChecked());
@@ -2516,7 +2526,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				end
 			end)
 			--[[
-			spellLoadRows[rowNum]:SetScript("OnMouseDown", function(self)
+			thisRow:SetScript("OnMouseDown", function(self)
 				if IsModifiedClick("CHATLINK") then
 					ChatEdit_InsertLink(generateSpellChatLink(k, currentVault))
 				end
@@ -2526,23 +2536,23 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		
 		-- Limit our Spell Name to 2 lines - but by downsizing the text instead of truncating..
 		do
-			local fontName,fontHeight,fontFlags = spellLoadRows[rowNum].spellName:GetFont()
-			spellLoadRows[rowNum].spellName:SetFont(fontName, 14, fontFlags) -- reset the font to default first, then test if we need to scale it down.
-			while spellLoadRows[rowNum].spellName:GetNumLines() > 2 do
-				fontName,fontHeight,fontFlags = spellLoadRows[rowNum].spellName:GetFont()
-				spellLoadRows[rowNum].spellName:SetFont(fontName, fontHeight-1, fontFlags)
+			local fontName,fontHeight,fontFlags = thisRow.spellName:GetFont()
+			thisRow.spellName:SetFont(fontName, 14, fontFlags) -- reset the font to default first, then test if we need to scale it down.
+			while thisRow.spellName:GetNumLines() > 2 do
+				fontName,fontHeight,fontFlags = thisRow.spellName:GetFont()
+				thisRow.spellName:SetFont(fontName, fontHeight-1, fontFlags)
 				if fontHeight-1 <= 8 then break; end
 			end
 		end
 		
 		if currentVault=="PHASE" and v.private and not (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() or SpellCreatorMasterTable.Options["debug"]) then
-			spellLoadRows[rowNum]:Hide()
+			thisRow:Hide()
 			numSkippedRows = numSkippedRows+1
 		end
 		if v.private then
-			spellLoadRows[rowNum].privateIconButton:Disable()
+			thisRow.privateIconButton:Disable()
 		else
-			spellLoadRows[rowNum].privateIconButton:Enable()
+			thisRow.privateIconButton:Enable()
 		end
 	end
 	updateFrameChildScales(SCForgeMainFrame)
