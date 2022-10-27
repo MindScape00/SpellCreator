@@ -857,6 +857,40 @@ local function updateFrameChildScales(frame)
 	return n;
 end
 
+local function setFrameFlicker(frame, iter, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, repeatnum)
+	if not frame then return; end
+
+	if not timeToFadeOut then timeToFadeOut = 0.1 end
+	if not timeToFadeIn then timeToFadeIn = 0.5 end
+	if not startAlpha then startAlpha = 1 end
+	if not endAlpha then endAlpha = 0.33 end
+
+	if repeatnum then
+		if not frame.flickerTimer then frame.flickerTimer = {} end
+		frame.flickerTimer[repeatnum] = C_Timer.NewTimer((fastrandom(10,30)/10), function()
+			UIFrameFadeOut(frame,timeToFadeOut,startAlpha,endAlpha)
+			frame.fadeInfo.finishedFunc = function() UIFrameFadeIn(frame,timeToFadeIn,endAlpha,startAlpha) end
+			setFrameFlicker(frame, nil, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, repeatnum)
+		end)
+	else
+		if not iter then iter = 1 end
+		for i = 1,iter do
+			if not frame.flickerTimer then frame.flickerTimer = {} end
+			frame.flickerTimer[i] = C_Timer.NewTimer((fastrandom(10,30)/10), function()
+				UIFrameFadeOut(frame,timeToFadeOut,startAlpha,endAlpha)
+				frame.fadeInfo.finishedFunc = function() UIFrameFadeIn(frame,timeToFadeIn,endAlpha,startAlpha) end
+				setFrameFlicker(frame, nil, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, i)
+			end)
+		end
+	end
+end
+local function stopFrameFlicker(frame, endAlpha)
+	for i = 1, #frame.flickerTimer do
+		frame.flickerTimer[i]:Cancel()
+	end
+	frame:SetAlpha(endAlpha or 1)
+end
+
 local function generateSpellChatLink(commID, vaultType)
 	local spellName = savedSpellFromVault[commID].fullName
 	local spellComm = savedSpellFromVault[commID].commID
@@ -1471,6 +1505,9 @@ local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, sav
 	background:SetAllPoints()
 	
 	background.Overlay = SCForgeMainFrame.Inset:CreateTexture(nil, "BACKGROUND")
+	background.Overlay:SetTexture("interface/transmogrify/ethereallines.blp")
+	background.Overlay:SetAllPoints()
+	background.Overlay:SetAlpha(0)
 	
 --[[ -- Old Background Setup
 
@@ -1703,6 +1740,8 @@ SCForgeMainFrame.ExecuteSpellButton:SetSize(24*4,24)
 SCForgeMainFrame.ExecuteSpellButton:SetText(ACTION_SPELL_CAST_SUCCESS:gsub("^%l", string.upper))
 SCForgeMainFrame.ExecuteSpellButton:SetMotionScriptsWhileDisabled(true)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
+	setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.3)
+	local maxDelay = 0
 	local actionsToCommit = {}
 	for i = 1, numberOfSpellRows do
 		if isNotDefined(tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())) then 
@@ -1711,13 +1750,16 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 			local actionData = {}
 			actionData.actionType = (_G["spellRow"..i.."SelectedAction"])
 			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())
+			if actionData.delay > maxDelay then maxDelay = actionData.delay end
 			actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
+			if actionData.revertDelay > maxDelay then maxDelay = actionData.revertDelay end
 			actionData.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
 			actionData.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
 			ddump(actionData)
 			table.insert(actionsToCommit, actionData)
 		end
 	end
+	C_Timer.After(maxDelay, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.3); UIFrameFadeOut(SCForgeMainFrame.Inset.Bg.Overlay, 0.1, 0.3, 0) end)
 	executeSpell(actionsToCommit)
 end)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnEnter", function(self)
@@ -3300,33 +3342,6 @@ minimapButton.border:SetSize(56*mmBorder.size,56*mmBorder.size)
 minimapButton.border:SetPoint("TOPLEFT",mmBorder.posx,mmBorder.posy)
 if mmBorder.hilight then minimapButton:SetHighlightAtlas(mmBorder.hilight) else minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight") end
 minimapButton.highlight = minimapButton:GetHighlightTexture()
-
-local function setFrameFlicker(frame, iter, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, repeatnum)
-	if repeatnum then
-		if not frame.flickerTimer then frame.flickerTimer = {} end
-		frame.flickerTimer[repeatnum] = C_Timer.NewTimer((fastrandom(10,30)/10), function()
-			UIFrameFadeOut(frame,timeToFadeOut,startAlpha,endAlpha)
-			frame.fadeInfo.finishedFunc = function() UIFrameFadeIn(frame,timeToFadeIn,endAlpha,startAlpha) end
-			setFrameFlicker(frame, nil, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, repeatnum)
-		end)
-	else
-		if not iter then iter = 1 end
-		for i = 1,iter do
-			if not frame.flickerTimer then frame.flickerTimer = {} end
-			frame.flickerTimer[i] = C_Timer.NewTimer((fastrandom(10,30)/10), function()
-				UIFrameFadeOut(frame,timeToFadeOut,startAlpha,endAlpha)
-				frame.fadeInfo.finishedFunc = function() UIFrameFadeIn(frame,timeToFadeIn,endAlpha,startAlpha) end
-				setFrameFlicker(frame, nil, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, i)
-			end)
-		end
-	end
-end
-local function stopFrameFlicker(frame, endAlpha)
-	for i = 1, #frame.flickerTimer do
-		frame.flickerTimer[i]:Cancel()
-	end
-	frame:SetAlpha(endAlpha or 1)
-end
 
 minimapButton.highlight.anim = minimapButton.highlight:CreateAnimationGroup()
 minimapButton.highlight.anim:SetLooping("REPEAT")
