@@ -863,8 +863,8 @@ local function RemoveSpellRow(rowToRemove)
 		for k,v in pairs(theSpellRow.menuList) do
 			v.checked = false
 		end
-		UIDropDownMenu_SetSelectedID(_G["spellRow"..numberOfSpellRows.."ActionSelectButton"], 0)
-		_G["spellRow"..numberOfSpellRows.."ActionSelectButtonText"]:SetText("Action")
+		UIDropDownMenu_SetSelectedID(_theSpellRow.actionSelectButton.Dropdown, 0)
+		theSpellRow.actionSelectButton.Dropdown.Text:SetText("Action")
 		updateSpellRowOptions(numberOfSpellRows, nil)
 
 		theSpellRow.SelfCheckbox:SetChecked(false)
@@ -873,7 +873,7 @@ local function RemoveSpellRow(rowToRemove)
 		return;
 	end
 
-	if rowToRemove then
+	if rowToRemove and (rowToRemove ~= numberOfSpellRows) then
 		for i = rowToRemove, numberOfSpellRows-1 do
 			local theRowToSet = _G["spellRow"..i]
 			local theRowToGrab = _G["spellRow"..i+1]
@@ -884,9 +884,10 @@ local function RemoveSpellRow(rowToRemove)
 
 			-- theRowToSet.actionSelectButton.Dropdown
 			-- theRowToGrab.actionSelectButton.Dropdown
-			UIDropDownMenu_SetSelectedID(_G["spellRow"..i.."ActionSelectButton"], 0)
-			_G["spellRow"..i.."ActionSelectButtonText"]:SetText("Action")
-			updateSpellRowOptions(i, nil)
+			UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, UIDropDownMenu_GetSelectedID(theRowToGrab.actionSelectButton.Dropdown))
+			theRowToSet.actionSelectButton.Dropdown.Text:SetText(theRowToGrab.actionSelectButton.Dropdown.Text:GetText())
+			theRowToSet.SelectedAction = theRowToGrab.SelectedAction
+			updateSpellRowOptions(i, theRowToGrab.SelectedAction)
 			
 			theRowToSet.mainDelayBox:SetText(theRowToGrab.mainDelayBox:GetText())
 			theRowToSet.SelfCheckbox:SetChecked(theRowToGrab.SelfCheckbox:GetChecked())
@@ -895,7 +896,7 @@ local function RemoveSpellRow(rowToRemove)
 		end
 	end
 
-	-- Now that we moved the data, let's delete the last row..
+	-- Now that we moved the data if needed, let's delete the last row..
 	local theSpellRow = _G["spellRow"..numberOfSpellRows]
 	theSpellRow:Hide()
 
@@ -938,6 +939,7 @@ local function AddSpellRow()
 
 		-- The main row frame
 		newRow = CreateFrame("Frame", "spellRow"..numberOfSpellRows, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
+		newRow.rowNum = numberOfSpellRows
 		if numberOfSpellRows == 1 then
 			newRow:SetPoint("TOPLEFT", 25, 0)
 		else
@@ -947,64 +949,64 @@ local function AddSpellRow()
 		newRow:SetHeight(rowHeight)
 
 		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND", nil, 5)
-		newRow.Background:SetAllPoints()
-		newRow.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
-		newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
-		newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
-		newRow.Background:SetAlpha(0.9)
-		--newRow.Background:SetColorTexture(0,0,0,0.25)
+			newRow.Background:SetAllPoints()
+			newRow.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
+			newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
+			newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
+			newRow.Background:SetAlpha(0.9)
+			--newRow.Background:SetColorTexture(0,0,0,0.25)
 
-		newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
-		newRow.Background2:SetAllPoints()
-		newRow.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
-		newRow.Background2:SetTexCoord(0.208,1-0.209,0,1)
-		newRow.Background2:SetPoint("TOPLEFT",-3,0)
-		newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
-		--newRow.Background2:SetAlpha(0.8)
-		--newRow.Background:SetColorTexture(0,0,0,0.25)
+			newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
+			newRow.Background2:SetAllPoints()
+			newRow.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+			newRow.Background2:SetTexCoord(0.208,1-0.209,0,1)
+			newRow.Background2:SetPoint("TOPLEFT",-3,0)
+			newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
+			--newRow.Background2:SetAlpha(0.8)
+			--newRow.Background:SetColorTexture(0,0,0,0.25)
 
-		newRow.RowGem = newRow:CreateTexture(nil,"ARTWORK")
-		newRow.RowGem:SetPoint("CENTER", newRow.Background2, "LEFT", 2, 0)
-		newRow.RowGem:SetHeight(40)
-		newRow.RowGem:SetWidth(40)
-		newRow.RowGem:SetTexture(addonPath.."/assets/DragonGem")
-		--newRow.RowGem:SetTexCoord(0.208,1-0.209,0,1)
-		--newRow.RowGem:SetPoint("RIGHT",-9,0)
+			newRow.RowGem = newRow:CreateTexture(nil,"ARTWORK")
+			newRow.RowGem:SetPoint("CENTER", newRow.Background2, "LEFT", 2, 0)
+			newRow.RowGem:SetHeight(40)
+			newRow.RowGem:SetWidth(40)
+			newRow.RowGem:SetTexture(addonPath.."/assets/DragonGem")
+			--newRow.RowGem:SetTexCoord(0.208,1-0.209,0,1)
+			--newRow.RowGem:SetPoint("RIGHT",-9,0)
 
 		-- main delay entry box
 		newRow.mainDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."MainDelayBox", newRow, "InputBoxInstructionsTemplate")
-		newRow.mainDelayBox:SetFontObject(ChatFontNormal)
-		newRow.mainDelayBox.disabledColor = GRAY_FONT_COLOR
-		newRow.mainDelayBox.enabledColor = HIGHLIGHT_FONT_COLOR
-		newRow.mainDelayBox.Instructions:SetText("(Seconds)")
-		newRow.mainDelayBox.Instructions:SetTextColor(0.5,0.5,0.5)
-		newRow.mainDelayBox:SetAutoFocus(false)
-		newRow.mainDelayBox:SetSize(delayColumnWidth,23)
-		newRow.mainDelayBox:SetPoint("LEFT", 40, 0)
-		newRow.mainDelayBox:SetMaxLetters(10)
-		newRow.mainDelayBox:HookScript("OnTextChanged", function(self)
-			if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
-				self:SetTextColor(255,255,255,1)
-			elseif self:GetText() == "" then
-				self:SetTextColor(255,255,255,1)
-			elseif self:GetText():find("%a") then
-				self:SetText(self:GetText():gsub("%a", ""))
-			else
-				self:SetTextColor(1,0,0,1)
-			end
-		end)
-		newRow.mainDelayBox:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-			self.Timer = C_Timer.NewTimer(0.7,function()
-				GameTooltip:SetText("Main Action Delay", nil, nil, nil, nil, true)
-				GameTooltip:AddLine("How long after 'casting' the ArcSpell this action triggers.\rCan be '0' for instant.",1,1,1,true)
-				GameTooltip:Show()
+			newRow.mainDelayBox:SetFontObject(ChatFontNormal)
+			newRow.mainDelayBox.disabledColor = GRAY_FONT_COLOR
+			newRow.mainDelayBox.enabledColor = HIGHLIGHT_FONT_COLOR
+			newRow.mainDelayBox.Instructions:SetText("(Seconds)")
+			newRow.mainDelayBox.Instructions:SetTextColor(0.5,0.5,0.5)
+			newRow.mainDelayBox:SetAutoFocus(false)
+			newRow.mainDelayBox:SetSize(delayColumnWidth,23)
+			newRow.mainDelayBox:SetPoint("LEFT", 40, 0)
+			newRow.mainDelayBox:SetMaxLetters(10)
+			newRow.mainDelayBox:HookScript("OnTextChanged", function(self)
+				if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
+					self:SetTextColor(255,255,255,1)
+				elseif self:GetText() == "" then
+					self:SetTextColor(255,255,255,1)
+				elseif self:GetText():find("%a") then
+					self:SetText(self:GetText():gsub("%a", ""))
+				else
+					self:SetTextColor(1,0,0,1)
+				end
 			end)
-		end)
-		newRow.mainDelayBox:SetScript("OnLeave", function(self)
-			GameTooltip_Hide()
-			self.Timer:Cancel()
-		end)
+			newRow.mainDelayBox:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					GameTooltip:SetText("Main Action Delay", nil, nil, nil, nil, true)
+					GameTooltip:AddLine("How long after 'casting' the ArcSpell this action triggers.\rCan be '0' for instant.",1,1,1,true)
+					GameTooltip:Show()
+				end)
+			end)
+			newRow.mainDelayBox:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
 
 		-- Action Dropdown Menu
 		newRow.menuList = {}
@@ -1038,21 +1040,21 @@ local function AddSpellRow()
 
 		-- Self Checkbox
 		newRow.SelfCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."SelfCheckbox", newRow, "UICheckButtonTemplate")
-		newRow.SelfCheckbox:SetPoint("LEFT", newRow.actionSelectButton, "RIGHT", -5, 1)
-		newRow.SelfCheckbox:Disable()
-		newRow.SelfCheckbox:SetMotionScriptsWhileDisabled(true)
-		newRow.SelfCheckbox:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-			self.Timer = C_Timer.NewTimer(0.7,function()
-				GameTooltip:SetText("Cast on Self", nil, nil, nil, nil, true)
-				GameTooltip:AddLine("Enable to use the 'Self' flag for Cast & Aura actions.", 1,1,1,true)
-				GameTooltip:Show()
+			newRow.SelfCheckbox:SetPoint("LEFT", newRow.actionSelectButton, "RIGHT", -5, 1)
+			newRow.SelfCheckbox:Disable()
+			newRow.SelfCheckbox:SetMotionScriptsWhileDisabled(true)
+			newRow.SelfCheckbox:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					GameTooltip:SetText("Cast on Self", nil, nil, nil, nil, true)
+					GameTooltip:AddLine("Enable to use the 'Self' flag for Cast & Aura actions.", 1,1,1,true)
+					GameTooltip:Show()
+				end)
 			end)
-		end)
-		newRow.SelfCheckbox:SetScript("OnLeave", function(self)
-			GameTooltip_Hide()
-			self.Timer:Cancel()
-		end)
+			newRow.SelfCheckbox:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
 
 		-- ID Entry Box (Input)
 		if SpellCreatorMasterTable.Options["biggerInputBox"] == true then
@@ -1069,79 +1071,122 @@ local function AddSpellRow()
 			newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 15, 1)
 		end
 
-		newRow.InputEntryBox:SetFontObject(ChatFontNormal)
-		newRow.InputEntryBox.disabledColor = GRAY_FONT_COLOR
-		newRow.InputEntryBox.enabledColor = HIGHLIGHT_FONT_COLOR
-		newRow.InputEntryBox.Instructions:SetText("select an action...")
-		newRow.InputEntryBox.Instructions:SetTextColor(0.5,0.5,0.5)
-		newRow.InputEntryBox.Description = ""
-		newRow.InputEntryBox.rowNumber = numberOfSpellRows
-		newRow.InputEntryBox:SetAutoFocus(false)
-		newRow.InputEntryBox:Disable()
+			newRow.InputEntryBox:SetFontObject(ChatFontNormal)
+			newRow.InputEntryBox.disabledColor = GRAY_FONT_COLOR
+			newRow.InputEntryBox.enabledColor = HIGHLIGHT_FONT_COLOR
+			newRow.InputEntryBox.Instructions:SetText("select an action...")
+			newRow.InputEntryBox.Instructions:SetTextColor(0.5,0.5,0.5)
+			newRow.InputEntryBox.Description = ""
+			newRow.InputEntryBox.rowNumber = numberOfSpellRows
+			newRow.InputEntryBox:SetAutoFocus(false)
+			newRow.InputEntryBox:Disable()
 
-		newRow.InputEntryBox:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-			local row = self.rowNumber
-			self.Timer = C_Timer.NewTimer(0.7,function()
-				if _G["spellRow"..row.."SelectedAction"] and actionTypeData[_G["spellRow"..row.."SelectedAction"]].dataName then
-					local actionData = actionTypeData[_G["spellRow"..row.."SelectedAction"]]
-					GameTooltip:SetText(actionData.dataName, nil, nil, nil, nil, true)
-					if actionData.inputDescription then
-						GameTooltip:AddLine(" ")
-						GameTooltip:AddLine(actionData.inputDescription, 1, 1, 1, true)
-						--GameTooltip:AddLine(" ")
+			newRow.InputEntryBox:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				local row = self.rowNumber
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					if _G["spellRow"..row].SelectedAction and actionTypeData[_G["spellRow"..row].SelectedAction].dataName then
+						local actionData = actionTypeData[_G["spellRow"..row].SelectedAction]
+						GameTooltip:SetText(actionData.dataName, nil, nil, nil, nil, true)
+						if actionData.inputDescription then
+							GameTooltip:AddLine(" ")
+							GameTooltip:AddLine(actionData.inputDescription, 1, 1, 1, true)
+							--GameTooltip:AddLine(" ")
+						end
+						GameTooltip:Show()
 					end
-					GameTooltip:Show()
-				end
+				end)
 			end)
-		end)
-		newRow.InputEntryBox:SetScript("OnLeave", function(self)
-			GameTooltip_Hide()
-			self.Timer:Cancel()
-		end)
+			newRow.InputEntryBox:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
 
 		-- Revert Delay Box
 
 		newRow.RevertDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."RevertDelayBox", newRow, "InputBoxInstructionsTemplate")
-		newRow.RevertDelayBox:SetFontObject(ChatFontNormal)
-		newRow.RevertDelayBox.disabledColor = GRAY_FONT_COLOR
-		newRow.RevertDelayBox.enabledColor = HIGHLIGHT_FONT_COLOR
-		newRow.RevertDelayBox.Instructions:SetText("Revert Delay")
-		newRow.RevertDelayBox.Instructions:SetTextColor(0.5,0.5,0.5)
-		newRow.RevertDelayBox:SetAutoFocus(false)
-		newRow.RevertDelayBox:Disable()
-		newRow.RevertDelayBox:SetSize(revertDelayColumnWidth,23)
-		newRow.RevertDelayBox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 25, 0)
-		newRow.RevertDelayBox:SetMaxLetters(10)
+			newRow.RevertDelayBox:SetFontObject(ChatFontNormal)
+			newRow.RevertDelayBox.disabledColor = GRAY_FONT_COLOR
+			newRow.RevertDelayBox.enabledColor = HIGHLIGHT_FONT_COLOR
+			newRow.RevertDelayBox.Instructions:SetText("Revert Delay")
+			newRow.RevertDelayBox.Instructions:SetTextColor(0.5,0.5,0.5)
+			newRow.RevertDelayBox:SetAutoFocus(false)
+			newRow.RevertDelayBox:Disable()
+			newRow.RevertDelayBox:SetSize(revertDelayColumnWidth,23)
+			newRow.RevertDelayBox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 25, 0)
+			newRow.RevertDelayBox:SetMaxLetters(10)
 
-		newRow.RevertDelayBox:HookScript("OnTextChanged", function(self)
-			if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
-				self:SetTextColor(255,255,255,1)
-			elseif self:GetText() == "" then
-				self:SetTextColor(255,255,255,1)
-			elseif self:GetText():find("%a") then
-				self:SetText(self:GetText():gsub("%a", ""))
-			else
-				self:SetTextColor(1,0,0,1)
-			end
-		end)
-		newRow.RevertDelayBox:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-			self.Timer = C_Timer.NewTimer(0.7,function()
-				GameTooltip:SetText("Revert Delay", nil, nil, nil, nil, true)
-				GameTooltip:AddLine("How long after the initial action before reverting.\n\rNote: This is RELATIVE to this lines main action delay.",1,1,1,true)
-				GameTooltip:AddLine("\n\rEx: Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting..",1,1,1,true)
-				GameTooltip:Show()
+			newRow.RevertDelayBox:HookScript("OnTextChanged", function(self)
+				if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
+					self:SetTextColor(255,255,255,1)
+				elseif self:GetText() == "" then
+					self:SetTextColor(255,255,255,1)
+				elseif self:GetText():find("%a") then
+					self:SetText(self:GetText():gsub("%a", ""))
+				else
+					self:SetTextColor(1,0,0,1)
+				end
 			end)
-		end)
-		newRow.RevertDelayBox:SetScript("OnLeave", function(self)
-			GameTooltip_Hide()
-			self.Timer:Cancel()
-		end)
+			newRow.RevertDelayBox:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					GameTooltip:SetText("Revert Delay", nil, nil, nil, nil, true)
+					GameTooltip:AddLine("How long after the initial action before reverting.\n\rNote: This is RELATIVE to this lines main action delay.",1,1,1,true)
+					GameTooltip:AddLine("\n\rEx: Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting..",1,1,1,true)
+					GameTooltip:Show()
+				end)
+			end)
+			newRow.RevertDelayBox:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
 
-	-- Make Tab work to switch edit boxes
+
+		newRow.RemoveSpellRowButton = CreateFrame("BUTTON", nil, newRow)
+			newRow.RemoveSpellRowButton.rowNum = numberOfSpellRows
+			newRow.RemoveSpellRowButton:SetPoint("TOPRIGHT", -8, 0)
+			newRow.RemoveSpellRowButton:SetSize(24,24)
+			--local _atlas = "transmog-icon-remove"
+			local _atlas = "communities-chat-icon-minus"
+
+			newRow.RemoveSpellRowButton:SetNormalAtlas(_atlas)
+			newRow.RemoveSpellRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+			newRow.RemoveSpellRowButton.DisabledTex = newRow.RemoveSpellRowButton:CreateTexture(nil, "ARTWORK")
+			newRow.RemoveSpellRowButton.DisabledTex:SetAllPoints(true)
+			newRow.RemoveSpellRowButton.DisabledTex:SetAtlas(_atlas)
+			newRow.RemoveSpellRowButton.DisabledTex:SetDesaturated(true)
+			newRow.RemoveSpellRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
+			newRow.RemoveSpellRowButton:SetDisabledTexture(newRow.RemoveSpellRowButton.DisabledTex)
+
+			newRow.RemoveSpellRowButton.PushedTex = newRow.RemoveSpellRowButton:CreateTexture(nil, "ARTWORK")
+			newRow.RemoveSpellRowButton.PushedTex:SetAllPoints(true)
+			newRow.RemoveSpellRowButton.PushedTex:SetAtlas(_atlas)
+			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+			newRow.RemoveSpellRowButton:SetPushedTexture(newRow.RemoveSpellRowButton.PushedTex)
+
+			newRow.RemoveSpellRowButton:SetMotionScriptsWhileDisabled(true)
+			newRow.RemoveSpellRowButton:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					GameTooltip:SetText("Remove this row.", nil, nil, nil, nil, true)
+					GameTooltip:Show()
+				end)
+			end)
+			newRow.RemoveSpellRowButton:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
+			newRow.RemoveSpellRowButton:SetScript("OnClick", function(self)
+				RemoveSpellRow(self.rowNum)
+				print(self.rowNum)
+			end)
 
 	end
+	-- Make Tab work to switch edit boxes
 
 		newRow.mainDelayBox.nextEditBox = newRow.InputEntryBox 			-- Main Delay -> Input
 		newRow.mainDelayBox.previousEditBox = newRow.mainDelayBox 	-- Main Delay <- Main Delay (Can't reverse past itself, updated later)
@@ -1168,7 +1213,7 @@ end
 function updateSpellRowOptions(row, selectedAction)
 		-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
 	if selectedAction then -- if we call it with no action, reset
-		_G["spellRow"..row.."SelectedAction"] = selectedAction
+		_G["spellRow"..row].SelectedAction = selectedAction
 		if actionTypeData[selectedAction].selfAble then _G["spellRow"..row.."SelfCheckbox"]:Enable() else _G["spellRow"..row.."SelfCheckbox"]:Disable() end
 		if actionTypeData[selectedAction].dataName then
 			_G["spellRow"..row.."InputEntryBox"]:Enable()
@@ -1184,7 +1229,7 @@ function updateSpellRowOptions(row, selectedAction)
 			_G["spellRow"..row.."RevertDelayBox"]:Disable();
 		end
 	else
-		_G["spellRow"..row.."SelectedAction"] = nil
+		_G["spellRow"..row].SelectedAction = nil
 		_G["spellRow"..row.."SelfCheckbox"]:Disable()
 		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("select an action...")
 		_G["spellRow"..row.."InputEntryBox"]:Disable()
@@ -1692,7 +1737,7 @@ SCForgeMainFrame.AddSpellRowButton:SetScript("OnClick", function(self)
 	AddSpellRow()
 end)
 
--- Remove Spell Row
+-- Remove Spell Row Button
 SCForgeMainFrame.RemoveSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
 SCForgeMainFrame.RemoveSpellRowButton:SetPoint("RIGHT", SCForgeMainFrame.AddSpellRowButton, "LEFT", -5, 0)
 SCForgeMainFrame.RemoveSpellRowButton:SetSize(24,24)
@@ -1789,7 +1834,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 			dprint("Action Row "..i.." Invalid, Delay Not Set")
 		else
 			local actionData = {}
-			actionData.actionType = (_G["spellRow"..i.."SelectedAction"])
+			actionData.actionType = (_G["spellRow"..i].SelectedAction)
 			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())
 			if actionData.delay > maxDelay then maxDelay = actionData.delay end
 			actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
@@ -2742,7 +2787,7 @@ local function saveSpell(mousebutton, fromPhaseVault)
 			local actionData = {}
 			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())
 			if actionData.delay and actionData.delay >= 0 then
-				actionData.actionType = (_G["spellRow"..i.."SelectedAction"])
+				actionData.actionType = (_G["spellRow"..i].SelectedAction)
 				if actionTypeData[actionData.actionType] then
 					actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
 					actionData.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
