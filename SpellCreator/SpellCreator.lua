@@ -900,7 +900,7 @@ local function RemoveSpellRow(rowToRemove)
 	local theSpellRow = _G["spellRow"..numberOfSpellRows]
 	theSpellRow:Hide()
 
-	if SpellCreatorMasterTable.Options["clearRowOnRemove"] then
+--	if SpellCreatorMasterTable.Options["clearRowOnRemove"] then
 		theSpellRow.mainDelayBox:SetText("")
 
 		for k,v in pairs(theSpellRow.menuList) do
@@ -914,7 +914,7 @@ local function RemoveSpellRow(rowToRemove)
 		theSpellRow.SelfCheckbox:SetChecked(false)
 		theSpellRow.InputEntryBox:SetText("")
 		theSpellRow.RevertDelayBox:SetText("")
-	end
+--	end
 
 	numberOfSpellRows = numberOfSpellRows - 1
 
@@ -1179,11 +1179,48 @@ local function AddSpellRow()
 			newRow.RemoveSpellRowButton:SetScript("OnLeave", function(self)
 				GameTooltip_Hide()
 				self.Timer:Cancel()
+				--[[
+				if ( not self:GetParent():IsMouseOver() ) then
+					self:Hide()
+				end
+				--]]
 			end)
 			newRow.RemoveSpellRowButton:SetScript("OnClick", function(self)
 				RemoveSpellRow(self.rowNum)
-				print(self.rowNum)
 			end)
+			newRow.RemoveSpellRowButton:SetScript("OnShow", function(self)
+				self:SetScript("OnUpdate", function(self)
+					local doHide = true
+					local family = { self, newRow, newRow:GetChildren() }
+					for i = 1, #family do
+						local kin = family[i]
+						if ( kin:IsMouseOver() ) then
+							doHide = false
+						end
+					end
+					if doHide then self:Hide(); self:SetScript("OnUpdate", nil) end
+				end)
+			end)
+
+
+			newRow.RemoveSpellRowButton:Hide()
+
+			newRow:SetScript("OnEnter", function(self)
+				self.RemoveSpellRowButton:Show()
+			end)
+			--[[
+			newRow:SetScript("OnLeave", function(self)
+				local doHide = true
+				local children = { self:GetChildren() }
+				for i = 1, #children do
+					local child = children[i]
+					if ( child:IsMouseOver() ) then
+						doHide = false
+					end
+				end
+				if doHide then self.RemoveSpellRowButton:Hide(); end
+			end)
+			--]]
 
 	end
 	-- Make Tab work to switch edit boxes
@@ -3685,6 +3722,7 @@ function CreateSpellCreatorInterfaceOptions()
 		}
 	SpellCreatorInterfaceOptions.panel.showVaultToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 
+	--[[
 	local buttonData = {
 		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.showVaultToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
 		["title"] = "Clear Action Data when Removing Row",
@@ -3694,9 +3732,10 @@ function CreateSpellCreatorInterfaceOptions()
 		["onClickHandler"] = nil,
 		}
 	SpellCreatorInterfaceOptions.panel.clearRowOnRemoveToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+	--]]
 
 	local buttonData = {
-		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.clearRowOnRemoveToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.showVaultToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
 		["title"] = "Load Actions Chronologically",
 		["tooltipTitle"] = "Load Chronologically by Delay",
 		["tooltipText"] = "When loading a spell, actions will be loaded in order of their delays, despite the order they were saved in.",
