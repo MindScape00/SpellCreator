@@ -920,16 +920,19 @@ local function RemoveSpellRow(rowToRemove)
 
 	_G["spellRow"..numberOfSpellRows].RevertDelayBox.nextEditBox = spellRow1.mainDelayBox
 
-	if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Enable() end
-	if numberOfSpellRows <= 1 then SCForgeMainFrame.RemoveSpellRowButton:Disable() end
+	--if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Enable() end
+	if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddRowRow.AddRowButton:Enable() end
+	
+	--if numberOfSpellRows <= 1 then SCForgeMainFrame.RemoveSpellRowButton:Disable() end
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
 
 	SCForgeMainFrame.AddRowRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows, "BOTTOMLEFT", 0, 0)
 end
 
 local function AddSpellRow()
-	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable() return; end -- hard cap
-	SCForgeMainFrame.RemoveSpellRowButton:Enable()
+	--if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable() return; end -- hard cap
+	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddRowRow.AddRowButton:Disable() return; end -- hard cap
+	--SCForgeMainFrame.RemoveSpellRowButton:Enable()
 	numberOfSpellRows = numberOfSpellRows+1		-- The number of spell rows that this row will be.
 	local newRow
 	if _G["spellRow"..numberOfSpellRows] then
@@ -1198,30 +1201,17 @@ local function AddSpellRow()
 							doHide = false
 						end
 					end
-					if doHide then self:Hide(); self:SetScript("OnUpdate", nil) end
+					if doHide then self:Hide(); end
 				end)
 			end)
-
-
-			newRow.RemoveSpellRowButton:Hide()
-
+			newRow.RemoveSpellRowButton:SetScript("OnHide", function(self)
+				self:SetScript("OnUpdate", nil)
+			end)
 			newRow:SetScript("OnEnter", function(self)
 				self.RemoveSpellRowButton:Show()
 			end)
-			--[[
-			newRow:SetScript("OnLeave", function(self)
-				local doHide = true
-				local children = { self:GetChildren() }
-				for i = 1, #children do
-					local child = children[i]
-					if ( child:IsMouseOver() ) then
-						doHide = false
-					end
-				end
-				if doHide then self.RemoveSpellRowButton:Hide(); end
-			end)
-			--]]
-
+			newRow.RemoveSpellRowButton:Hide()
+			
 	end
 	-- Make Tab work to switch edit boxes
 
