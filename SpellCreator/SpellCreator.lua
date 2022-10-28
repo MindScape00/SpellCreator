@@ -226,15 +226,15 @@ local function SC_loadMasterTable()
 	if isNotDefined(SpellCreatorMasterTable.Options["clearRowOnRemove"]) then SpellCreatorMasterTable.Options["clearRowOnRemove"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["loadChronologically"]) then SpellCreatorMasterTable.Options["loadChronologically"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["minimapIcon"]) then SpellCreatorMasterTable.Options["minimapIcon"] = true end
-	
+
 	if not SpellCreatorSavedSpells then SpellCreatorSavedSpells = {} end
-	
+
 	--[[ -- Current Date Check for past Oct 25, 2022. Disabled since we are past that anyways now.
 	if (curDate.year >= 2023 or curDate.yday >= 298) then -- Only default to showing the minimap icon after October 25th, 2022
 		
 	end
 	--]]
-	
+
 	-- reset these so we are not caching debug data longer than a single reload.
 	SpellCreatorMasterTable.Options["debugPhaseData"] = nil
 	SpellCreatorMasterTable.Options["debugPhaseKeys"] = nil
@@ -398,7 +398,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	local actionData = actionTypeData[actionType]
 	if revertDelay then revertDelay = tonumber(revertDelay) end
 	local varTable
-	
+
 	if vars then
 		if actionData.doNotDelimit then
 			varTable = { vars }
@@ -406,7 +406,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 			varTable = { strsplit(",", vars) }
 		end
 	end
-	
+
 	if actionData.comTarget == "func" then
 		if delay == 0 then
 			local varTable = varTable
@@ -438,7 +438,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 					if selfOnly then finalCommand = finalCommand.." self" end
 					--dprint(false, finalCommand)
 					cmd(finalCommand)
-					
+
 				end
 				if revertDelay and revertDelay > 0 then
 					CTimerAfter(revertDelay, function()
@@ -465,7 +465,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 						if selfOnly then finalCommand = finalCommand.." self" end
 						--dprint(false, finalCommand)
 						cmd(finalCommand)
-						
+
 					end
 					if revertDelay and revertDelay > 0 then
 						CTimerAfter(revertDelay, function()
@@ -507,20 +507,20 @@ end
 -- Action Types & Data Info
 
 actionTypeDataList = { -- formatted for easier sorting - whatever order they are here is the order they show up in dropdown as.
-"SpellCast", 
-"SpellTrig", 
-"SpellAura", 
-"Anim", 
-"Standstate", 
-"Morph", 
-"Native", 
-"Equip", 
+"SpellCast",
+"SpellTrig",
+"SpellAura",
+"Anim",
+"Standstate",
+"Morph",
+"Native",
+"Equip",
 "EquipSet",
-"MogitEquip", 
-"RemoveAura", 
-"RemoveAllAuras", 
-"Unmorph", 
-"Unequip", 
+"MogitEquip",
+"RemoveAura",
+"RemoveAllAuras",
+"Unmorph",
+"Unequip",
 "MacroText",
 "Command",
 "ArcSpell",
@@ -738,7 +738,7 @@ local function genStaticDropdownChild( parent, dropdownName, menuList, title, wi
 	local newDropdown = CreateFrame("Frame", dropdownName, parent, "UIDropDownMenuTemplate")
 	parent.Dropdown = newDropdown
 	newDropdown:SetPoint("CENTER")
-		
+
 	local function newDropdown_Initialize( dropdownName, level )
 		--for index,value in ipairs(menuList) do
 		for index = 1, #menuList do
@@ -749,7 +749,7 @@ local function genStaticDropdownChild( parent, dropdownName, menuList, title, wi
 			end
 		end
 	end
-	
+
 	UIDropDownMenu_Initialize(newDropdown, newDropdown_Initialize, "nope", nil, menuList)
 	UIDropDownMenu_SetWidth(newDropdown, width);
 	UIDropDownMenu_SetButtonWidth(newDropdown, width+15)
@@ -760,9 +760,9 @@ local function genStaticDropdownChild( parent, dropdownName, menuList, title, wi
 	_G[dropdownName.."Text"]:SetWidth(width-15)
 	local fontName,fontHeight,fontFlags = _G[dropdownName.."Text"]:GetFont()
 --	_G[dropdownName.."Text"]:SetFont(fontName, 10)
-	
+
 	newDropdown:GetParent():SetWidth(newDropdown:GetWidth())
-	newDropdown:GetParent():SetHeight(newDropdown:GetHeight())	
+	newDropdown:GetParent():SetHeight(newDropdown:GetHeight())
 end
 
 -- Resizing Functions to scale with main frame resizing
@@ -863,17 +863,17 @@ local function RemoveSpellRow()
 	if numberOfSpellRows <= 1 then return; end
 	local theSpellRow = _G["spellRow"..numberOfSpellRows]
 	theSpellRow:Hide()
-	
+
 	if SpellCreatorMasterTable.Options["clearRowOnRemove"] then
 		theSpellRow.mainDelayBox:SetText("")
-		
+
 		for k,v in pairs(theSpellRow.menuList) do
 			v.checked = false
 		end
 		UIDropDownMenu_SetSelectedID(_G["spellRow"..numberOfSpellRows.."ActionSelectButton"], 0)
 		_G["spellRow"..numberOfSpellRows.."ActionSelectButtonText"]:SetText("Action")
 		updateSpellRowOptions(numberOfSpellRows, nil)
-		
+
 		theSpellRow.SelfCheckbox:SetChecked(false)
 		theSpellRow.InputEntryBox:SetText("")
 		if useRevertCheckbox then
@@ -883,9 +883,9 @@ local function RemoveSpellRow()
 	end
 
 	numberOfSpellRows = numberOfSpellRows - 1
-	
+
 	_G["spellRow"..numberOfSpellRows].RevertDelayBox.nextEditBox = spellRow1.mainDelayBox
-	
+
 	if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Enable() end
 	if numberOfSpellRows <= 1 then SCForgeMainFrame.RemoveSpellRowButton:Disable() end
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
@@ -896,7 +896,7 @@ local function AddSpellRow()
 	SCForgeMainFrame.RemoveSpellRowButton:Enable()
 	numberOfSpellRows = numberOfSpellRows+1		-- The number of spell rows that this row will be.
 	local newRow
-	if _G["spellRow"..numberOfSpellRows] then 
+	if _G["spellRow"..numberOfSpellRows] then
 		newRow = _G["spellRow"..numberOfSpellRows]
 		newRow:Show();
 	else
@@ -910,7 +910,7 @@ local function AddSpellRow()
 		end
 		newRow:SetWidth(mainFrameSize.x-50)
 		newRow:SetHeight(rowHeight)
-				
+
 		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND", nil, 5)
 		newRow.Background:SetAllPoints()
 		newRow.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
@@ -918,7 +918,7 @@ local function AddSpellRow()
 		newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
 		newRow.Background:SetAlpha(0.9)
 		--newRow.Background:SetColorTexture(0,0,0,0.25)
-		
+
 		newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
 		newRow.Background2:SetAllPoints()
 		newRow.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
@@ -927,7 +927,7 @@ local function AddSpellRow()
 		newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
 		--newRow.Background2:SetAlpha(0.8)
 		--newRow.Background:SetColorTexture(0,0,0,0.25)
-		
+
 		newRow.RowGem = newRow:CreateTexture(nil,"ARTWORK")
 		newRow.RowGem:SetPoint("CENTER", newRow.Background2, "LEFT", 2, 0)
 		newRow.RowGem:SetHeight(40)
@@ -935,7 +935,7 @@ local function AddSpellRow()
 		newRow.RowGem:SetTexture(addonPath.."/assets/DragonGem")
 		--newRow.RowGem:SetTexCoord(0.208,1-0.209,0,1)
 		--newRow.RowGem:SetPoint("RIGHT",-9,0)
-		
+
 		-- main delay entry box
 		newRow.mainDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."MainDelayBox", newRow, "InputBoxInstructionsTemplate")
 		newRow.mainDelayBox:SetFontObject(ChatFontNormal)
@@ -970,11 +970,11 @@ local function AddSpellRow()
 			GameTooltip_Hide()
 			self.Timer:Cancel()
 		end)
-		
+
 		-- Action Dropdown Menu
 		newRow.menuList = {}
 		local menuList = newRow.menuList
-		
+
 		for i = 1, #actionTypeDataList do
 			local v = actionTypeDataList[i]
 			local menuItem = UIDropDownMenu_CreateInfo()
@@ -996,11 +996,11 @@ local function AddSpellRow()
 			end
 			table.insert(menuList, menuItem)
 		end
-		
+
 		newRow.actionSelectButton = CreateFrame("Frame", "spellRow"..numberOfSpellRows.."ActionSelectAnchor", newRow)
 		newRow.actionSelectButton:SetPoint("LEFT", newRow.mainDelayBox, "RIGHT", 0, -2)
 		genStaticDropdownChild( newRow.actionSelectButton, "spellRow"..numberOfSpellRows.."ActionSelectButton", menuList, "Action", actionColumnWidth)
-		
+
 		-- Self Checkbox
 		newRow.SelfCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."SelfCheckbox", newRow, "UICheckButtonTemplate")
 		newRow.SelfCheckbox:SetPoint("LEFT", newRow.actionSelectButton, "RIGHT", -5, 1)
@@ -1018,7 +1018,7 @@ local function AddSpellRow()
 			GameTooltip_Hide()
 			self.Timer:Cancel()
 		end)
-		
+
 		-- ID Entry Box (Input)
 		if SpellCreatorMasterTable.Options["biggerInputBox"] == true then
 			newRow.InputEntryScrollFrame = CreateFrame("ScrollFrame", "spellRow"..numberOfSpellRows.."InputEntryScrollFrame", newRow, "InputScrollFrameTemplate")
@@ -1048,7 +1048,7 @@ local function AddSpellRow()
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			local row = self.rowNumber
 			self.Timer = C_Timer.NewTimer(0.7,function()
-				if _G["spellRow"..row.."SelectedAction"] and actionTypeData[_G["spellRow"..row.."SelectedAction"]].dataName then 
+				if _G["spellRow"..row.."SelectedAction"] and actionTypeData[_G["spellRow"..row.."SelectedAction"]].dataName then
 					local actionData = actionTypeData[_G["spellRow"..row.."SelectedAction"]]
 					GameTooltip:SetText(actionData.dataName, nil, nil, nil, nil, true)
 					if actionData.inputDescription then
@@ -1065,7 +1065,7 @@ local function AddSpellRow()
 			self.Timer:Cancel()
 		end)
 
-		
+
 		-- Revert Checkbox
 		if useRevertCheckbox then
 			newRow.RevertCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."RevertCheckbox", newRow, "UICheckButtonTemplate")
@@ -1086,9 +1086,9 @@ local function AddSpellRow()
 				self.Timer:Cancel()
 			end)
 		end
-		
+
 		-- Revert Delay Box
-		
+
 		newRow.RevertDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."RevertDelayBox", newRow, "InputBoxInstructionsTemplate")
 		newRow.RevertDelayBox:SetFontObject(ChatFontNormal)
 		newRow.RevertDelayBox.disabledColor = GRAY_FONT_COLOR
@@ -1101,10 +1101,10 @@ local function AddSpellRow()
 		if useRevertCheckbox then
 			newRow.RevertDelayBox:SetPoint("LEFT", newRow.RevertCheckbox, "RIGHT", 25, 0)
 		else
-			newRow.RevertDelayBox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 25, 0)			
+			newRow.RevertDelayBox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 25, 0)
 		end
 		newRow.RevertDelayBox:SetMaxLetters(10)
-		
+
 		newRow.RevertDelayBox:HookScript("OnTextChanged", function(self)
 			if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
 				self:SetTextColor(255,255,255,1)
@@ -1129,7 +1129,7 @@ local function AddSpellRow()
 			GameTooltip_Hide()
 			self.Timer:Cancel()
 		end)
-		
+
 		--Sync Revert Delaybox & Checkbox Disable/Enable
 		if useRevertCheckbox then
 			newRow.RevertCheckbox:SetScript("OnClick", function(self)
@@ -1140,45 +1140,48 @@ local function AddSpellRow()
 		end
 
 	-- Make Tab work to switch edit boxes
-	
+
 	end
-	
+
 		newRow.mainDelayBox.nextEditBox = newRow.InputEntryBox 			-- Main Delay -> Input
 		newRow.mainDelayBox.previousEditBox = newRow.mainDelayBox 	-- Main Delay <- Main Delay (Can't reverse past itself, updated later)
 		newRow.InputEntryBox.nextEditBox = newRow.RevertDelayBox		-- Input -> Revert
 		newRow.InputEntryBox.previousEditBox = newRow.mainDelayBox		-- Input <- Main Delay
 		newRow.RevertDelayBox.nextEditBox = newRow.mainDelayBox			-- Revert -> Main Delay (we change it later if needed)
 		newRow.RevertDelayBox.previousEditBox = newRow.InputEntryBox	-- Revert <- Input
-	
-	if numberOfSpellRows > 1 then	
+
+	if numberOfSpellRows > 1 then
 		newRow.mainDelayBox.previousEditBox = _G["spellRow"..numberOfSpellRows-1].RevertDelayBox 	-- Main Delay <- LAST Revert
 		newRow.RevertDelayBox.nextEditBox = spellRow1.mainDelayBox			-- Revert -> Spell Row 1 Main Delay
 		_G["spellRow"..numberOfSpellRows-1].RevertDelayBox.nextEditBox = newRow.mainDelayBox		-- LAST Revert -> THIS Main Delay
 	end
-	
+
 	updateFrameChildScales(SCForgeMainFrame)
-	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable() return; end -- hard cap
-	
+	--if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable(); return; end -- hard cap
+	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddRowRow.AddRowButton:Disable(); return; end -- hard cap
+
+	SCForgeMainFrame.AddRowRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows, "BOTTOMLEFT", 0, 0)
+
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
 end
 
-function updateSpellRowOptions(row, selectedAction) 
+local function updateSpellRowOptions(row, selectedAction)
 		-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
 	if selectedAction then -- if we call it with no action, reset
 		_G["spellRow"..row.."SelectedAction"] = selectedAction
 		if actionTypeData[selectedAction].selfAble then _G["spellRow"..row.."SelfCheckbox"]:Enable() else _G["spellRow"..row.."SelfCheckbox"]:Disable() end
-		if actionTypeData[selectedAction].dataName then 
+		if actionTypeData[selectedAction].dataName then
 			_G["spellRow"..row.."InputEntryBox"]:Enable()
 			_G["spellRow"..row.."InputEntryBox"].Instructions:SetText(actionTypeData[selectedAction].dataName)
 			if actionTypeData[selectedAction].inputDescription then _G["spellRow"..row.."InputEntryBox"].Description = actionTypeData[selectedAction].inputDescription end
 		else
 			_G["spellRow"..row.."InputEntryBox"]:Disable()
-			_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("n/a") 
+			_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("n/a")
 		end
-		if actionTypeData[selectedAction].revert then 
+		if actionTypeData[selectedAction].revert then
 			if useRevertCheckbox then _G["spellRow"..row.."RevertCheckbox"]:Enable(); end
 			_G["spellRow"..row.."RevertDelayBox"]:Enable();
-		else 
+		else
 			if useRevertCheckbox then _G["spellRow"..row.."RevertCheckbox"]:Disable(); end
 			_G["spellRow"..row.."RevertDelayBox"]:Disable();
 		end
@@ -1289,7 +1292,7 @@ SCForgeMainFrame.portrait.icon:SetAlpha(0.93)
 
 SCForgeMainFrame.portrait.rune = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 7)
 local function setRuneTex(texInfo)
-	if texInfo.atlas then 
+	if texInfo.atlas then
 		SCForgeMainFrame.portrait.rune:SetAtlas(texInfo.atlas)
 	else
 		SCForgeMainFrame.portrait.rune:SetTexture(texInfo.tex)
@@ -1436,17 +1439,17 @@ local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, sav
 	background:SetVertTile(false)
 	background:SetHorizTile(false)
 	background:SetAllPoints()
-	
+
 	background.Overlay = SCForgeMainFrame.Inset:CreateTexture(nil, "BACKGROUND")
 	background.Overlay:SetTexture(addonPath.."/assets/forge_ui_bg_anim")
 	background.Overlay:SetAllPoints()
 	background.Overlay:SetAlpha(0.02)
-	
+
 	background.Overlay2 = SCForgeMainFrame.Inset:CreateTexture(nil, "BACKGROUND")
-	background.Overlay2:SetAtlas("ChallengeMode-RuneBG")
+	background.Overlay2:SetTexture(addonPath.."/assets/forge_ui_bg_runes")
 	background.Overlay2:SetAllPoints()
 	background.Overlay2:SetAlpha(0.25)
-	
+
 --[[ -- Old Background Setup
 
 --- The Inner Frame
@@ -1481,8 +1484,8 @@ end
 	local scrollChild = SCForgeMainFrame.Inset.scrollFrame.scrollChild
 	scrollFrame:SetScrollChild(scrollChild)
 	scrollChild:SetWidth(SCForgeMainFrame.Inset:GetWidth()-18)
-	scrollChild:SetHeight(1) 
-	
+	scrollChild:SetHeight(1)
+
 	scrollFrame.ScrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, 18)
 	scrollFrame.ScrollBar.scrollStep = rowHeight
 
@@ -1549,30 +1552,74 @@ else
 	SCForgeMainFrame.TitleBar.RevertDelay:SetText("Revert")
 end
 
---[[
-SCForgeMainFrame.AddNewRowRow = CreateFrame("Frame", nil, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
-local row = SCForgeMainFrame.AddNewRowRow
-		newRow:SetPoint("TOPLEFT", 25, 0)
-		newRow:SetWidth(mainFrameSize.x-50)
-		newRow:SetHeight(rowHeight)
-				
-		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND", nil, 5)
-		newRow.Background:SetAllPoints()
-		newRow.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
-		newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
-		newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
-		newRow.Background:SetAlpha(0.9)
-		--newRow.Background:SetColorTexture(0,0,0,0.25)
-		
-		newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
-		newRow.Background2:SetAllPoints()
-		newRow.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
-		newRow.Background2:SetTexCoord(0.208,1-0.209,0,1)
-		newRow.Background2:SetPoint("TOPLEFT",-3,0)
-		newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
-		--newRow.Background2:SetAlpha(0.8)
-		--newRow.Background:SetColorTexture(0,0,0,0.25)
---]]
+SCForgeMainFrame.AddRowRow = CreateFrame("Frame", nil, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
+local _frame = SCForgeMainFrame.AddRowRow
+	_frame:SetPoint("TOPLEFT", 25, 0)
+	_frame:SetWidth(mainFrameSize.x-50)
+	_frame:SetHeight(rowHeight)
+
+	_frame.Background = _frame:CreateTexture(nil,"BACKGROUND", nil, 5)
+		_frame.Background:SetAllPoints()
+		_frame.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
+		_frame.Background:SetTexCoord(0.208,1-0.209,0,1)
+		_frame.Background:SetPoint("BOTTOMRIGHT",-9,0)
+		_frame.Background:SetAlpha(0.9)
+
+	_frame.Background2 = _frame:CreateTexture(nil,"BACKGROUND", nil, 6)
+		_frame.Background2:SetAllPoints()
+		_frame.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+		_frame.Background2:SetTexCoord(0.208,1-0.209,0,1)
+		_frame.Background2:SetPoint("TOPLEFT",-3,0)
+		_frame.Background2:SetPoint("BOTTOMRIGHT",-7,0)
+
+		-- SCForgeMainFrame.AddRowRow.AddRowButton
+	_frame.AddRowButton = CreateFrame("BUTTON", nil, _frame)
+		--_frame.AddRowButton:SetPoint("CENTER")
+		_frame.AddRowButton:SetAllPoints()
+		--_frame.AddRowButton:SetSize(24,24)
+
+		--local _atlas = "Garr_Building-AddFollowerPlus"
+		local _atlas = "communities-chat-icon-plus"
+		_frame.AddRowButton:SetNormalAtlas(_atlas)
+		_frame.AddRowButton.Normal = _frame.AddRowButton:GetNormalTexture()
+		_frame.AddRowButton.Normal:ClearAllPoints()
+		_frame.AddRowButton.Normal:SetPoint("CENTER")
+		_frame.AddRowButton.Normal:SetSize(48,48)
+		_frame.AddRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+		_frame.AddRowButton.DisabledTex = _frame.AddRowButton:CreateTexture(nil, "ARTWORK")
+		_frame.AddRowButton.DisabledTex:SetAllPoints(_frame.AddRowButton.Normal)
+		_frame.AddRowButton.DisabledTex:SetAtlas(_atlas)
+		_frame.AddRowButton.DisabledTex:SetDesaturated(true)
+		_frame.AddRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
+		_frame.AddRowButton:SetDisabledTexture(_frame.AddRowButton.DisabledTex)
+
+		_frame.AddRowButton.PushedTex = _frame.AddRowButton:CreateTexture(nil, "ARTWORK")
+		_frame.AddRowButton.PushedTex:SetAllPoints(_frame.AddRowButton.Normal)
+		_frame.AddRowButton.PushedTex:SetAtlas(_atlas)
+		_frame.AddRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+		_frame.AddRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+		_frame.AddRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+		_frame.AddRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+		_frame.AddRowButton:SetPushedTexture(_frame.AddRowButton.PushedTex)
+
+		_frame.AddRowButton:SetMotionScriptsWhileDisabled(true)
+		_frame.AddRowButton:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			self.Timer = C_Timer.NewTimer(0.7,function()
+				GameTooltip:SetText("Add another Action row.", nil, nil, nil, nil, true)
+				GameTooltip:AddLine("Max number of Rows: "..maxNumberOfSpellRows,1,1,1,true)
+				GameTooltip:Show()
+			end)
+		end)
+		_frame.AddRowButton:SetScript("OnLeave", function(self)
+			GameTooltip_Hide()
+			self.Timer:Cancel()
+		end)
+		_frame.AddRowButton:SetScript("OnClick", function(self)
+			AddSpellRow()
+		end)
+
 
 SCForgeMainFrame.ResizeDragger = CreateFrame("BUTTON", nil, SCForgeMainFrame)
 SCForgeMainFrame.ResizeDragger:SetSize(16,16)
@@ -1754,8 +1801,8 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 	local maxDelay = 0
 	local actionsToCommit = {}
 	for i = 1, numberOfSpellRows do
-		if isNotDefined(tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())) then 
-			dprint("Action Row "..i.." Invalid, Delay Not Set") 
+		if isNotDefined(tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())) then
+			dprint("Action Row "..i.." Invalid, Delay Not Set")
 		else
 			local actionData = {}
 			actionData.actionType = (_G["spellRow"..i.."SelectedAction"])
@@ -1788,7 +1835,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
-if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then 
+if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then
 	if C_Epsilon.IsOfficer() then return; end
 	SCForgeMainFrame.ExecuteSpellButton:Disable()
 else
@@ -1797,14 +1844,14 @@ end
 
 local function loadSpell(spellToLoad)
 	--dprint("Loading spell.. "..spellToLoad.commID)
-	
+
 	SCForgeMainFrame.SpellInfoCommandBox:SetText(spellToLoad.commID)
 	SCForgeMainFrame.SpellInfoNameBox:SetText(spellToLoad.fullName)
 	if spellToLoad.description then SCForgeMainFrame.SpellInfoDescBox:SetText(spellToLoad.description) end
-	
+
 	local spellActions = spellToLoad.actions
 	numberOfActionsToLoad = #spellActions
-	
+
 	-- Adjust the number of available Action Rows
 	if numberOfActionsToLoad > numberOfSpellRows then
 		for i = 1, numberOfActionsToLoad-numberOfSpellRows do
@@ -1815,11 +1862,11 @@ local function loadSpell(spellToLoad)
 			RemoveSpellRow()
 		end
 	end
-	
+
 	if SpellCreatorMasterTable.Options["loadChronologically"] then
 		table.sort(spellActions, function (k1, k2) return k1.delay < k2.delay end)
 	end
-	
+
 	-- Loop thru actions & set their data
 	local rowNum, actionData
 	for rowNum, actionData in ipairs(spellActions) do
@@ -1835,7 +1882,7 @@ local function loadSpell(spellToLoad)
 			_G["spellRow"..rowNum.."ActionSelectButtonText"]:SetText(actionTypeData[actionData.actionType].name)
 			updateSpellRowOptions(rowNum, actionData.actionType)
 		end
-		
+
 		_G["spellRow"..rowNum.."MainDelayBox"]:SetText(tonumber(actionData.delay) or "") --delay
 		if actionData.selfOnly then _G["spellRow"..rowNum.."SelfCheckbox"]:SetChecked(true) else _G["spellRow"..rowNum.."SelfCheckbox"]:SetChecked(false) end --SelfOnly
 		if actionData.vars then _G["spellRow"..rowNum.."InputEntryBox"]:SetText(actionData.vars) else _G["spellRow"..rowNum.."InputEntryBox"]:SetText("") end --Input Entrybox
@@ -1844,7 +1891,7 @@ local function loadSpell(spellToLoad)
 			if useRevertCheckbox then _G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(true); end--Revert Checkbox
 		else
 			_G["spellRow"..rowNum.."RevertDelayBox"]:SetText("") --revertDelay
-			if useRevertCheckbox then 
+			if useRevertCheckbox then
 				_G["spellRow"..rowNum.."RevertDelayBox"]:Disable() --revertDelay
 				_G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(false) --Revert Checkbox
 			end
@@ -1871,11 +1918,11 @@ end
 
 local function noSpellsToLoad(fake)
 	dprint("Phase Has No Spells to load.");
-	phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" ); 
+	phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" );
 	if not fake then
-		if C_Epsilon.IsOfficer() then 
+		if C_Epsilon.IsOfficer() then
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty\n\rC'mon, add something fun!");
-		else 
+		else
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty");
 		end
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Enable();
@@ -1886,11 +1933,11 @@ end
 local function getSpellForgePhaseVault(callback)
 	SCForge_PhaseVaultSpells = {} -- reset the table
 	dprint("Phase Spell Vault Loading...")
-	
+
 	--if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again shortly."); return; end
 	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 	isSavingOrLoadingPhaseAddonData = true
-	
+
 	phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
 	phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 		if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
@@ -1904,7 +1951,7 @@ local function getSpellForgePhaseVault(callback)
 			local phaseVaultLoadingCount = 0
 			local phaseVaultLoadingExpected = #phaseVaultKeys
 			local messageTicketQueue = {}
-			
+
 			-- set up the phaseAddonDataListener2 ahead of time, and only once..
 			phaseAddonDataListener2:RegisterEvent("CHAT_MSG_ADDON")
 			phaseAddonDataListener2:SetScript("OnEvent", function (self, event, prefix, text, channel, sender, ...)
@@ -1922,18 +1969,19 @@ local function getSpellForgePhaseVault(callback)
 					end
 				end
 			end)
-			
+
 			for k,v in ipairs(phaseVaultKeys) do
 				--phaseVaultLoadingExpected = k
 				dprint("Trying to load spell from phase: "..v)
 				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S_"..v)
 				messageTicketQueue[messageTicketID] = true -- add it to a fake queue table so we can watch for multiple prefixes...
-				
+
 			end
 		end
 	end)
 end
 
+local scforge_ChannelID -- this is set later by the server
 local function sendPhaseVaultIOLock(toggle)
 	local phaseID = C_Epsilon.GetPhaseId()
 	if toggle == true then
@@ -1947,27 +1995,27 @@ end
 
 local function deleteSpellFromPhaseVault(commID, callback)
 	-- get the phase spell keys, remove the one we want to delete, then re-save it, and then over-ride the PhaseAddonData for it's key with nothing..
-	
+
 	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
-	
+
 	isSavingOrLoadingPhaseAddonData = true
 	sendPhaseVaultIOLock(true)
 	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 
 	phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
-	
+
 	phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 		if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 			phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
 			phaseVaultKeys = serialDecompressForAddonMsg(text)
 			table.remove(phaseVaultKeys, commID)
 			phaseVaultKeys = serialCompressForAddonMsg(phaseVaultKeys)
-			
+
 			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
 			local realCommID = savedSpellFromVault[commID].commID
 			dprint("Removing PhaseAddonData for SCFORGE_S_"..realCommID)
 			C_Epsilon.SetPhaseAddonData("SCFORGE_S_"..realCommID, "")
-			
+
 			isSavingOrLoadingPhaseAddonData = false
 			sendPhaseVaultIOLock(false)
 			if callback then callback(); end
@@ -1981,8 +2029,6 @@ local function saveSpellToPhaseVault(commID, overwrite)
 	if not commID then
 		eprint("Invalid CommID.")
 		return;
-	else 
-		phaseSpellKey = commID
 	end
 	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
 	if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
@@ -1995,29 +2041,29 @@ local function saveSpellToPhaseVault(commID, overwrite)
 		phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 			if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 				phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" );
-				
+
 				--print(text)
 				if (text ~= "" and #text > 0) then phaseVaultKeys = serialDecompressForAddonMsg(text) else phaseVaultKeys = {} end
 
 				dprint("Phase spell keys: ")
 				ddump(phaseVaultKeys)
-				
+
 				for k,v in ipairs(phaseVaultKeys) do
-					if v == phaseSpellKey then
+					if v == commID then
 						if not overwrite then
 							-- phase already has this ID saved.. Handle over-write... ( see saveSpell() to steal the code if we want to change it later.. )
-							dprint("Phase already has a spell saved by Command '"..phaseSpellKey.."'. Prompting to confirm over-write.")
-							
+							dprint("Phase already has a spell saved by Command '"..commID.."'. Prompting to confirm over-write.")
+
 							StaticPopupDialogs["SCFORGE_CONFIRM_POVERWRITE"] = {
-								text = "Spell '"..phaseSpellKey.."' Already exists in the Phase Vault.\n\rDo you want to overwrite the spell?",
-								OnAccept = function() saveSpellToPhaseVault(phaseSpellKey, true) end,
+								text = "Spell '"..commID.."' Already exists in the Phase Vault.\n\rDo you want to overwrite the spell?",
+								OnAccept = function() saveSpellToPhaseVault(commID, true) end,
 								button1 = "Overwrite",
 								button2 = CANCEL,
 								hideOnEscape = true,
 								whileDead = true,
 							}
 							StaticPopup_Show("SCFORGE_CONFIRM_POVERWRITE")
-							
+
 							isSavingOrLoadingPhaseAddonData = false
 							sendPhaseVaultIOLock(false)
 							return;
@@ -2026,22 +2072,22 @@ local function saveSpellToPhaseVault(commID, overwrite)
 						end
 					end
 				end
-				
+
 				-- Passed checking for duplicates. NOW we can save it.
 				local _spellData = SpellCreatorSavedSpells[commID]
 				if uploadAsPrivateSpell then _spellData.private = true else _spellData.private = nil end
 				local str = serialCompressForAddonMsg(_spellData)
-				
-				local key = "SCFORGE_S_"..phaseSpellKey
+
+				local key = "SCFORGE_S_"..commID
 				C_Epsilon.SetPhaseAddonData(key, str)
-				
+
 				if not needToOverwrite then
-					tinsert(phaseVaultKeys, phaseSpellKey)
+					tinsert(phaseVaultKeys, commID)
 					phaseVaultKeys = serialCompressForAddonMsg(phaseVaultKeys)
 					C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
 				end
-				
-				cprint("Spell '"..phaseSpellKey.."' saved to the Phase Vault.")
+
+				cprint("Spell '"..commID.."' saved to the Phase Vault.")
 				isSavingOrLoadingPhaseAddonData = false
 				sendPhaseVaultIOLock(false)
 			end
@@ -2131,7 +2177,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	savedSpellFromVault = {}
 	local currentVault
 	local currentVaultTab = PanelTemplates_GetSelectedTab(SCForgeMainFrame.LoadSpellFrame)
-	
+
 	if currentVaultTab == 1 then
 		--personal vault is shown
 		currentVault = "PERSONAL"
@@ -2154,7 +2200,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Hide()
 		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.20,0.40,0.50,0.5)
-		if fromPhaseDataLoaded then 
+		if fromPhaseDataLoaded then
 			-- called from getSpellForgePhaseVault() - that means our saved spell from Vault is ready
 			savedSpellFromVault = SCForge_PhaseVaultSpells
 			dprint("Phase Spell Vault Loaded.")
@@ -2166,14 +2212,14 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Loading...")
 		end
 	end
-	
+
 	local spellLoadFrame = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.scrollChild
 	local rowNum = 0
-	local realRowNum = 0 
+	local realRowNum = 0
 	local numSkippedRows = 0
 	local columnWidth = spellLoadFrame:GetWidth()
 	local thisRow
-		
+
 	for k,v in orderedPairs(savedSpellFromVault) do
 	-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
 		--[[
@@ -2181,19 +2227,19 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		rowNum = realRowNum-numSkippedRows
 		--]]
 		rowNum = rowNum+1
-			
+
 		if spellLoadRows[rowNum] then
 			thisRow = spellLoadRows[rowNum]
 			thisRow:Show()
 			dprint(false,"SCForge Load Row "..rowNum.." Already existed - showing & setting it")
-			
+
 			-- Position the Rows
 			if rowNum == 1 or rowNum-1-numSkippedRows < 1 then
 				thisRow:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
 			else
 				thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
 			end
-			
+
 		else
 			dprint(false,"SCForge Load Row "..rowNum.." Didn't exist - making it!")
 			spellLoadRows[rowNum] = CreateFrame("CheckButton", "scForgeLoadRow"..rowNum, spellLoadFrame)
@@ -2207,33 +2253,33 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			end
 			thisRow:SetWidth(columnWidth-20)
 			thisRow:SetHeight(loadRowHeight)
-						
+
 			-- A nice lil background to make them easier to tell apart			
 			thisRow.Background = thisRow:CreateTexture(nil,"BACKGROUND",nil,5)
 			thisRow.Background:SetPoint("TOPLEFT",-3,0)
 			thisRow.Background:SetPoint("BOTTOMRIGHT",0,0)
 			thisRow.Background:SetTexture(load_row_background)
 			thisRow.Background:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
-			
+
 			--[[
 			thisRow.BGOverlay = thisRow:CreateTexture(nil,"BACKGROUND",nil,6)
 			thisRow.BGOverlay:SetAllPoints(thisRow.Background)
 			thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
 			thisRow.BGOverlay:SetAlpha(0.25)
 			--]]
-			
+
 			thisRow:SetCheckedTexture("Interface\\AddOns\\SpellCreator\\assets\\l_row_selected")
 			thisRow.CheckedTexture = thisRow:GetCheckedTexture()
 			thisRow.CheckedTexture:SetAllPoints(thisRow.Background)
 			thisRow.CheckedTexture:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
 			thisRow.CheckedTexture:SetAlpha(0.75)
 			--thisRow.CheckedTexture:SetPoint("RIGHT", thisRow.Background, "RIGHT", 5, 0)
-			
+
 			-- Original Atlas based texture with vertex shading for a unique look. Actually looked pretty good imo.
 			--thisRow.Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
 			--thisRow.Background:SetVertexColor(0.75,0.70,0.8) -- Let T color it naturally :)
 			--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
-			
+
 			--[[ -- Disabled, not needed on the new load row backgrounds
 			thisRow.spellNameBackground = thisRow:CreateTexture(nil, "BACKGROUND")
 			thisRow.spellNameBackground:SetPoint("TOPLEFT", thisRow.Background, "TOPLEFT", 5, -2)
@@ -2244,7 +2290,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			thisRow.spellNameBackground:SetBlendMode("MOD")
 			--]]
 
-			
+
 			-- Make the Spell Name Text
 			thisRow.spellName = thisRow:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
 			thisRow.spellName:SetWidth(columnWidth*2/3)
@@ -2262,7 +2308,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetPoint("RIGHT", 0, 0)
 			button:SetSize(24,24)
 			--button:SetText("x")
-			
+
 			button:SetNormalTexture(addonPath.."/assets/icon-x")
 			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 
@@ -2281,7 +2327,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
 			button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
 			button:SetPushedTexture(button.PushedTex)
-			
+
 			button:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
@@ -2293,7 +2339,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				GameTooltip_Hide()
 				self.Timer:Cancel()
 			end)
-			
+
 
 			-- Make the load button
 			thisRow.loadButton = CreateFrame("BUTTON", nil, thisRow)
@@ -2302,7 +2348,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
 			button:SetSize(24,24)
 			--button:SetText(EDIT)
-			
+
 			button:SetNormalTexture(addonPath.."/assets/icon-edit")
 			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 
@@ -2341,26 +2387,26 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				GameTooltip_Hide()
 				self.Timer:Cancel()
 			end)
-			
+
 			--
-			
+
 			thisRow.gossipButton = CreateFrame("BUTTON", nil, thisRow)
 			local button = thisRow.gossipButton
 			button.commID = k
 			button:SetPoint("TOP", thisRow.deleteButton, "BOTTOM", 0, 0)
 			button:SetSize(16,16)
-			
+
 			button:SetNormalAtlas("groupfinder-waitdot")
 			button.normal = button:GetNormalTexture()
 			button.normal:SetVertexColor(1,0.8,0)
 			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-			
+
 			button.speechIcon = button:CreateTexture(nil, "ARTWORK", nil, 7)
 			button.speechIcon:SetTexture("interface/gossipframe/chatbubblegossipicon")
 			button.speechIcon:SetSize(10,10)
 			button.speechIcon:SetTexCoord(1,0,0,1)
 			button.speechIcon:SetPoint("CENTER", button, "TOPRIGHT",-2,-1)
-			
+
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
 			button.DisabledTex:SetAtlas("groupfinder-waitdot")
@@ -2376,7 +2422,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
 			button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
 			button:SetPushedTexture(button.PushedTex)
-			
+
 			button:SetMotionScriptsWhileDisabled(true)
 			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 			button:SetScript("OnClick", function(self, button)
@@ -2389,11 +2435,11 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					editBoxInstructions = "Gossip Option Label Text (i.e., 'Cast the Spell!')",
 					editBoxWidth = 350,
 					maxLetters = 255-25-20-#savedSpellFromVault[self.commID].commID, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
-					OnButton1 = function(self, data) 
+					OnButton1 = function(self, data)
 						local text = self.editBox:GetText();
 						if self.insertedFrame.button:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast:"..savedSpellFromVault[data].commID..">") end
 					end,
-					OnButton2 = function(self, data) 
+					OnButton2 = function(self, data)
 						local text = self.editBox:GetText();
 						if self.insertedFrame.button:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_auto_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast_auto:"..savedSpellFromVault[data].commID..">") end
 					end,
@@ -2432,21 +2478,21 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				self.speechIcon:SetDesaturated(false)
 				self.speechIcon:SetVertexColor(1,1,1)
 			end)
-			
-			
+
+
 			-------------
 			thisRow.privateIconButton = CreateFrame("BUTTON", nil, thisRow)
 			local button = thisRow.privateIconButton
 			button.commID = k
 			button:SetSize(16,16)
 			button:SetPoint("RIGHT", thisRow.gossipButton, "LEFT", -8, 0)
-			
+
 			--button:SetNormalAtlas("UI_Editor_Eye_Icon")
 			button:SetNormalTexture(addonPath.."/assets/icon_visible_32")
 			button.normal = button:GetNormalTexture()
 			button.normal:SetVertexColor(0.9,0.65,0)
 			--button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-			
+
 			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 			button.DisabledTex:SetAllPoints(true)
 			--button.DisabledTex:SetAtlas("transmog-icon-hidden")
@@ -2454,9 +2500,9 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			--button.DisabledTex:SetDesaturated(true)
 			button.DisabledTex:SetVertexColor(.6,.6,.6)
 			button:SetDisabledTexture(button.DisabledTex)
-			
+
 			button:SetMotionScriptsWhileDisabled(true)
-			
+
 			button:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
@@ -2474,9 +2520,9 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				self.Timer:Cancel()
 			end)
 			----------
-			
+
 			--
-			
+
 			--[[
 			-- Transfer to Phase Button
 			thisRow.saveToPhaseButton = CreateFrame("BUTTON", nil, thisRow, "UIPanelButtonTemplate")
@@ -2506,7 +2552,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			end)
 			--]]
 		end
-		
+
 		-- Set the buttons stuff
 		do
 			-- make sure to set the data, otherwise it will still use old data if new spells have been saved since last.
@@ -2517,15 +2563,15 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			thisRow.privateIconButton.commID = k
 			thisRow.commID = k -- used in new Transfer to Phase Button
 			thisRow.rowID = rowNum
-			
+
 			thisRow.deleteButton:SetScript("OnClick", function(self, button)
 				if button == "LeftButton" then
 					deleteSpellConf(self.commID, currentVault)
 				elseif button == "RightButton" then
-					
+
 				end
 			end)
-			
+
 			-- NEED TO UPDATE THE ROWS IF WE ARE IN PHASE VAULT
 			if currentVault == "PERSONAL" then
 				--thisRow.loadButton:SetText(EDIT)
@@ -2540,7 +2586,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				thisRow.gossipButton:Hide()
 				thisRow.privateIconButton:Hide()
 				--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
-				
+
 				--[[	-- Replaced with the <-> Phase Vault button
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					thisRow.saveToPhaseButton:Show()
@@ -2548,14 +2594,14 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					thisRow.saveToPhaseButton:Hide()
 				end
 				--]]
-				
+
 			elseif currentVault == "PHASE" then
 				--thisRow.loadButton:SetText("Load")
 				--thisRow.saveToPhaseButton:Hide()
 				--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
 				--thisRow.Background:SetTexCoord(0,1,0,1)
 				--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Epic")
-				
+
 				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
 					thisRow.deleteButton:Show()
 					thisRow.deleteButton:ClearAllPoints()
@@ -2578,8 +2624,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					thisRow.gossipButton:Hide()
 					thisRow.privateIconButton:Hide()
 				end
-			end		
-			
+			end
+
 			-- Update the main row frame for mouse over - this allows us to hover & shift-click for links
 			thisRow:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -2621,7 +2667,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			end)
 			--]]
 		end
-		
+
 		-- Limit our Spell Name to 2 lines - but by downsizing the text instead of truncating..
 		do
 			local fontName,fontHeight,fontFlags = thisRow.spellName:GetFont()
@@ -2632,7 +2678,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				if fontHeight-1 <= 8 then break; end
 			end
 		end
-		
+
 		if currentVault=="PHASE" and v.private and not (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() or SpellCreatorMasterTable.Options["debug"]) then
 			thisRow:Hide()
 			numSkippedRows = numSkippedRows+1
@@ -2712,7 +2758,7 @@ local function saveSpell(mousebutton, fromPhaseVault)
 
 	if not fromPhaseVault then
 		for i = 1, numberOfSpellRows do
-		
+
 			local actionData = {}
 			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())
 			if actionData.delay and actionData.delay >= 0 then
@@ -2731,7 +2777,7 @@ local function saveSpell(mousebutton, fromPhaseVault)
 			end
 		end
 	end
-	
+
 	if #newSpellData.actions >= 1 then
 		--table.insert(SpellCreatorSavedSpells, newSpellData)
 		SpellCreatorSavedSpells[newSpellData.commID] = newSpellData
@@ -2818,7 +2864,7 @@ for k,v in pairs(newNineSliceOverride) do
 	SCForgeMainFrame.LoadSpellFrame.NineSlice[k]:SetTexCoord(v.txl, v.txr, v.txt, v.txb)
 end
 
-if vaultStyle == 2 then 
+if vaultStyle == 2 then
 	SCForgeMainFrame.LoadSpellFrame:SetPoint("TOPLEFT", SCForgeMainFrame, "TOPRIGHT", 0, 0)
 	SCForgeMainFrame.LoadSpellFrame:SetSize(280,SCForgeMainFrame:GetHeight())
 	SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("MEDIUM")
@@ -2860,7 +2906,7 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetSize(24,24)
 
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnClick", function(self, button)
 	if selectedVaultRow then
-		commID = spellLoadRows[selectedVaultRow].commID
+		local commID = spellLoadRows[selectedVaultRow].commID
 		saveSpellToPhaseVault(commID, IsShiftKeyDown())
 	end
 end)
@@ -2969,7 +3015,7 @@ SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetSize(24,24)
 
 SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnClick", function(self)
 	if selectedVaultRow then
-		commID = spellLoadRows[selectedVaultRow].commID
+		local commID = spellLoadRows[selectedVaultRow].commID
 		ddump(SCForge_PhaseVaultSpells[commID]) -- Dump the table of the phase vault spell for debug
 		saveSpell(nil, commID)
 	end
@@ -3023,7 +3069,7 @@ end)
 	scrollFrame:SetPoint("TOPLEFT", 0, -3)
 	scrollFrame:SetPoint("BOTTOMRIGHT", -24, 0)
 	scrollFrame.ScrollBar.scrollStep = loadRowHeight+5
-	
+
 	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetPoint("TOP", 0, -100)
 	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Loading...")
@@ -3032,15 +3078,15 @@ end)
 	local scrollChild = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.scrollChild
 	scrollFrame:SetScrollChild(scrollChild)
 	scrollChild:SetWidth(SCForgeMainFrame.LoadSpellFrame.Inset:GetWidth()-12)
-	scrollChild:SetHeight(1) 
-	
+	scrollChild:SetHeight(1)
+
 local function SpellForgeLoadFrame_Update()
 	local selectedTab = PanelTemplates_GetSelectedTab(SCForgeMainFrame.LoadSpellFrame)
 	if (selectedTab == 1) then
 		updateSpellLoadRows()
 	elseif (selectedTab == 2) then
 		updateSpellLoadRows()
-	end	
+	end
 end
 
 SCForgeMainFrame.LoadSpellFrame.TabButton1 = CreateFrame("BUTTON", "$parentTab1", SCForgeMainFrame.LoadSpellFrame, "TabButtonTemplate")
@@ -3173,7 +3219,7 @@ function ChatFrame_OnHyperlinkShow(...)
 	if IsModifiedClick() then return end
 	local linkType, linkData, displayText = LinkUtil.ExtractLink(select(3, ...))
 	if linkType == "arcSpell" then
-		spellComm, charOrPhase, spellName, numActions, spellDesc = strsplit(":", linkData)
+		local spellComm, charOrPhase, spellName, numActions, spellDesc = strsplit(":", linkData)
 		local spellIconPath = addonPath.."/assets/BookIcon"
 		local spellIconSize = 24
 		local spellIconSequence = "|T"..spellIconPath..":"..spellIconSize.."|t "
@@ -3221,7 +3267,7 @@ function ChatFrame_OnHyperlinkShow(...)
 					ItemRefTooltip:SetPadding(16, 0)
 				end
 			end)
-			
+
 	end
 end
 
@@ -3236,7 +3282,7 @@ local function scforge_showhide(where)
 	else
 		if not SCForgeMainFrame:IsShown() then
 			SCForgeMainFrame:Show()
-			if where == "enableMMIcon" and SpellCreatorMasterTable.Options["minimapIcon"] == nil then 
+			if where == "enableMMIcon" and SpellCreatorMasterTable.Options["minimapIcon"] == nil then
 				SpellCreatorMasterTable.Options["minimapIcon"] = true
 				UIFrameFlash(SpellCreatorMinimapButton.Flash, 1.0, 1.0, -1, false, 0, 0);
 				SpellCreatorMinimapButton:SetShown(true)
@@ -3252,9 +3298,9 @@ local minimapButton = CreateFrame("Button", "SpellCreatorMinimapButton", Minimap
 minimapButton:SetMovable(true)
 minimapButton:EnableMouse(true)
 minimapButton:SetSize(33,33)
-minimapButton:SetFrameStrata("MEDIUM"); 
-minimapButton:SetFrameLevel("62"); 
-minimapButton:SetClampedToScreen(true); 
+minimapButton:SetFrameStrata("MEDIUM");
+minimapButton:SetFrameLevel("62");
+minimapButton:SetClampedToScreen(true);
 minimapButton:SetClampRectInsets(5,-5,-5,5)
 minimapButton:SetPoint("TOPLEFT")
 minimapButton:RegisterForDrag("LeftButton","RightButton")
@@ -3323,7 +3369,7 @@ minimapButton.Flash:Hide()
 local function rainbowVertex(frame, parentIfNeeded)
 	frame.elapsed = 0
 	frame.rainbowVertex = true
-	scriptFrame = parentIfNeeded or frame
+	local scriptFrame = parentIfNeeded or frame
 	scriptFrame:HookScript("OnUpdate", function(self,elapsed)
 		if frame.rainbowVertex then
 			elapsed = elapsed/10
@@ -3449,10 +3495,10 @@ minimapButton:SetScript("OnEnter", function(self)
 	GameTooltip:AddDoubleLine(" ", addonTitle.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
 	GameTooltip:AddDoubleLine(" ", "by "..addonAuthor, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
 	GameTooltip:Show()
-	
+
 	if self.Flash:IsShown() then UIFrameFlashStop(self.Flash) end
 	self.Flash.rainbowVertex = false
-	
+
 end)
 minimapButton:SetScript("OnLeave", function(self)
 	self.highlight.anim:Pause()
@@ -3464,7 +3510,7 @@ minimapButton:SetScript("OnShow", function(self)
 	if not self.Flash:IsShown() then UIFrameFlash(self.Flash, 0.75, 0.75, 4.5, false, 0, 0); end
 	rainbowVertex(minimapButton.Flash, minimapButton)
 end)
-	
+
 local function LoadMinimapPosition()
 	local radian = tonumber(SpellCreatorMasterTable.Options["mmLoc"]) or 2.7
 	MinimapButton_UpdateAngle(radian);
@@ -3479,16 +3525,16 @@ function CreateSpellCreatorInterfaceOptions()
 	SpellCreatorInterfaceOptions = {};
 	SpellCreatorInterfaceOptions.panel = CreateFrame( "Frame", "SpellCreatorInterfaceOptionsPanel", UIParent );
 	SpellCreatorInterfaceOptions.panel.name = addonTitle;
-	
+
 	local SpellCreatorInterfaceOptionsHeader = SpellCreatorInterfaceOptions.panel:CreateFontString("HeaderString", "OVERLAY", "GameFontNormalLarge")
 	SpellCreatorInterfaceOptionsHeader:SetPoint("TOPLEFT", 15, -15)
 	SpellCreatorInterfaceOptionsHeader:SetText(addonTitle.." v"..addonVersion.." by "..addonAuthor)
-		
-	
+
+
 	local scrollFrame = CreateFrame("ScrollFrame", nil, SpellCreatorInterfaceOptions.panel, "UIPanelScrollFrameTemplate")
 	scrollFrame:SetPoint("TOPLEFT", 3, -75*3)
 	scrollFrame:SetPoint("BOTTOMRIGHT", -30, 30)
-	
+
 	scrollFrame.backdrop = CreateFrame("FRAME", nil, scrollFrame)
 	scrollFrame.backdrop:SetPoint("TOPLEFT", scrollFrame, 3, 3)
 	scrollFrame.backdrop:SetPoint("BOTTOMRIGHT", scrollFrame, 26, -3)
@@ -3516,7 +3562,7 @@ function CreateSpellCreatorInterfaceOptions()
 	local scrollChild = CreateFrame("Frame")
 	scrollFrame:SetScrollChild(scrollChild)
 	scrollChild:SetWidth(InterfaceOptionsFramePanelContainer:GetWidth()-18)
-	scrollChild:SetHeight(1) 
+	scrollChild:SetHeight(1)
 
 	-- Add widgets to the scrolling child frame as desired
 
@@ -3526,9 +3572,9 @@ function CreateSpellCreatorInterfaceOptions()
 	footer:SetPoint("TOP", 0, -5000)
 	footer:SetText("This is 5000 below the top, so the scrollChild automatically expanded.")
 --]]
-	
+
 	local function genOptionsCheckbutton(buttonData, parent)
-	
+
 		--[[
 		local buttonData = {
 		["anchor"] = {point = , relativeTo = , relativePoint = , x = , y = ,}, 
@@ -3558,8 +3604,8 @@ function CreateSpellCreatorInterfaceOptions()
 			SpellCreatorMasterTable.Options[buttonData.optionKey] = not SpellCreatorMasterTable.Options[buttonData.optionKey]
 			if buttonData.onClickHandler then buttonData.onClickHandler(button); end
 		end)
-		
-		
+
+
 		button:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			self.Timer = C_Timer.NewTimer(0.7,function()
@@ -3582,10 +3628,10 @@ function CreateSpellCreatorInterfaceOptions()
 		if buttonData.customOnLoad then buttonData.customOnLoad(); end
 		return button;
 	end
-	
+
 	--Minimap Icon Toggle
 	local buttonData = {
-		["anchor"] = {point = "TOPLEFT", relativeTo = nil, relativePoint = nil, x = 20, y = -40,}, 
+		["anchor"] = {point = "TOPLEFT", relativeTo = nil, relativePoint = nil, x = 20, y = -40,},
 		["title"] = "Enable Minimap Button",
 		["tooltipTitle"] = "Enable Minimap Button",
 		["tooltipText"] = nil,
@@ -3593,9 +3639,9 @@ function CreateSpellCreatorInterfaceOptions()
 		["onClickHandler"] = function(self) if SpellCreatorMasterTable.Options["minimapIcon"] then minimapButton:SetShown(true) else minimapButton:SetShown(false) end end,
 		}
 	SpellCreatorInterfaceOptions.panel.MinimapIconToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
-	
+
 	local buttonData = {
-		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.MinimapIconToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.MinimapIconToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
 		["title"] = "Use Larger Scrollable Input Box",
 		["tooltipTitle"] = "Use Larger Input Box.",
 		["tooltipText"] = "Switches the 'Input' entry box with a larger, scrollable editbox.\n\rRequires /reload to take affect after changing it.",
@@ -3603,9 +3649,9 @@ function CreateSpellCreatorInterfaceOptions()
 		["onClickHandler"] = function() StaticPopup_Show("SCFORGE_RELOADUI_REQUIRED") end,
 		}
 	SpellCreatorInterfaceOptions.panel.BiggerInputBoxToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
-	
+
 	local buttonData = {
-		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.BiggerInputBoxToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.BiggerInputBoxToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
 		["title"] = "AutoShow Vault",
 		["tooltipTitle"] = "AutpShow Vault",
 		["tooltipText"] = "Automatically show the Vault when you open the Forge.",
@@ -3615,7 +3661,7 @@ function CreateSpellCreatorInterfaceOptions()
 	SpellCreatorInterfaceOptions.panel.showVaultToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 
 	local buttonData = {
-		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.showVaultToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.showVaultToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
 		["title"] = "Clear Action Data when Removing Row",
 		["tooltipTitle"] = "Clear Action Data when Removing Row",
 		["tooltipText"] = "When an Action Row is removed using the |cffFFAAAA—|r button, the data is wiped. If off, you can use the |cff00AAFF+|r button and the data will still be there again.",
@@ -3625,7 +3671,7 @@ function CreateSpellCreatorInterfaceOptions()
 	SpellCreatorInterfaceOptions.panel.clearRowOnRemoveToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 
 	local buttonData = {
-		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.clearRowOnRemoveToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.clearRowOnRemoveToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
 		["title"] = "Load Actions Chronologically",
 		["tooltipTitle"] = "Load Chronologically by Delay",
 		["tooltipText"] = "When loading a spell, actions will be loaded in order of their delays, despite the order they were saved in.",
@@ -3635,7 +3681,7 @@ function CreateSpellCreatorInterfaceOptions()
 	SpellCreatorInterfaceOptions.panel.loadChronologicallyToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 
 	local buttonData = {
-		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.loadChronologicallyToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,}, 
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.loadChronologicallyToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
 		["title"] = "Show Tooltips",
 		["tooltipTitle"] = "Show Tooltips",
 		["tooltipText"] = "Show Tooltips when you mouse-over UI elements like buttons, editboxes, and spells in the vault, just like this one!",
@@ -3661,7 +3707,7 @@ function CreateSpellCreatorInterfaceOptions()
 			cprint("Toggled Debug (VERBOSE) Mode")
 		end
 	end)
-	
+
 	InterfaceOptions_AddCategory(SpellCreatorInterfaceOptions.panel);
 	updateSCInterfaceOptions() -- Call this because OnShow isn't triggered first time, and neither is OnLoad for some reason, so lets just update them manually
 end
@@ -3692,7 +3738,7 @@ local function onCommReceived(prefix, message, channel, sender)
 			isSavingOrLoadingPhaseAddonData = false
 			dprint("Phase Vault IO for Phase "..phaseID.." was unlocked by Addon Message")
 			lockTimer:Cancel()
-		end	
+		end
 	end
 end
 local function aceCommInit()
@@ -3725,30 +3771,30 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		isSavingOrLoadingPhaseAddonData = false
 		C_Epsilon.IsDM = false
 		updateSpellLoadRows();
-		
-		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then 
+
+		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then
 			SCForgeMainFrame.ExecuteSpellButton:Disable()
 		else
 			SCForgeMainFrame.ExecuteSpellButton:Enable()
 		end
-		
+
 		return;
-		
+
 	-- Addon Loaded Handler
 	elseif event == "ADDON_LOADED" and (name == addonName) then
 		SC_loadMasterTable();
 		LoadMinimapPosition();
 		aceCommInit()
-	
+
 		local channelType, channelName = JoinChannelByName("scforge_comm")
 		scforge_ChannelID = GetChannelName("scforge_comm")
-	
+
 		--Quickly Show / Hide the Frame on Start-Up to initialize everything for key bindings & loading
 		CTimerAfter(1,function()
 			SCForgeMainFrame:Show();
 			if not SpellCreatorMasterTable.Options["debug"] then SCForgeMainFrame:Hide(); --[[ SCForgeLoadFrame:Hide() ]] end
 		end)
-		
+
 		-- Adjust Radial Offset for Minimap Icon for alternate UI Overhaul Addons
 		if IsAddOnLoaded("AzeriteUI") then
 			RadialOffset = 18;
@@ -3764,14 +3810,14 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		else
 			RadialOffset = 10;
 		end
-		
+
 		CreateSpellCreatorInterfaceOptions()
-				
+
 		-- Gen the first few spell rows
 		AddSpellRow()
 		AddSpellRow()
 		AddSpellRow()
-		
+
 		isAddonLoaded = true
 
 		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then
@@ -3789,24 +3835,24 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 	-- Gossip Menu Listener
 	elseif event == "GOSSIP_SHOW" then
-		
+
 		local spellsToCast = {} -- outside the for loops so we don't reset it every loop iteration
 		local shouldAutoHide = false
 		local shouldLoadSpellVault = false
-		
+
 		for i = 1, GetNumGossipOptions() do
 			--[[	-- Replaced with a memory of modifiedGossips that we reset when gossip is closed instead.
 			_G["GossipTitleButton" .. i]:SetScript("OnClick", function()
 				SelectGossipOption(i)
 			end)
-			--]] 
+			--]]
 			local titleButton = _G["GossipTitleButton" .. i]
 			local titleButtonText = titleButton:GetText();
 			if not titleButtonText then
 				local immersionButton = _G["ImmersionTitleButton"..i]
 				if immersionButton then titleButton = immersionButton; titleButtonText = immersionButton:GetText() end
 			end
-			
+
 --			if titleButtonText:match("<arcanum_") then titleButton:SetScript("OnClick", function() end) end
 			if titleButtonText:match("<arcanum_auto>") then
 				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
@@ -3818,7 +3864,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 					CloseGossip();
 					scforge_showhide("enableMMIcon");
 				end
-				
+
 			elseif titleButtonText:match("<arcanum_toggle>") then
 				if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
 					titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
@@ -3831,13 +3877,13 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				modifiedGossips[i] = titleButton
 			elseif titleButtonText:match("<arcanum_save:.*>") then
 				local payLoad = titleButtonText:match("<arcanum_save:(.*)>")
-				
+
 			end
-					
+
 			if titleButtonText:match("<arcanum_cast") then
-				
+
 				shouldLoadSpellVault = true
-				
+
 				local patterns = {
 					"<arcanum_cast:(.*)>",
 					"<arcanum_cast_hide:(.*)>",
@@ -3850,7 +3896,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 					if titleButtonText:match(patterns[n]) then
 						local payLoad = string.match(titleButtonText, patterns[n]);
 						local shouldHide = false
-						
+
 						if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
 
 							if titleButtonText:match("<arcanum_cast_.*hide:") then -- Only close gossip frame if "hide" is part of the tag.
@@ -3880,21 +3926,21 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 								end
 							end
 							if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault. Please let a phase officer know.") end
-							if shouldHide then CloseGossip(); end 
+							if shouldHide then CloseGossip(); end
 						end)
 						modifiedGossips[i] = titleButton
-						
+
 					end
 				end
 				if shouldAutoHide then CloseGossip(); end
 			end
-			
+
 			GossipResize(titleButton)
-			
+
 		end
 
 		if shouldLoadSpellVault and not isGossipLoaded then
-			getSpellForgePhaseVault(function(ready) 
+			getSpellForgePhaseVault(function(ready)
 				if next(spellsToCast) == nil then dprint("No Auto Cast Spells in Gossip"); return; end
 				local spellRanSuccessfully
 				for i,j in pairs(spellsToCast) do
@@ -3909,22 +3955,22 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				spellsToCast = {} -- empty the table.
 			end)
 		end
-		
+
 		isGossipLoaded = true
 		updateGossipVaultButtons(true)
 
 	elseif event == "GOSSIP_CLOSED" then
-	
+
 		for k,v in pairs(modifiedGossips) do
 			v:SetScript("OnClick", function()
 				SelectGossipOption(k)
 			end)
 			modifiedGossips[k] = nil
 		end
-		
+
 		isGossipLoaded = false
 		updateGossipVaultButtons(false)
-		
+
 	end
 
 end);
@@ -4120,7 +4166,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 
 				phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
-				
+
 				phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 						phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
@@ -4138,16 +4184,16 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 				end)
 			else
 				dprint(true, "removePhaseKey -- You need to prove the numerical ID (from getPhaseKeys) of the key to remove. This does not remove the spells data, only removes it's key from the key list, although you will not be able to access the spell afterwords.")
-			end		
+			end
 		elseif command == "getPhaseSpellData" then
 			local interAction
-			if rest and rest ~= "" then 
+			if rest and rest ~= "" then
 				dprint(true, "Retrieving Phase Vault Data for Key: '"..rest.."'")
-				
+
 				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S_"..rest)
 
 				phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
-				
+
 				phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 						phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
@@ -4167,16 +4213,16 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 				phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 						phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
-						
+
 						if (#text < 1 or text == "") then noSpellsToLoad(true); return; end
 						phaseVaultKeys = serialDecompressForAddonMsg(text)
 						if #phaseVaultKeys < 1 then noSpellsToLoad(true); return; end
 						local phaseVaultLoadingCount = 0
 						local phaseVaultLoadingExpected = #phaseVaultKeys
 						local messageTicketQueue = {}
-						
+
 						-- set up the phaseAddonDataListener2 ahead of time instead of EVERY SINGLE FUCKING ITERATION..
-						
+
 						phaseAddonDataListener2:RegisterEvent("CHAT_MSG_ADDON")
 						phaseAddonDataListener2:SetScript("OnEvent", function (self, event, prefix, text, channel, sender, ...)
 							if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
@@ -4193,7 +4239,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 								end
 							end
 						end)
-						
+
 						for k,v in ipairs(phaseVaultKeys) do
 							--phaseVaultLoadingExpected = k
 							dprint(true, "Trying to load spell from phase: "..v)
@@ -4209,7 +4255,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 			local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 
 			phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
-			
+
 			phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 				if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 					phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
@@ -4219,7 +4265,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 					dump(phaseVaultKeys)
 				end
 			end)
-		
+
 		end
 	else
 		cprint("DEBUG LIST")
@@ -4250,5 +4296,5 @@ function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
 		setRuneTex(runeIconOverlay)
 	end
 --]]
-	
+
 end
