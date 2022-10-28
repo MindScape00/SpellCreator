@@ -4,8 +4,6 @@ local addonPath = "Interface/AddOns/"..tostring(addonName)
 
 local addonColor = "|cff".."ce2eff" -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
 local addonMsgPrefix = "SCFORGE"
-local isAddonLoaded = false
-local useRevertCheckbox = false
 
 local localization = {}
 localization.SPELLNAME = STAT_CATEGORY_SPELL.." "..NAME
@@ -724,8 +722,7 @@ local mainFrameSize = {
 local delayColumnWidth = 100
 local actionColumnWidth = 100
 local selfColumnWidth = 32
-local InputEntryColumnWidth = 140
-if not useRevertCheckbox then InputEntryColumnWidth = InputEntryColumnWidth+42 end
+local InputEntryColumnWidth = 140+42
 local revertCheckColumnWidth = 60
 local revertDelayColumnWidth = 80
 
@@ -859,14 +856,10 @@ StaticPopupDialogs["SCFORGE_RELOADUI_REQUIRED"] = {
 -- Main UI Frame
 -------------------------------------------------------------------------------
 
-local function RemoveSpellRow()
-	if numberOfSpellRows <= 1 then return; end
-	local theSpellRow = _G["spellRow"..numberOfSpellRows]
-	theSpellRow:Hide()
-
-	if SpellCreatorMasterTable.Options["clearRowOnRemove"] then
+local function RemoveSpellRow(rowToRemove)
+	if numberOfSpellRows <= 1 then 
+		local theSpellRow = _G["spellRow"..numberOfSpellRows]
 		theSpellRow.mainDelayBox:SetText("")
-
 		for k,v in pairs(theSpellRow.menuList) do
 			v.checked = false
 		end
@@ -876,9 +869,49 @@ local function RemoveSpellRow()
 
 		theSpellRow.SelfCheckbox:SetChecked(false)
 		theSpellRow.InputEntryBox:SetText("")
-		if useRevertCheckbox then
-			theSpellRow.RevertCheckbox:SetChecked(false)
+		theSpellRow.RevertDelayBox:SetText("")
+		return;
+	end
+
+	if rowToRemove then
+		for i = rowToRemove, numberOfSpellRows-1 do
+			local theRowToSet = _G["spellRow"..i]
+			local theRowToGrab = _G["spellRow"..i+1]
+
+			for k,v in pairs(theRowToSet.menuList) do
+				v.checked = false
+			end
+
+			-- theRowToSet.actionSelectButton.Dropdown
+			-- theRowToGrab.actionSelectButton.Dropdown
+			UIDropDownMenu_SetSelectedID(_G["spellRow"..i.."ActionSelectButton"], 0)
+			_G["spellRow"..i.."ActionSelectButtonText"]:SetText("Action")
+			updateSpellRowOptions(i, nil)
+			
+			theRowToSet.mainDelayBox:SetText(theRowToGrab.mainDelayBox:GetText())
+			theRowToSet.SelfCheckbox:SetChecked(theRowToGrab.SelfCheckbox:GetChecked())
+			theRowToSet.InputEntryBox:SetText(theRowToGrab.InputEntryBox:GetText())
+			theRowToSet.RevertDelayBox:SetText(theRowToGrab.RevertDelayBox:GetText())
 		end
+	end
+
+	-- Now that we moved the data, let's delete the last row..
+	local theSpellRow = _G["spellRow"..numberOfSpellRows]
+	theSpellRow:Hide()
+
+	if SpellCreatorMasterTable.Options["clearRowOnRemove"] then
+		theSpellRow.mainDelayBox:SetText("")
+
+		for k,v in pairs(theSpellRow.menuList) do
+			v.checked = false
+		end
+		-- theSpellRow.actionSelectButton.Dropdown
+		UIDropDownMenu_SetSelectedID(theSpellRow.actionSelectButton.Dropdown, 0)
+		theSpellRow.actionSelectButton.Dropdown.Text:SetText("Action")
+		updateSpellRowOptions(numberOfSpellRows, nil)
+
+		theSpellRow.SelfCheckbox:SetChecked(false)
+		theSpellRow.InputEntryBox:SetText("")
 		theSpellRow.RevertDelayBox:SetText("")
 	end
 
@@ -889,6 +922,8 @@ local function RemoveSpellRow()
 	if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Enable() end
 	if numberOfSpellRows <= 1 then SCForgeMainFrame.RemoveSpellRowButton:Disable() end
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
+
+	SCForgeMainFrame.AddRowRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows, "BOTTOMLEFT", 0, 0)
 end
 
 local function AddSpellRow()
@@ -1065,28 +1100,6 @@ local function AddSpellRow()
 			self.Timer:Cancel()
 		end)
 
-
-		-- Revert Checkbox
-		if useRevertCheckbox then
-			newRow.RevertCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."RevertCheckbox", newRow, "UICheckButtonTemplate")
-			newRow.RevertCheckbox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 10, 0)
-			newRow.RevertCheckbox.RowID = numberOfSpellRows
-			newRow.RevertCheckbox:Disable()
-			newRow.RevertCheckbox:SetMotionScriptsWhileDisabled(true)
-			newRow.RevertCheckbox:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Revert the Action", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("Enabling causes the action to revert (reverse, undo) after the specified Revert Delay time.\n\rSee actions tooltip info for what the revert action is.", 1,1,1,true)
-					GameTooltip:Show()
-				end)
-			end)
-			newRow.RevertCheckbox:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-		end
-
 		-- Revert Delay Box
 
 		newRow.RevertDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."RevertDelayBox", newRow, "InputBoxInstructionsTemplate")
@@ -1098,11 +1111,7 @@ local function AddSpellRow()
 		newRow.RevertDelayBox:SetAutoFocus(false)
 		newRow.RevertDelayBox:Disable()
 		newRow.RevertDelayBox:SetSize(revertDelayColumnWidth,23)
-		if useRevertCheckbox then
-			newRow.RevertDelayBox:SetPoint("LEFT", newRow.RevertCheckbox, "RIGHT", 25, 0)
-		else
-			newRow.RevertDelayBox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 25, 0)
-		end
+		newRow.RevertDelayBox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 25, 0)
 		newRow.RevertDelayBox:SetMaxLetters(10)
 
 		newRow.RevertDelayBox:HookScript("OnTextChanged", function(self)
@@ -1130,15 +1139,6 @@ local function AddSpellRow()
 			self.Timer:Cancel()
 		end)
 
-		--Sync Revert Delaybox & Checkbox Disable/Enable
-		if useRevertCheckbox then
-			newRow.RevertCheckbox:SetScript("OnClick", function(self)
-				local checked = self:GetChecked()
-				local rowID = self.RowID
-				if checked then _G["spellRow"..rowID.."RevertDelayBox"]:Enable() else _G["spellRow"..rowID.."RevertDelayBox"]:Disable() end
-			end)
-		end
-
 	-- Make Tab work to switch edit boxes
 
 	end
@@ -1165,7 +1165,7 @@ local function AddSpellRow()
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
 end
 
-local function updateSpellRowOptions(row, selectedAction)
+function updateSpellRowOptions(row, selectedAction)
 		-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
 	if selectedAction then -- if we call it with no action, reset
 		_G["spellRow"..row.."SelectedAction"] = selectedAction
@@ -1179,10 +1179,8 @@ local function updateSpellRowOptions(row, selectedAction)
 			_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("n/a")
 		end
 		if actionTypeData[selectedAction].revert then
-			if useRevertCheckbox then _G["spellRow"..row.."RevertCheckbox"]:Enable(); end
 			_G["spellRow"..row.."RevertDelayBox"]:Enable();
 		else
-			if useRevertCheckbox then _G["spellRow"..row.."RevertCheckbox"]:Disable(); end
 			_G["spellRow"..row.."RevertDelayBox"]:Disable();
 		end
 	else
@@ -1190,7 +1188,6 @@ local function updateSpellRowOptions(row, selectedAction)
 		_G["spellRow"..row.."SelfCheckbox"]:Disable()
 		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("select an action...")
 		_G["spellRow"..row.."InputEntryBox"]:Disable()
-		if useRevertCheckbox then _G["spellRow"..row.."RevertCheckbox"]:Disable(); end
 		_G["spellRow"..row.."RevertDelayBox"]:Disable()
 	end
 end
@@ -1490,67 +1487,54 @@ end
 	scrollFrame.ScrollBar.scrollStep = rowHeight
 
 SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame.Inset)
-SCForgeMainFrame.TitleBar:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 25, -8)
-SCForgeMainFrame.TitleBar:SetSize(mainFrameSize.x-50, 24)
---SCForgeMainFrame.TitleBar:SetHeight(20)
+	SCForgeMainFrame.TitleBar:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 25, -8)
+	SCForgeMainFrame.TitleBar:SetSize(mainFrameSize.x-50, 24)
+	--SCForgeMainFrame.TitleBar:SetHeight(20)
 
-SCForgeMainFrame.TitleBar.Background = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 5)
-SCForgeMainFrame.TitleBar.Background:SetAllPoints()
-SCForgeMainFrame.TitleBar.Background:SetColorTexture(0,0,0,0.25)
-local titleBackgroundClamp = 0
-SCForgeMainFrame.TitleBar.Background:SetPoint("TOPLEFT",-3+titleBackgroundClamp,0)
-SCForgeMainFrame.TitleBar.Background:SetPoint("BOTTOMRIGHT",-8-titleBackgroundClamp,0)
+	SCForgeMainFrame.TitleBar.Background = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 5)
+		SCForgeMainFrame.TitleBar.Background:SetAllPoints()
+		SCForgeMainFrame.TitleBar.Background:SetColorTexture(0,0,0,0.25)
+		local titleBackgroundClamp = 0
+		SCForgeMainFrame.TitleBar.Background:SetPoint("TOPLEFT",-3+titleBackgroundClamp,0)
+		SCForgeMainFrame.TitleBar.Background:SetPoint("BOTTOMRIGHT",-8-titleBackgroundClamp,0)
 
-SCForgeMainFrame.TitleBar.Overlay = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 6)
-SCForgeMainFrame.TitleBar.Overlay:SetAllPoints(SCForgeMainFrame.TitleBar.Background)
---SCForgeMainFrame.TitleBar.Overlay:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
-SCForgeMainFrame.TitleBar.Overlay:SetAtlas("search-select")
-SCForgeMainFrame.TitleBar.Overlay:SetDesaturated(true)
-SCForgeMainFrame.TitleBar.Overlay:SetVertexColor(0.35,0.7,0.85)
---SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.208,1-0.209,0,1-0)
+	SCForgeMainFrame.TitleBar.Overlay = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 6)
+		SCForgeMainFrame.TitleBar.Overlay:SetAllPoints(SCForgeMainFrame.TitleBar.Background)
+		--SCForgeMainFrame.TitleBar.Overlay:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+		SCForgeMainFrame.TitleBar.Overlay:SetAtlas("search-select")
+		SCForgeMainFrame.TitleBar.Overlay:SetDesaturated(true)
+		SCForgeMainFrame.TitleBar.Overlay:SetVertexColor(0.35,0.7,0.85)
+		--SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.208,1-0.209,0,1-0)
 
-SCForgeMainFrame.TitleBar.MainDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-SCForgeMainFrame.TitleBar.MainDelay:SetWidth(delayColumnWidth)
-SCForgeMainFrame.TitleBar.MainDelay:SetJustifyH("CENTER")
-SCForgeMainFrame.TitleBar.MainDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar, "LEFT", 13+25, 0)
-SCForgeMainFrame.TitleBar.MainDelay:SetText("Delay")
+	SCForgeMainFrame.TitleBar.MainDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
+		SCForgeMainFrame.TitleBar.MainDelay:SetWidth(delayColumnWidth)
+		SCForgeMainFrame.TitleBar.MainDelay:SetJustifyH("CENTER")
+		SCForgeMainFrame.TitleBar.MainDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar, "LEFT", 13+25, 0)
+		SCForgeMainFrame.TitleBar.MainDelay:SetText("Delay")
 
-SCForgeMainFrame.TitleBar.Action = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-SCForgeMainFrame.TitleBar.Action:SetWidth(actionColumnWidth+50)
-SCForgeMainFrame.TitleBar.Action:SetJustifyH("CENTER")
-SCForgeMainFrame.TitleBar.Action:SetPoint("LEFT", SCForgeMainFrame.TitleBar.MainDelay, "RIGHT", 0, 0)
-SCForgeMainFrame.TitleBar.Action:SetText("Action")
+	SCForgeMainFrame.TitleBar.Action = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
+		SCForgeMainFrame.TitleBar.Action:SetWidth(actionColumnWidth+50)
+		SCForgeMainFrame.TitleBar.Action:SetJustifyH("CENTER")
+		SCForgeMainFrame.TitleBar.Action:SetPoint("LEFT", SCForgeMainFrame.TitleBar.MainDelay, "RIGHT", 0, 0)
+		SCForgeMainFrame.TitleBar.Action:SetText("Action")
 
-SCForgeMainFrame.TitleBar.Self = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-SCForgeMainFrame.TitleBar.Self:SetWidth(selfColumnWidth+10)
-SCForgeMainFrame.TitleBar.Self:SetJustifyH("CENTER")
-SCForgeMainFrame.TitleBar.Self:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Action, "RIGHT", -9, 0)
-SCForgeMainFrame.TitleBar.Self:SetText("Self")
+	SCForgeMainFrame.TitleBar.Self = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
+		SCForgeMainFrame.TitleBar.Self:SetWidth(selfColumnWidth+10)
+		SCForgeMainFrame.TitleBar.Self:SetJustifyH("CENTER")
+		SCForgeMainFrame.TitleBar.Self:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Action, "RIGHT", -9, 0)
+		SCForgeMainFrame.TitleBar.Self:SetText("Self")
 
-SCForgeMainFrame.TitleBar.InputEntry = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-SCForgeMainFrame.TitleBar.InputEntry:SetWidth(InputEntryColumnWidth)
-SCForgeMainFrame.TitleBar.InputEntry:SetJustifyH("CENTER")
-SCForgeMainFrame.TitleBar.InputEntry:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Self, "RIGHT", 5, 0)
-SCForgeMainFrame.TitleBar.InputEntry:SetText("Input")
+	SCForgeMainFrame.TitleBar.InputEntry = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
+		SCForgeMainFrame.TitleBar.InputEntry:SetWidth(InputEntryColumnWidth)
+		SCForgeMainFrame.TitleBar.InputEntry:SetJustifyH("CENTER")
+		SCForgeMainFrame.TitleBar.InputEntry:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Self, "RIGHT", 5, 0)
+		SCForgeMainFrame.TitleBar.InputEntry:SetText("Input")
 
-if useRevertCheckbox then
-	SCForgeMainFrame.TitleBar.RevertCheck = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-	SCForgeMainFrame.TitleBar.RevertCheck:SetWidth(revertCheckColumnWidth+10)
-	SCForgeMainFrame.TitleBar.RevertCheck:SetJustifyH("CENTER")
-	SCForgeMainFrame.TitleBar.RevertCheck:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 5, 0)
-	SCForgeMainFrame.TitleBar.RevertCheck:SetText("Revert")
-end
-
-SCForgeMainFrame.TitleBar.RevertDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-SCForgeMainFrame.TitleBar.RevertDelay:SetWidth(revertDelayColumnWidth)
-SCForgeMainFrame.TitleBar.RevertDelay:SetJustifyH("CENTER")
-if useRevertCheckbox then
-	SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.RevertCheck, "RIGHT", 0, 0)
-	SCForgeMainFrame.TitleBar.RevertDelay:SetText("Delay")
-else
-	SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 25, 0)
-	SCForgeMainFrame.TitleBar.RevertDelay:SetText("Revert")
-end
+	SCForgeMainFrame.TitleBar.RevertDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
+		SCForgeMainFrame.TitleBar.RevertDelay:SetWidth(revertDelayColumnWidth)
+		SCForgeMainFrame.TitleBar.RevertDelay:SetJustifyH("CENTER")
+		SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 25, 0)
+		SCForgeMainFrame.TitleBar.RevertDelay:SetText("Revert")
 
 SCForgeMainFrame.AddRowRow = CreateFrame("Frame", nil, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
 local _frame = SCForgeMainFrame.AddRowRow
@@ -1870,31 +1854,27 @@ local function loadSpell(spellToLoad)
 	-- Loop thru actions & set their data
 	local rowNum, actionData
 	for rowNum, actionData in ipairs(spellActions) do
+		local _spellRow = _G["spellRow"..rowNum]
 		if actionData.actionType == "reset" then
-			UIDropDownMenu_SetSelectedID(_G["spellRow"..rowNum.."ActionSelectButton"], 0)
-			_G["spellRow"..rowNum.."ActionSelectButtonText"]:SetText("Action")
+			UIDropDownMenu_SetSelectedID(_spellRow.actionSelectButton.Dropdown, 0)
+			_spellRow.actionSelectButton.Dropdown.Text:SetText("Action")
 			updateSpellRowOptions(rowNum)
 		else
-			for k,v in pairs(_G["spellRow"..rowNum].menuList) do
+			for k,v in pairs(_spellRow.menuList) do
 				v.checked = false
 			end
-			UIDropDownMenu_SetSelectedID(_G["spellRow"..rowNum.."ActionSelectButton"], get_Table_Position(actionData.actionType, actionTypeDataList))
-			_G["spellRow"..rowNum.."ActionSelectButtonText"]:SetText(actionTypeData[actionData.actionType].name)
+			UIDropDownMenu_SetSelectedID(_spellRow.actionSelectButton.Dropdown, get_Table_Position(actionData.actionType, actionTypeDataList))
+			_spellRow.actionSelectButton.Dropdown.Text:SetText(actionTypeData[actionData.actionType].name)
 			updateSpellRowOptions(rowNum, actionData.actionType)
 		end
 
-		_G["spellRow"..rowNum.."MainDelayBox"]:SetText(tonumber(actionData.delay) or "") --delay
-		if actionData.selfOnly then _G["spellRow"..rowNum.."SelfCheckbox"]:SetChecked(true) else _G["spellRow"..rowNum.."SelfCheckbox"]:SetChecked(false) end --SelfOnly
-		if actionData.vars then _G["spellRow"..rowNum.."InputEntryBox"]:SetText(actionData.vars) else _G["spellRow"..rowNum.."InputEntryBox"]:SetText("") end --Input Entrybox
+		_spellRow.mainDelayBox:SetText(tonumber(actionData.delay) or "") --delay
+		if actionData.selfOnly then _spellRow.SelfCheckbox:SetChecked(true) else _spellRow.SelfCheckbox:SetChecked(false) end --SelfOnly
+		if actionData.vars then _spellRow.InputEntryBox:SetText(actionData.vars) else _spellRow.InputEntryBox:SetText("") end --Input Entrybox
 		if actionData.revertDelay then
-			_G["spellRow"..rowNum.."RevertDelayBox"]:SetText(actionData.revertDelay) --revertDelay
-			if useRevertCheckbox then _G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(true); end--Revert Checkbox
+			_spellRow.RevertDelayBox:SetText(actionData.revertDelay) --revertDelay
 		else
-			_G["spellRow"..rowNum.."RevertDelayBox"]:SetText("") --revertDelay
-			if useRevertCheckbox then
-				_G["spellRow"..rowNum.."RevertDelayBox"]:Disable() --revertDelay
-				_G["spellRow"..rowNum.."RevertCheckbox"]:SetChecked(false) --Revert Checkbox
-			end
+			_spellRow.RevertDelayBox:SetText("") --revertDelay
 		end
 	end
 end
@@ -3817,8 +3797,6 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		AddSpellRow()
 		AddSpellRow()
 		AddSpellRow()
-
-		isAddonLoaded = true
 
 		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then
 			SCForgeMainFrame.ExecuteSpellButton:Disable()
