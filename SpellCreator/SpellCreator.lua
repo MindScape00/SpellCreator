@@ -863,7 +863,7 @@ local function RemoveSpellRow(rowToRemove)
 		for k,v in pairs(theSpellRow.menuList) do
 			v.checked = false
 		end
-		UIDropDownMenu_SetSelectedID(_theSpellRow.actionSelectButton.Dropdown, 0)
+		UIDropDownMenu_SetSelectedID(theSpellRow.actionSelectButton.Dropdown, 0)
 		theSpellRow.actionSelectButton.Dropdown.Text:SetText("Action")
 		updateSpellRowOptions(numberOfSpellRows, nil)
 
@@ -1211,7 +1211,7 @@ local function AddSpellRow()
 				self.RemoveSpellRowButton:Show()
 			end)
 			newRow.RemoveSpellRowButton:Hide()
-			
+
 	end
 	-- Make Tab work to switch edit boxes
 
@@ -1722,49 +1722,52 @@ SCForgeMainFrame:SetScript("OnSizeChanged", function(self)
 	SCForgeMainFrame.SpellInfoCommandBox:SetSize(SCForgeMainFrame:GetWidth()/6,23)
 end)
 
+--[[ -- Replaced!
 SCForgeMainFrame.AddSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
-SCForgeMainFrame.AddSpellRowButton:SetPoint("BOTTOMRIGHT", -40, 2)
-SCForgeMainFrame.AddSpellRowButton:SetSize(24,24)
+	SCForgeMainFrame.AddSpellRowButton:SetPoint("BOTTOMRIGHT", -40, 2)
+	SCForgeMainFrame.AddSpellRowButton:SetSize(24,24)
 
---local _atlas = "Garr_Building-AddFollowerPlus"
-local _atlas = "communities-chat-icon-plus"
-SCForgeMainFrame.AddSpellRowButton:SetNormalAtlas(_atlas)
-SCForgeMainFrame.AddSpellRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+	--local _atlas = "Garr_Building-AddFollowerPlus"
+	local _atlas = "communities-chat-icon-plus"
+	SCForgeMainFrame.AddSpellRowButton:SetNormalAtlas(_atlas)
+	SCForgeMainFrame.AddSpellRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 
-SCForgeMainFrame.AddSpellRowButton.DisabledTex = SCForgeMainFrame.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
-SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetAllPoints(true)
-SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetAtlas(_atlas)
-SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetDesaturated(true)
-SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
-SCForgeMainFrame.AddSpellRowButton:SetDisabledTexture(SCForgeMainFrame.AddSpellRowButton.DisabledTex)
+	SCForgeMainFrame.AddSpellRowButton.DisabledTex = SCForgeMainFrame.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
+	SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetAllPoints(true)
+	SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetAtlas(_atlas)
+	SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetDesaturated(true)
+	SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
+	SCForgeMainFrame.AddSpellRowButton:SetDisabledTexture(SCForgeMainFrame.AddSpellRowButton.DisabledTex)
 
-SCForgeMainFrame.AddSpellRowButton.PushedTex = SCForgeMainFrame.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
-SCForgeMainFrame.AddSpellRowButton.PushedTex:SetAllPoints(true)
-SCForgeMainFrame.AddSpellRowButton.PushedTex:SetAtlas(_atlas)
-SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-SCForgeMainFrame.AddSpellRowButton:SetPushedTexture(SCForgeMainFrame.AddSpellRowButton.PushedTex)
+	SCForgeMainFrame.AddSpellRowButton.PushedTex = SCForgeMainFrame.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
+	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetAllPoints(true)
+	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetAtlas(_atlas)
+	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+	SCForgeMainFrame.AddSpellRowButton:SetPushedTexture(SCForgeMainFrame.AddSpellRowButton.PushedTex)
 
-SCForgeMainFrame.AddSpellRowButton:SetMotionScriptsWhileDisabled(true)
-SCForgeMainFrame.AddSpellRowButton:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Add another Action row.", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Max number of Rows: "..maxNumberOfSpellRows,1,1,1,true)
-		GameTooltip:Show()
+	SCForgeMainFrame.AddSpellRowButton:SetMotionScriptsWhileDisabled(true)
+	SCForgeMainFrame.AddSpellRowButton:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		self.Timer = C_Timer.NewTimer(0.7,function()
+			GameTooltip:SetText("Add another Action row.", nil, nil, nil, nil, true)
+			GameTooltip:AddLine("Max number of Rows: "..maxNumberOfSpellRows,1,1,1,true)
+			GameTooltip:Show()
+		end)
 	end)
-end)
-SCForgeMainFrame.AddSpellRowButton:SetScript("OnLeave", function(self)
-	GameTooltip_Hide()
-	self.Timer:Cancel()
-end)
-SCForgeMainFrame.AddSpellRowButton:SetScript("OnClick", function(self)
-	AddSpellRow()
-end)
+	SCForgeMainFrame.AddSpellRowButton:SetScript("OnLeave", function(self)
+		GameTooltip_Hide()
+		self.Timer:Cancel()
+	end)
+	SCForgeMainFrame.AddSpellRowButton:SetScript("OnClick", function(self)
+		AddSpellRow()
+	end)
+--]]
 
--- Remove Spell Row Button
+-- Remove Spell Row Button -- Replaced!
+--[[
 SCForgeMainFrame.RemoveSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
 SCForgeMainFrame.RemoveSpellRowButton:SetPoint("RIGHT", SCForgeMainFrame.AddSpellRowButton, "LEFT", -5, 0)
 SCForgeMainFrame.RemoveSpellRowButton:SetSize(24,24)
@@ -1805,11 +1808,12 @@ end)
 SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnClick", function(self)
 	RemoveSpellRow()
 end)
+--]]
 
 -- Revert Forge UI Rows Button
 SCForgeMainFrame.ResetUIButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
 local button = SCForgeMainFrame.ResetUIButton
-button:SetPoint("RIGHT", SCForgeMainFrame.RemoveSpellRowButton, "LEFT", -5, 0)
+button:SetPoint("BOTTOMRIGHT", -40, 2)
 button:SetSize(24,24)
 
 button:SetNormalAtlas("transmog-icon-revert")
@@ -3891,6 +3895,27 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		local spellsToCast = {} -- outside the for loops so we don't reset it every loop iteration
 		local shouldAutoHide = false
 		local shouldLoadSpellVault = false
+		local useImmersion = false
+		local payLoad
+		local greetingPayLoad
+
+		-- add GossipGreetingText support
+		local gossipGreetingText = GossipGreetingText:GetText()
+		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText; useImmersion = true; end
+		if gossipGreetingText:match("<arcanum_cast_auto.*>") then
+			shouldLoadSpellVault = true
+			greetingPayLoad = gossipGreetingText:match("<arcanum_cast_auto.*:(.*)>")
+			if useImmersion then
+				ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub("<arcanum_cast_auto.*:(.*)>", "")
+				ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub("<arcanum_cast_auto.*:(.*)>"))
+			else
+				GossipGreetingText:SetText(gossipGreetingText:gsub("<arcanum_cast_auto.*:(.*)>", ""))
+			end
+			table.insert(spellsToCast, greetingPayLoad)
+			print("Saw a gossip greeting, spell "..greetingPayLoad)
+		else
+			print("No gossip greeting match", gossipGreetingText)
+		end
 
 		for i = 1, GetNumGossipOptions() do
 			--[[	-- Replaced with a memory of modifiedGossips that we reset when gossip is closed instead.
@@ -3928,7 +3953,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				titleButton:HookScript("OnClick", function() scforge_showhide("enableMMIcon") end)
 				modifiedGossips[i] = titleButton
 			elseif titleButtonText:match("<arcanum_save:.*>") then
-				local payLoad = titleButtonText:match("<arcanum_save:(.*)>")
+				payLoad = titleButtonText:match("<arcanum_save:(.*)>")
 
 			end
 
@@ -3959,7 +3984,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 								table.insert(spellsToCast, payLoad)
 								dprint("Adding AutoCast from Gossip: '"..payLoad.."'.")
 								if shouldHide then shouldAutoHide = true end
-								titleButton:Hide()
+								--titleButton:Hide()
 							end
 							titleButton:SetText(titleButtonText:gsub(patterns[n], ""));
 							titleButtonText = titleButton:GetText()
@@ -3977,7 +4002,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 									spellRanSuccessfully = true
 								end
 							end
-							if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault. Please let a phase officer know.") end
+							if not spellRanSuccessfully then cprint("No spell with command "..payLoad.." found in the Phase Vault. Please let a phase officer know.") end
 							if shouldHide then CloseGossip(); end
 						end)
 						modifiedGossips[i] = titleButton
@@ -4003,7 +4028,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 						end
 					end
 				end
-				if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault. Please let a phase officer know.") end
+				if not spellRanSuccessfully then cprint("No spell found in the Phase Vault. Please let a phase officer know.") end
 				spellsToCast = {} -- empty the table.
 			end)
 		end
