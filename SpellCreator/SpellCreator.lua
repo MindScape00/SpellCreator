@@ -3806,13 +3806,31 @@ local function aceCommInit()
 	AceComm:RegisterComm(addonMsgPrefix.."_PUNLOCK", onCommReceived)
 end
 
+local gossipScript = {
+	show = function(doHide)
+		
+	end
 
-local SC_Addon_Listener = CreateFrame("frame");
-SC_Addon_Listener:RegisterEvent("ADDON_LOADED");
-SC_Addon_Listener:RegisterEvent("SCENARIO_UPDATE")
-SC_Addon_Listener:RegisterEvent("UI_ERROR_MESSAGE");
-SC_Addon_Listener:RegisterEvent("GOSSIP_SHOW");
-SC_Addon_Listener:RegisterEvent("GOSSIP_CLOSED");
+
+}
+local gossipTags = {
+	body = {
+		{tag = "cast", script = function() end},
+		{tag = "show", script = function() end},
+		{tag = "autosave", script = function() end},
+	},
+	option = {
+		{tag = "show", script = function() end},
+		{tag = "toggle", script = function() end},
+		{tag = "cast", script = function() end},
+		{tag = "save", script = function() end},
+		{tag = "cmd", script = function() end},
+	},
+	extensions = {
+		{ ext = "hide", script = function() end},
+		{ ext = "auto", script = function() end},
+	}
+}
 
 local function updateGossipVaultButtons(enable)
 	local spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
@@ -3820,6 +3838,13 @@ local function updateGossipVaultButtons(enable)
 		spellLoadRows[i].gossipButton:SetEnabled(enable)
 	end
 end
+
+local SC_Addon_Listener = CreateFrame("frame");
+SC_Addon_Listener:RegisterEvent("ADDON_LOADED");
+SC_Addon_Listener:RegisterEvent("SCENARIO_UPDATE")
+SC_Addon_Listener:RegisterEvent("UI_ERROR_MESSAGE");
+SC_Addon_Listener:RegisterEvent("GOSSIP_SHOW");
+SC_Addon_Listener:RegisterEvent("GOSSIP_CLOSED");
 
 if not C_Epsilon.IsDM then C_Epsilon.IsDM = false end
 SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
