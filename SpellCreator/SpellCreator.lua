@@ -813,11 +813,15 @@ local function setFrameFlicker(frame, iter, timeToFadeOut, timeToFadeIn, startAl
 		end
 	end
 end
-local function stopFrameFlicker(frame, endAlpha)
+local function stopFrameFlicker(frame, endAlpha, optFadeTime)
 	for i = 1, #frame.flickerTimer do
 		frame.flickerTimer[i]:Cancel()
 	end
-	frame:SetAlpha(endAlpha or 1)
+	if optFadeTime then
+		UIFrameFadeOut(frame, optFadeTime, frame:GetAlpha(), endAlpha)
+	else
+		frame:SetAlpha(endAlpha or 1)
+	end
 end
 
 local function generateSpellChatLink(commID, vaultType)
@@ -1436,7 +1440,12 @@ local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, sav
 	background.Overlay = SCForgeMainFrame.Inset:CreateTexture(nil, "BACKGROUND")
 	background.Overlay:SetTexture("interface/transmogrify/ethereallines.blp")
 	background.Overlay:SetAllPoints()
-	background.Overlay:SetAlpha(0)
+	background.Overlay:SetAlpha(0.02)
+	
+	background.Overlay2 = SCForgeMainFrame.Inset:CreateTexture(nil, "BACKGROUND")
+	background.Overlay2:SetAtlas("ChallengeMode-RuneBG")
+	background.Overlay2:SetAllPoints()
+	background.Overlay2:SetAlpha(0.25)
 	
 --[[ -- Old Background Setup
 
@@ -1735,7 +1744,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 			table.insert(actionsToCommit, actionData)
 		end
 	end
-	C_Timer.After(maxDelay, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.1); UIFrameFadeOut(SCForgeMainFrame.Inset.Bg.Overlay, 0.1, 0.3, 0) end)
+	C_Timer.After(maxDelay, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.02, 0.25) end)
 	executeSpell(actionsToCommit)
 end)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnEnter", function(self)
@@ -2046,14 +2055,14 @@ local function clearSpellLoadRadios(self)
 	end
 end
 
-local gossipAddMenuHideCheckButton = CreateFrame("FRAME")
-gossipAddMenuHideCheckButton:SetSize(110,26)
-gossipAddMenuHideCheckButton:Hide()
-gossipAddMenuHideCheckButton.button = CreateFrame("CHECKBUTTON", nil, gossipAddMenuHideCheckButton, "UICheckButtonTemplate")
-gossipAddMenuHideCheckButton.button:SetSize(26,26)
-gossipAddMenuHideCheckButton.button:SetPoint("BOTTOMLEFT", 0, -7)
-gossipAddMenuHideCheckButton.button.text:SetText("Hide after Casted")
-gossipAddMenuHideCheckButton.button:SetScript("OnEnter", function(self)
+local gossipAddMenuInsert = CreateFrame("FRAME")
+gossipAddMenuInsert:SetSize(110,26)
+gossipAddMenuInsert:Hide()
+gossipAddMenuInsert.hideButton = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
+gossipAddMenuInsert.hideButton:SetSize(26,26)
+gossipAddMenuInsert.hideButton:SetPoint("BOTTOMLEFT", 0, -7)
+gossipAddMenuInsert.hideButton.text:SetText("Hide after Casting")
+gossipAddMenuInsert.hideButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Hide the Gossip menu after Casting.", nil, nil, nil, nil, true)
@@ -2061,15 +2070,15 @@ gossipAddMenuHideCheckButton.button:SetScript("OnEnter", function(self)
 		GameTooltip:Show()
 	end)
 end)
-gossipAddMenuHideCheckButton.button:SetScript("OnLeave", function(self)
+gossipAddMenuInsert.hideButton:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
-gossipAddMenuHideCheckButton.button:SetScript("OnHide", function(self)
+gossipAddMenuInsert.hideButton:SetScript("OnHide", function(self)
 	self:SetChecked(false)
 end)
 --[[
-gossipAddMenuHideCheckButton.button:SetScript("OnClick", function(self)
+gossipAddMenuInsert.hideButton:SetScript("OnClick", function(self)
 	local parent = self:GetParent():GetParent()
 	if parent.editBox then
 		if self:GetChecked() then
@@ -2374,7 +2383,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					hideOnEscape = true,
 					whileDead = true,
 				}
-				local dialog = StaticPopup_Show("SCFORGE_ADD_GOSSIP", nil, nil, nil, gossipAddMenuHideCheckButton)
+				local dialog = StaticPopup_Show("SCFORGE_ADD_GOSSIP", nil, nil, nil, gossipAddMenuInsert)
 				dialog.data = self.commID
 			end)
 
@@ -2860,17 +2869,39 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnLeave", functio
 end)
 
 ------------
-SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle = CreateFrame("CHECKBUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UICheckButtonTemplate")
+SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle = CreateFrame("CHECKBUTTON", nil, SCForgeMainFrame.LoadSpellFrame)
 local _frame = SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle
-_frame:SetPoint("LEFT", SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton, "RIGHT", 0, 0)
-_frame:SetSize(26,26)
-_frame.text:SetText("Private")
+_frame:SetPoint("LEFT", SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton, "RIGHT", 6, 0)
+_frame:SetSize(20,20)
+--_frame.text:SetText("Private")
+
+_frame:SetNormalTexture(addonPath.."/assets/icon_visible_32")
+_frame.NormalTexture = _frame:GetNormalTexture()
+_frame.NormalTexture:SetVertexColor(0.9,0.65,0)
+
+_frame:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight", "ADD")
+
+_frame:SetCheckedTexture(addonPath.."/assets/icon_hidden_32")
+_frame.CheckedTexture = _frame:GetCheckedTexture()
+_frame.CheckedTexture:SetBlendMode("BLEND")
+_frame.CheckedTexture:SetVertexColor(0.6,0.6,0.6)
+
+_frame.updateTooltip = function(self)
+	if self:GetChecked() then
+		GameTooltip:SetText("Uploading as: Private Spell", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Click to switch to Public Visibility",1,1,1,true)
+	else
+		GameTooltip:SetText("Uploading as: Public Spell", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Click to switch to Private Visibility",1,1,1,true)
+	end
+	GameTooltip:AddLine("\nWhen uploaded as a private spell, only Officers+ will be able to see it in the Phase Vault - however, it can still be used by anyone (i.e., via Gossip integration).\n\rThe main use of this is to reduce clutter for normal players if you have specific ArcSpells for background use, like an NPC Gossip.",1,1,1,true)
+	GameTooltip:Show()
+end
+
 _frame:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Upload as Private Spell.", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("\nWhen uploaded as a private spell, only Officers+ will be able to see it in the Phase Vault - however, it can still be used by anyone (i.e., via Gossip integration).\n\rThe main use of this is to reduce clutter for normal players if you have specific ArcSpells for background use, like an NPC Gossip.",1,1,1,true)
-		GameTooltip:Show()
+		self:updateTooltip()
 	end)
 end)
 _frame:SetScript("OnLeave", function(self)
@@ -2879,6 +2910,12 @@ _frame:SetScript("OnLeave", function(self)
 end)
 _frame:SetScript("OnClick", function(self)
 	uploadAsPrivateSpell = not uploadAsPrivateSpell
+	self:updateTooltip()
+	if self:GetChecked() then
+		self:SetNormalTexture("")
+	else
+		self:SetNormalTexture(addonPath.."/assets/icon_visible_32")
+	end
 end)
 
 ----------
