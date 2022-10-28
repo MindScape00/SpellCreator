@@ -1438,7 +1438,7 @@ local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, sav
 	background:SetAllPoints()
 	
 	background.Overlay = SCForgeMainFrame.Inset:CreateTexture(nil, "BACKGROUND")
-	background.Overlay:SetTexture("interface/transmogrify/ethereallines.blp")
+	background.Overlay:SetTexture(addonPath.."/assets/forge_ui_bg_anim")
 	background.Overlay:SetAllPoints()
 	background.Overlay:SetAlpha(0.02)
 	
@@ -1548,6 +1548,31 @@ else
 	SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 25, 0)
 	SCForgeMainFrame.TitleBar.RevertDelay:SetText("Revert")
 end
+
+--[[
+SCForgeMainFrame.AddNewRowRow = CreateFrame("Frame", nil, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
+local row = SCForgeMainFrame.AddNewRowRow
+		newRow:SetPoint("TOPLEFT", 25, 0)
+		newRow:SetWidth(mainFrameSize.x-50)
+		newRow:SetHeight(rowHeight)
+				
+		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND", nil, 5)
+		newRow.Background:SetAllPoints()
+		newRow.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
+		newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
+		newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
+		newRow.Background:SetAlpha(0.9)
+		--newRow.Background:SetColorTexture(0,0,0,0.25)
+		
+		newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
+		newRow.Background2:SetAllPoints()
+		newRow.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+		newRow.Background2:SetTexCoord(0.208,1-0.209,0,1)
+		newRow.Background2:SetPoint("TOPLEFT",-3,0)
+		newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
+		--newRow.Background2:SetAlpha(0.8)
+		--newRow.Background:SetColorTexture(0,0,0,0.25)
+--]]
 
 SCForgeMainFrame.ResizeDragger = CreateFrame("BUTTON", nil, SCForgeMainFrame)
 SCForgeMainFrame.ResizeDragger:SetSize(16,16)
