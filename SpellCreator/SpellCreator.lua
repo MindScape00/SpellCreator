@@ -74,7 +74,7 @@ local function cmdWithDotCheck(text)
 	if text:sub(1, 1) == "." then cmdNoDot(text) else cmd(text) end
 end
 
-local function sendchat(text)
+local function sendChat(text)
   SendChatMessage(text, "SAY");
 end
 
@@ -242,51 +242,6 @@ end
 -- UI Stuff
 -------------------------------------------------------------------------------
 
---[[
-local frameIconOptions = {
-"interface/icons/70_professions_scroll_01",
-"interface/icons/70_professions_scroll_02",
-"interface/icons/70_professions_scroll_03",
-"interface/icons/inv_inscription_80_scroll",
-"interface/icons/inv_inscription_80_warscroll_battleshout",
-"interface/icons/inv_inscription_80_warscroll_fortitude",
-"interface/icons/inv_inscription_80_warscroll_intellect",
-"interface/icons/inv_inscription_runescrolloffortitude_blue",
-"interface/icons/inv_inscription_runescrolloffortitude_green",
-"interface/icons/inv_inscription_runescrolloffortitude_red",
-"interface/icons/inv_inscription_runescrolloffortitude_yellow",
-"interface/icons/inv_misc_enchantedscroll",
-"interface/icons/inv_misc_scrollrolled02d",
-"interface/icons/inv_misc_scrollrolled02c",
-"interface/icons/inv_misc_scrollrolled03d",
-"interface/icons/inv_misc_scrollunrolled02d",
-"interface/icons/inv_misc_scrollunrolled03d",
-"interface/icons/inv_scroll_11",
-"interface/icons/trade_archaeology_highborne_scroll",
---"interface/icons/inv_inscription_talenttome01", --oops, this is 9.0.1
-"interface/icons/trade_archaeology_draenei_tome",
-"interface/icons/inv_7xp_inscription_talenttome02",
-"interface/icons/inv_7xp_inscription_talenttome01",
-"interface/icons/inv_artifact_tome01",
-"interface/icons/inv_archaeology_80_witch_book",
-"interface/icons/inv_misc_book_17",
-"interface/icons/inv_misc_paperbundle04b",
-"interface/icons/inv_misc_paperbundle04c",
-"interface/icons/inv_misc_codexofxerrath_nochains",
-"interface/icons/70_inscription_steamy_romance_novel_kit",
-"interface/icons/inv_inscription_80_contract_vulpera",
-"interface/icons/inv_inscription_80_warscroll_fortitude",
-"interface/icons/inv_inscription_80_warscroll_intellect",
-"interface/icons/inv_inscription_tradeskill01",
-"interface/icons/inv_inscription_trinket0"..math.random(4),
-"interface/icons/inv_enchanting_70_leylightcrystal",
-"interface/icons/inv_enchanting_70_pet_pen",
-"interface/icons/inv_enchanting_70_toy_leyshocker",
-"interface/icons/inv_enchanting_80_veiledcrystal",
-"interface/icons/inv_enchanting_815_drustrod",
-}
---]]
-
 local arcaneGemPath = addonPath.."/assets/gem-icons/Gem"
 local arcaneGemIcons = {
 "Blue",
@@ -300,8 +255,6 @@ local arcaneGemIcons = {
 "Violet",
 --"Yellow",
 }
-
---SCForgeMainFrame.portrait.icon:SetTexture("Interface/AddOns/SpellCreator/assets/gem-icons/GemViolet")
 
 local runeIconOverlays = {}
 local runeIconOverlay
@@ -328,7 +281,6 @@ initRuneIcon()
 
 ------------- Background Models
 
- -- 58836 (purple missile) 71960 (nightborne missile) 91994 (void) 92827 (void scroll) 31497 (arcane portal - SetCamDistanceScale(5)) 39581 (cam-5) 61420 (purple portal, cam-2.5 or 3) 66092 (bright purple cam 2.5 or 3), 74190 (bright blue, cam 2.5 or 3) 88991 (purple void cam 5?) 
 local minimapModels = {
 {disp = 58836, camScale = 1}, -- Purple Missle
 {disp = 71960, camScale = 1}, -- Nightborne Missle
@@ -349,28 +301,6 @@ local function modelFrameSetModel(frame, id, list)
 	frame:SetRotation(0)
 	frame:SetModelAlpha(list[id].alpha or 1)
 end
-
---[[	-- Old Background System stuff
-local frameBackgroundOptions = {
-"interface/archeology/arch-bookitemleft",
-"interface/archeology/arch-bookitemleft",
-"interface/archeology/arch-bookitemleft",
-"interface/archeology/arch-bookitemleft",
-"interface/archeology/arch-bookcompletedleft",
-"interface/spellbook/spellbook-page-1",
--------- enter single background territory if > 6
-"Interface/AddOns/SpellCreator/assets/bookbackground_full"
-}
-
-local frameBackgroundOptionsEdge = {
-"interface/archeology/arch-bookitemright",
-"interface/archeology/arch-bookitemright",
-"interface/archeology/arch-bookitemright",
-"interface/archeology/arch-bookitemright",
-"interface/archeology/arch-bookcompletedright",
-"interface/spellbook/spellbook-page-2",
-}
---]]
 
 local load_row_background = addonPath.."/assets/SpellForgeVaultPanelRow"
 
@@ -3814,7 +3744,7 @@ local spellsToCast = {} -- outside the for loops so we don't reset it every loop
 local shouldAutoHide = false
 local shouldLoadSpellVault = false
 local useImmersion = false
-local gossipOptPayload
+local gossipOptionPayload
 local gossipGreetPayload
 
 local gossipScript = {
@@ -3827,17 +3757,29 @@ local gossipScript = {
 local gossipTags = {
 	default = "<arcanum_.->",
 	capture = "<arcanum_(.-)>",
+	dm = "<arcanum::DM_",
 	body = {
-		{tag = "cast", script = function() end},
-		{tag = "show", script = function() end},
-		{tag = "autosave", script = function() end},
+		cast = {tag = "cast", script = function() 
+			
+		end},
+		show = {tag = "show", script = function() 
+			if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
+				scforge_showhide("enableMMIcon");
+			else
+				CloseGossip();
+				scforge_showhide("enableMMIcon");
+			end
+		end},
+		autosave = {tag = "autosave", script = function() 
+		
+		end},
 	},
 	option = {
-		{tag = "show", script = function() end},
-		{tag = "toggle", script = function() end},
-		{tag = "cast", script = function() end},
-		{tag = "save", script = function() end},
-		{tag = "cmd", script = function() end},
+		show = {tag = "show", script = function() end},
+		toggle = {tag = "toggle", script = function() end},
+		cast = {tag = "cast", script = function() end},
+		save = {tag = "save", script = function() end},
+		cmd = {tag = "cmd", script = function() end},
 	},
 	extensions = {
 		{ ext = "hide", script = function() end},
@@ -3934,30 +3876,54 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		shouldAutoHide = false
 		shouldLoadSpellVault = false
 		useImmersion = false
-		gossipOptPayload = nil
+		gossipOptionPayload = nil
 		gossipGreetPayload = nil
 
 		-- add GossipGreetingText support
 		local gossipGreetingText = GossipGreetingText:GetText()
-		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText; useImmersion = true; end
-		while gossipGreetingText:match(gossipTags.default) do
-			gossipGreetPayload = gossipGreetingText:match(gossipTags.capture)
-			local strTag, strArg = strsplit(":", gossipGreetPayload)
-			if useImmersion then
-				ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, "")
-				ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, ""))
-			else
-				GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, ""))
+		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText; useImmersion = true; dprint("Immersion detected, using it"); end
+
+		while gossipGreetingText and gossipGreetingText:match(gossipTags.default) do -- while gossipGreetingText has an arcTag
+			gossipGreetPayload = gossipGreetingText:match(gossipTags.capture) -- capture the tag
+			local strTag, strArg = strsplit(":", gossipGreetPayload) -- split the tag from the data
+			local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
+
+			if gossipTags.body[mainTag] then
+				gossipTags.body[mainTag].script()
 			end
-			local minTag, extTags = strsplit("_", strTag)
+			--[[ -- loop processor - replace with table processor for main tags, loop only for 
 			for k,v in ipairs(gossipTags.body) do
-				if minTag:match(v.tag) then v.script() end
+				if mainTag:match(v.tag) then v.script() end
 			end
+			--]]
+
+			--[[
 			for k,v in ipairs(gossipTags.extensions) do
-				if strTag:match(v.tag) then v.script() end
+				if extTags:match(v.tag) then v.script() end
 			end
 			table.insert(spellsToCast, strArg)
-			print("Saw a gossip greeting, spell: "..strArg.." | Tag: "..minTag.." | Ext?: "..(extTags or ""))
+			--]]
+			if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then 
+				if useImmersion then
+					ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, "")
+					ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">"))
+					gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text:GetText()
+				else
+					GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">"))
+					gossipGreetingText = GossipGreetingText:GetText()
+				end
+			else
+				if useImmersion then
+					ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, "")
+					ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, ""))
+					gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text:GetText()
+				else
+					GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, ""))
+					gossipGreetingText = GossipGreetingText:GetText()
+				end
+			end
+
+			dprint("Saw a gossip greeting | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
 		end
 
 		for i = 1, GetNumGossipOptions() do
