@@ -3806,6 +3806,17 @@ local function aceCommInit()
 	AceComm:RegisterComm(addonMsgPrefix.."_PUNLOCK", onCommReceived)
 end
 
+
+
+--- Gossip Helper Functions & Tables
+
+local spellsToCast = {} -- outside the for loops so we don't reset it every loop iteration
+local shouldAutoHide = false
+local shouldLoadSpellVault = false
+local useImmersion = false
+local gossipOptPayload
+local gossipGreetPayload
+
 local gossipScript = {
 	show = function(doHide)
 		
@@ -3814,6 +3825,8 @@ local gossipScript = {
 
 }
 local gossipTags = {
+	default = "<arcanum_.->",
+	capture = "<arcanum_(.-)>",
 	body = {
 		{tag = "cast", script = function() end},
 		{tag = "show", script = function() end},
@@ -3917,29 +3930,34 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 	-- Gossip Menu Listener
 	elseif event == "GOSSIP_SHOW" then
 
-		local spellsToCast = {} -- outside the for loops so we don't reset it every loop iteration
-		local shouldAutoHide = false
-		local shouldLoadSpellVault = false
-		local useImmersion = false
-		local payLoad
-		local greetingPayLoad
+		spellsToCast = {} -- outside the for loops so we don't reset it every loop iteration
+		shouldAutoHide = false
+		shouldLoadSpellVault = false
+		useImmersion = false
+		gossipOptPayload = nil
+		gossipGreetPayload = nil
 
 		-- add GossipGreetingText support
 		local gossipGreetingText = GossipGreetingText:GetText()
 		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText; useImmersion = true; end
-		if gossipGreetingText:match("<arcanum_cast_auto.*>") then
-			shouldLoadSpellVault = true
-			greetingPayLoad = gossipGreetingText:match("<arcanum_cast_auto.*:(.*)>")
+		while gossipGreetingText:match(gossipTags.default) do
+			gossipGreetPayload = gossipGreetingText:match(gossipTags.capture)
+			local strTag, strArg = strsplit(":", gossipGreetPayload)
 			if useImmersion then
-				ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub("<arcanum_cast_auto.*:(.*)>", "")
-				ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub("<arcanum_cast_auto.*:(.*)>"))
+				ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, "")
+				ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, ""))
 			else
-				GossipGreetingText:SetText(gossipGreetingText:gsub("<arcanum_cast_auto.*:(.*)>", ""))
+				GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, ""))
 			end
-			table.insert(spellsToCast, greetingPayLoad)
-			print("Saw a gossip greeting, spell "..greetingPayLoad)
-		else
-			print("No gossip greeting match", gossipGreetingText)
+			local minTag, extTags = strsplit("_", strTag)
+			for k,v in ipairs(gossipTags.body) do
+				if minTag:match(v.tag) then v.script() end
+			end
+			for k,v in ipairs(gossipTags.extensions) do
+				if strTag:match(v.tag) then v.script() end
+			end
+			table.insert(spellsToCast, strArg)
+			print("Saw a gossip greeting, spell: "..strArg.." | Tag: "..minTag.." | Ext?: "..(extTags or ""))
 		end
 
 		for i = 1, GetNumGossipOptions() do
