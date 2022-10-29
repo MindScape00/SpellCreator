@@ -3749,42 +3749,39 @@ local gossipGreetPayload
 
 local gossipScript = {
 	show = function(doHide)
-		
-	end
-
-
+		if shouldAutoHide then doHide = true end
+		if not doHide or (C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
+			scforge_showhide("enableMMIcon");
+		else
+			CloseGossip();
+			scforge_showhide("enableMMIcon");
+		end
+	end,
 }
+
 local gossipTags = {
 	default = "<arcanum_.->",
 	capture = "<arcanum_(.-)>",
 	dm = "<arcanum::DM_",
 	body = {
+		show = {tag = "show", script = function() gossipScript.show() end},
 		cast = {tag = "cast", script = function() 
 			
 		end},
-		show = {tag = "show", script = function() 
-			if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
-				scforge_showhide("enableMMIcon");
-			else
-				CloseGossip();
-				scforge_showhide("enableMMIcon");
-			end
+		save = {tag = "save", script = function() 
+			
 		end},
-		autosave = {tag = "autosave", script = function() 
-		
-		end},
+		cmd = {tag = "cmd", script = function() end},
 	},
 	option = {
-		show = {tag = "show", script = function() end},
-		toggle = {tag = "toggle", script = function() end},
+		show = {tag = "show", script = function() gossipScript.show() end},
 		cast = {tag = "cast", script = function() end},
 		save = {tag = "save", script = function() end},
 		cmd = {tag = "cmd", script = function() end},
 	},
 	extensions = {
-		{ ext = "hide", script = function() end},
-		{ ext = "auto", script = function() end},
-	}
+		{ ext = "hide", script = function() shouldAutoHide = true end},
+	},
 }
 
 local function updateGossipVaultButtons(enable)
