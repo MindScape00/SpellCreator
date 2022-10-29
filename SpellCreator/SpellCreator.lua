@@ -3905,20 +3905,20 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			--]]
 			if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then 
 				if useImmersion then
-					ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, "")
-					ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">"))
+					ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">", 1)
+					ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">", 1))
 					gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text:GetText()
 				else
-					GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">"))
+					GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">", 1))
 					gossipGreetingText = GossipGreetingText:GetText()
 				end
 			else
 				if useImmersion then
-					ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, "")
-					ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, ""))
+					ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, "", 1)
+					ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, "", 1))
 					gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text:GetText()
 				else
-					GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, ""))
+					GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, "", 1))
 					gossipGreetingText = GossipGreetingText:GetText()
 				end
 			end
