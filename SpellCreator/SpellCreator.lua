@@ -1123,15 +1123,7 @@ local function AddSpellRow()
 			end)
 			newRow.RemoveSpellRowButton:SetScript("OnShow", function(self)
 				self:SetScript("OnUpdate", function(self)
-					local doHide = true
-					local family = { self, newRow, newRow:GetChildren() }
-					for i = 1, #family do
-						local kin = family[i]
-						if ( kin:IsMouseOver() ) then
-							doHide = false
-						end
-					end
-					if doHide then self:Hide(); end
+					if not self:GetParent():IsMouseOver() then self:Hide(); end
 				end)
 			end)
 			newRow.RemoveSpellRowButton:SetScript("OnHide", function(self)
@@ -3760,11 +3752,11 @@ local gossipScript = {
 }
 
 local gossipTags = {
-	default = "<arcanum_.->",
-	capture = "<arcanum_(.-)>",
-	dm = "<arcanum::DM_",
+	default = "<arc[anum]-_.->",
+	capture = "<arc[anum]-_(.-)>",
+	dm = "<arcanum::DM::_",
 	body = {
-		show = {tag = "show", script = function() gossipScript.show() end},
+		show = {tag = "show", script = gossipScript.show},
 		cast = {tag = "cast", script = function() 
 			
 		end},
@@ -3774,7 +3766,7 @@ local gossipTags = {
 		cmd = {tag = "cmd", script = function() end},
 	},
 	option = {
-		show = {tag = "show", script = function() gossipScript.show() end},
+		show = {tag = "show", script = gossipScript.show},
 		cast = {tag = "cast", script = function() end},
 		save = {tag = "save", script = function() end},
 		cmd = {tag = "cmd", script = function() end},
@@ -3869,7 +3861,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 	-- Gossip Menu Listener
 	elseif event == "GOSSIP_SHOW" then
 
-		spellsToCast = {} -- outside the for loops so we don't reset it every loop iteration
+		spellsToCast = {} -- make sure our variables are reset before we start processing
 		shouldAutoHide = false
 		shouldLoadSpellVault = false
 		useImmersion = false
@@ -3885,21 +3877,13 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			local strTag, strArg = strsplit(":", gossipGreetPayload) -- split the tag from the data
 			local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
 
-			if gossipTags.body[mainTag] then
+			if gossipTags.body[mainTag] then -- Checking Main Tags & Running their code if present
 				gossipTags.body[mainTag].script()
 			end
-			--[[ -- loop processor - replace with table processor for main tags, loop only for 
-			for k,v in ipairs(gossipTags.body) do
-				if mainTag:match(v.tag) then v.script() end
-			end
-			--]]
-
-			--[[
-			for k,v in ipairs(gossipTags.extensions) do
+			for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
 				if extTags:match(v.tag) then v.script() end
 			end
-			table.insert(spellsToCast, strArg)
-			--]]
+
 			if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then 
 				if useImmersion then
 					ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">", 1)
