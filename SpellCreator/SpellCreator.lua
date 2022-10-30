@@ -58,6 +58,11 @@ local sfCmd_ReplacerChar = "@N@"
 
 -- local main = Epsilon.main
 
+-- Deprecated Functions Wrapper
+local CloseGossip = CloseGossip or C_GossipInfo.CloseGossip;
+local GetNumGossipOptions = GetNumGossipOptions or C_GossipInfo.GetNumOptions;
+local SelectGossipOption = SelectGossipOption or C_GossipInfo.SelectOption;
+
 -------------------------------------------------------------------------------
 -- Simple Chat & Helper Functions
 -------------------------------------------------------------------------------
@@ -3880,11 +3885,13 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			if gossipTags.body[mainTag] then -- Checking Main Tags & Running their code if present
 				gossipTags.body[mainTag].script()
 			end
-			for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
-				if extTags:match(v.tag) then v.script() end
+			if extTags then
+				for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
+					if extTags:match(v.ext) then v.script() end
+				end
 			end
 
-			if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then 
+			if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then -- Updating GossipGreetingText
 				if useImmersion then
 					ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">", 1)
 					ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">", 1))
@@ -4025,6 +4032,10 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 		isGossipLoaded = true
 		updateGossipVaultButtons(true)
+
+		if shouldAutoHide then
+			CloseGossip();
+		end
 
 	elseif event == "GOSSIP_CLOSED" then
 
