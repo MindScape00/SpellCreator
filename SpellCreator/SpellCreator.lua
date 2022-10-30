@@ -491,11 +491,11 @@ actionTypeData = {
 		["selfAble"] = true,
 		},
 	["Anim"] = {
-		["name"] = "Emote",
+		["name"] = "Emote/Anim",
 		["command"] = "mod anim @N@",
-		["description"] = "Modifies target's current animation.\n\rUse .lookup emote to find IDs.\n\rRevert: Reset to Anim 0 (none)",
+		["description"] = "Modifies target's current animation using 'mod anim'.\n\rUse .lookup emote to find IDs.\n\rRevert: Reset to Anim 0 (none)",
 		["dataName"] = "Emote ID",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to do multiple anims at once -- but the second usually over-rides the first.\n\r'.look emote' for IDs.",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to do multiple anims at once -- but the second usually over-rides the first anyways.\n\r'.look emote' for IDs.",
 		["comTarget"] = "server",
 		["revert"] = "mod anim 0",
 		["selfAble"] = false,
@@ -553,7 +553,7 @@ actionTypeData = {
 	["RemoveAllAuras"] = {
 		["name"] = "Remove All Auras",
 		["command"] = "unaura all",
-		["description"] = "Remove all Auras.\n\rCannot be reverted.",
+		["description"] = "Remove all Auras.\n\rCannot be reverted directly, use another aura/cast action.",
 		["dataName"] = nil,
 		["comTarget"] = "server",
 		["revert"] = nil,
@@ -562,7 +562,7 @@ actionTypeData = {
 	["Unmorph"] = {
 		["name"] = "Remove Morph",
 		["command"] = "demorph",
-		["description"] = "Remove all morphs, including natives.\n\rCannot be reverted directly, use morph/native.",
+		["description"] = "Remove all morphs, including natives.\n\rCannot be reverted directly, use another morph/native action.",
 		["dataName"] = nil,
 		["comTarget"] = "server",
 		["revert"] = nil,
@@ -718,6 +718,18 @@ local function updateFrameChildScales(frame)
 	return n;
 end
 
+local function stopFrameFlicker(frame, endAlpha, optFadeTime)
+	for i = 1, #frame.flickerTimer do
+		frame.flickerTimer[i]:Cancel()
+		frame.flickerTimer[i] = nil
+	end
+	if optFadeTime then
+		UIFrameFadeOut(frame, optFadeTime, frame:GetAlpha(), endAlpha)
+	else
+		frame:SetAlpha(endAlpha or 1)
+	end
+end
+
 local function setFrameFlicker(frame, iter, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, repeatnum)
 	if not frame then return; end
 
@@ -734,25 +746,17 @@ local function setFrameFlicker(frame, iter, timeToFadeOut, timeToFadeIn, startAl
 			setFrameFlicker(frame, nil, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, repeatnum)
 		end)
 	else
+		if frame.flickerTimer and next(frame.flickerTimer) then stopFrameFlicker(frame, startAlpha) end -- assume we're starting a new flicker and don't want the old one.
 		if not iter then iter = 1 end
 		for i = 1,iter do
 			if not frame.flickerTimer then frame.flickerTimer = {} end
+			if frame.flickerTimer[i] then frame.flickerTimer[i]:Cancel() end
 			frame.flickerTimer[i] = C_Timer.NewTimer((fastrandom(10,30)/10), function()
 				UIFrameFadeOut(frame,timeToFadeOut,startAlpha,endAlpha)
 				frame.fadeInfo.finishedFunc = function() UIFrameFadeIn(frame,timeToFadeIn,endAlpha,startAlpha) end
 				setFrameFlicker(frame, nil, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, i)
 			end)
 		end
-	end
-end
-local function stopFrameFlicker(frame, endAlpha, optFadeTime)
-	for i = 1, #frame.flickerTimer do
-		frame.flickerTimer[i]:Cancel()
-	end
-	if optFadeTime then
-		UIFrameFadeOut(frame, optFadeTime, frame:GetAlpha(), endAlpha)
-	else
-		frame:SetAlpha(endAlpha or 1)
 	end
 end
 
@@ -1445,10 +1449,12 @@ local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, sav
 	background.Overlay:SetAllPoints()
 	background.Overlay:SetAlpha(0.02)
 
+	--[[
 	background.Overlay2 = SCForgeMainFrame.Inset:CreateTexture(nil, "BACKGROUND")
 	background.Overlay2:SetTexture(addonPath.."/assets/forge_ui_bg_runes")
 	background.Overlay2:SetAllPoints()
 	background.Overlay2:SetAlpha(0.25)
+	--]]
 
 --[[ -- Old Background Setup
 
@@ -1890,7 +1896,7 @@ end
 
 SCForgeMainFrame.ResetUIButton:SetScript("OnClick", function(self)
 	-- 2 types of reset: Delete all the Rows, and load an empty spell to effectively reset the UI. We're doing both, the delete rows for visual, load for the actual reset
-	
+--	self:Disable()
 	local emptySpell = {
 		["fullName"] = "", ["commID"] = "", ["description"] = "",
 		["actions"] = { { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, },
@@ -1898,7 +1904,7 @@ SCForgeMainFrame.ResetUIButton:SetScript("OnClick", function(self)
 
 	if SpellCreatorMasterTable.Options["fastReset"] then
 		UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay,0.2,0.05,0.8)
-		C_Timer.After(0.2, function() UIFrameFadeOut(SCForgeMainFrame.Inset.Bg.Overlay,0.2,0.8,0.05) end)
+		C_Timer.After(0.2, function() UIFrameFadeOut(SCForgeMainFrame.Inset.Bg.Overlay,0.2,0.8,0.05); SCForgeMainFrame.ResetUIButton:Enable(); end)
 		loadSpell(emptySpell)
 	else
 		UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay,0.1,0.05,0.8)
@@ -1912,6 +1918,7 @@ SCForgeMainFrame.ResetUIButton:SetScript("OnClick", function(self)
 		C_Timer.After(numberOfSpellRows/50, function()
 			loadSpell(emptySpell)
 			stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
+			SCForgeMainFrame.ResetUIButton:Enable();
 		end)
 	end
 
@@ -2136,12 +2143,24 @@ local function clearSpellLoadRadios(self)
 end
 
 local gossipAddMenuInsert = CreateFrame("FRAME")
-gossipAddMenuInsert:SetSize(300,60)
+gossipAddMenuInsert:SetSize(300,68)
 gossipAddMenuInsert:Hide()
+
+gossipAddMenuInsert.vertDivLine = gossipAddMenuInsert:CreateTexture(nil, "ARTWORK")
+	gossipAddMenuInsert.vertDivLine:SetPoint("TOP", -30, -4)
+	gossipAddMenuInsert.vertDivLine:SetPoint("BOTTOM", -30, 18)
+	gossipAddMenuInsert.vertDivLine:SetWidth(2)
+	gossipAddMenuInsert.vertDivLine:SetColorTexture(1,1,1,0.2)
+
+gossipAddMenuInsert.horizDivLine = gossipAddMenuInsert:CreateTexture(nil, "ARTWORK")
+	gossipAddMenuInsert.horizDivLine:SetPoint("BOTTOMLEFT", 26, 16)
+	gossipAddMenuInsert.horizDivLine:SetPoint("BOTTOMRIGHT", -26, 16)
+	gossipAddMenuInsert.horizDivLine:SetHeight(2)
+	gossipAddMenuInsert.horizDivLine:SetColorTexture(1,1,1,0.2)
 
 gossipAddMenuInsert.hideButton = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
 	gossipAddMenuInsert.hideButton:SetSize(26,26)
-	gossipAddMenuInsert.hideButton:SetPoint("BOTTOM", -116/2, -10)
+	gossipAddMenuInsert.hideButton:SetPoint("BOTTOM", -50, -12)
 	gossipAddMenuInsert.hideButton.text:SetText("Hide after Casting")
 	gossipAddMenuInsert.hideButton:SetHitRectInsets(0,-gossipAddMenuInsert.hideButton.text:GetWidth(),0,0)
 	gossipAddMenuInsert.hideButton:SetScript("OnEnter", function(self)
@@ -2167,7 +2186,7 @@ gossipAddMenuInsert.RadioOption = CreateFrame("CHECKBUTTON", nil, gossipAddMenuI
 	gossipAddMenuInsert.RadioOption:SetSize(26,26)
 	gossipAddMenuInsert.RadioOption:SetChecked(true)
 	gossipAddMenuInsert.RadioOption:SetHitRectInsets(0,-gossipAddMenuInsert.RadioOption.text:GetWidth(),0,0)
-	gossipAddMenuInsert.RadioOption:SetPoint("TOPLEFT", gossipAddMenuInsert, "TOP", 0, 0)
+	gossipAddMenuInsert.RadioOption:SetPoint("TOPLEFT", gossipAddMenuInsert, "TOP", -13, 0)
 	gossipAddMenuInsert.RadioOption.CheckedTex = gossipAddMenuInsert.RadioOption:GetCheckedTexture()
 	gossipAddMenuInsert.RadioOption.CheckedTex:SetAtlas("common-checkbox-partial")
 	gossipAddMenuInsert.RadioOption.CheckedTex:ClearAllPoints()
@@ -2947,6 +2966,7 @@ SCForgeMainFrame.SaveSpellButton:SetSize(24*4,24)
 SCForgeMainFrame.SaveSpellButton:SetText(BATTLETAG_CREATE)
 SCForgeMainFrame.SaveSpellButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 SCForgeMainFrame.SaveSpellButton:SetScript("OnClick", function(self, button)
+	setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
 	saveSpell(button)
 end)
 SCForgeMainFrame.SaveSpellButton:SetScript("OnEnter", function(self)
@@ -3679,7 +3699,7 @@ function CreateSpellCreatorInterfaceOptions()
 
 
 	local scrollFrame = CreateFrame("ScrollFrame", nil, SpellCreatorInterfaceOptions.panel, "UIPanelScrollFrameTemplate")
-	scrollFrame:SetPoint("TOPLEFT", 3, -75*3)
+	scrollFrame:SetPoint("TOPLEFT", 3, -75*2)
 	scrollFrame:SetPoint("BOTTOMRIGHT", -30, 30)
 
 	scrollFrame.backdrop = CreateFrame("FRAME", nil, scrollFrame)
@@ -3822,7 +3842,7 @@ function CreateSpellCreatorInterfaceOptions()
 	--]]
 
 	local buttonData = {
-		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.showVaultToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
+		["anchor"] = {point = "TOP", relativeTo = nil, relativePoint = nil, x = 20, y = -40,},
 		["title"] = "Load Actions Chronologically",
 		["tooltipTitle"] = "Load Chronologically by Delay",
 		["tooltipText"] = "When loading a spell, actions will be loaded in order of their delays, despite the order they were saved in.",
@@ -4328,15 +4348,11 @@ end
 -- SYNTAX: ARC:CAST("commID") - i.e., ARC:CAST("teleportEffectsSpell")
 function ARC:CAST(text)
 	if text and text ~= "" then
-		local spellRanSuccessfully
-		if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
-		for k,v in pairs(SCForge_PhaseVaultSpells) do
-			if v.commID == text then
-				executeSpell(SCForge_PhaseVaultSpells[k].actions, true);
-				spellRanSuccessfully = true
-			end
+		if SpellCreatorSavedSpells[text] then
+			executeSpell(SpellCreatorSavedSpells[text].actions)
+		else
+			cprint("No spell found with commID '"..text.."' in your Personal Vault.")
 		end
-		if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault (or vault was not loaded). Please let a phase officer know.") end
 	else
 		cprint('ARC:API SYNTAX - CAST - Casts a Spell from your Personal Vault.')
 		print(addonColor..'Function: |cffFFAAAAARC:CAST("commID")|r')
