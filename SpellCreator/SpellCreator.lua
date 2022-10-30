@@ -3726,10 +3726,16 @@ function CreateSpellCreatorInterfaceOptions()
 	scrollFrame.Title:SetPoint('TOP',scrollFrame.backdrop,0,5)
 
 	-- Create the scrolling child frame, set its width to fit, and give it an arbitrary minimum height (such as 1)
-	local scrollChild = CreateFrame("Frame")
+	local scrollChild = CreateFrame("SimpleHTML")
 	scrollFrame:SetScrollChild(scrollChild)
 	scrollChild:SetWidth(InterfaceOptionsFramePanelContainer:GetWidth()-18)
 	scrollChild:SetHeight(1)
+	scrollChild:SetScript("OnHyperlinkClick", HTML_HyperlinkClick_Copy)
+	scrollChild:SetFontObject("p", GameFontNormal);
+	scrollChild:SetFontObject("h1", GameFontNormalHuge2);
+	scrollChild:SetFontObject("h2", GameFontNormalLarge);
+	scrollChild:SetFontObject("h3", GameFontNormalMed2);
+	scrollChild:SetText(stringtoHTML(addonTable.ChangelogText))
 
 	-- Add widgets to the scrolling child frame as desired
 
