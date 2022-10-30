@@ -1339,88 +1339,92 @@ SCForgeMainFrame.DragBar:SetScript("OnDragStop", function(self)
 
 -- The top bar Spell Info Boxes - Needs some placement love later..
 SCForgeMainFrame.SpellInfoNameBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
-SCForgeMainFrame.SpellInfoNameBox:SetFontObject(ChatFontNormal)
-SCForgeMainFrame.SpellInfoNameBox:SetMaxBytes(60)
-SCForgeMainFrame.SpellInfoNameBox.disabledColor = GRAY_FONT_COLOR
-SCForgeMainFrame.SpellInfoNameBox.enabledColor = HIGHLIGHT_FONT_COLOR
-SCForgeMainFrame.SpellInfoNameBox.Instructions:SetText(localization.SPELLNAME)
-SCForgeMainFrame.SpellInfoNameBox.Instructions:SetTextColor(0.5,0.5,0.5)
-SCForgeMainFrame.SpellInfoNameBox.Title = SCForgeMainFrame.SpellInfoNameBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-SCForgeMainFrame.SpellInfoNameBox.Title:SetText(NAME)
-SCForgeMainFrame.SpellInfoNameBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoNameBox, "TOP", 0, 0)
-SCForgeMainFrame.SpellInfoNameBox:SetAutoFocus(false)
-SCForgeMainFrame.SpellInfoNameBox:SetSize(100,23)
-SCForgeMainFrame.SpellInfoNameBox:SetPoint("TOPLEFT", 110, -35)
-SCForgeMainFrame.SpellInfoNameBox:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText(localization.SPELLNAME, nil, nil, nil, nil, true)
-		GameTooltip:AddLine("The name of the spell.\rThis can be anything and is only used for identifying the spell in the Vault & Chat Links.\n\rYes, you can have two spells with the same name, but that's annoying..",1,1,1,true)
-		GameTooltip:Show()
+	SCForgeMainFrame.SpellInfoNameBox:SetFontObject(ChatFontNormal)
+	SCForgeMainFrame.SpellInfoNameBox:SetMaxBytes(60)
+	SCForgeMainFrame.SpellInfoNameBox.disabledColor = GRAY_FONT_COLOR
+	SCForgeMainFrame.SpellInfoNameBox.enabledColor = HIGHLIGHT_FONT_COLOR
+	SCForgeMainFrame.SpellInfoNameBox.Instructions:SetText(localization.SPELLNAME)
+	SCForgeMainFrame.SpellInfoNameBox.Instructions:SetTextColor(0.5,0.5,0.5)
+	SCForgeMainFrame.SpellInfoNameBox.Title = SCForgeMainFrame.SpellInfoNameBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
+	SCForgeMainFrame.SpellInfoNameBox.Title:SetText(NAME)
+	SCForgeMainFrame.SpellInfoNameBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoNameBox, "TOP", 0, 0)
+	SCForgeMainFrame.SpellInfoNameBox:SetAutoFocus(false)
+	SCForgeMainFrame.SpellInfoNameBox:SetSize(100,23)
+	SCForgeMainFrame.SpellInfoNameBox:SetPoint("TOPLEFT", 110, -35)
+	SCForgeMainFrame.SpellInfoNameBox:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		self.Timer = C_Timer.NewTimer(0.7,function()
+			GameTooltip:SetText(localization.SPELLNAME, nil, nil, nil, nil, true)
+			GameTooltip:AddLine("The name of the spell.\rThis can be anything and is only used for identifying the spell in the Vault & Chat Links.\n\rYes, you can have two spells with the same name, but that's annoying..",1,1,1,true)
+			GameTooltip:Show()
+		end)
 	end)
-end)
-SCForgeMainFrame.SpellInfoNameBox:SetScript("OnLeave", function(self)
-	GameTooltip_Hide()
-	self.Timer:Cancel()
-end)
+	SCForgeMainFrame.SpellInfoNameBox:SetScript("OnLeave", function(self)
+		GameTooltip_Hide()
+		self.Timer:Cancel()
+	end)
 
 SCForgeMainFrame.SpellInfoCommandBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
-SCForgeMainFrame.SpellInfoCommandBox:SetFontObject(ChatFontNormal)
-SCForgeMainFrame.SpellInfoCommandBox:SetMaxBytes(40)
-SCForgeMainFrame.SpellInfoCommandBox.disabledColor = GRAY_FONT_COLOR
-SCForgeMainFrame.SpellInfoCommandBox.enabledColor = HIGHLIGHT_FONT_COLOR
-SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetText(localization.SPELLCOMM)
-SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetTextColor(0.5,0.5,0.5)
-SCForgeMainFrame.SpellInfoCommandBox.Title = SCForgeMainFrame.SpellInfoCommandBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-SCForgeMainFrame.SpellInfoCommandBox.Title:SetText(COMMAND)
-SCForgeMainFrame.SpellInfoCommandBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoCommandBox, "TOP", 0, 0)
-SCForgeMainFrame.SpellInfoCommandBox:SetAutoFocus(false)
-SCForgeMainFrame.SpellInfoCommandBox:SetSize(SCForgeMainFrame:GetWidth()/8,23)
-SCForgeMainFrame.SpellInfoCommandBox:SetPoint("TOP", 0, -35)
-SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText(localization.SPELLCOMM, nil, nil, nil, nil, true)
-		GameTooltip:AddLine("The slash command trigger you want to use to call this spell.\n\rCast it using '/arcanum $command'.",1,1,1,true)
-		GameTooltip:AddLine(" ",1,1,1,true)
-		GameTooltip:AddLine("This must be unique. Saving a spell with the same command name as another will over-write the old spell.",1,1,1,true)
-		GameTooltip:Show()
+	SCForgeMainFrame.SpellInfoCommandBox:SetFontObject(ChatFontNormal)
+	SCForgeMainFrame.SpellInfoCommandBox:SetMaxBytes(40)
+	SCForgeMainFrame.SpellInfoCommandBox.disabledColor = GRAY_FONT_COLOR
+	SCForgeMainFrame.SpellInfoCommandBox.enabledColor = HIGHLIGHT_FONT_COLOR
+	SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetText(localization.SPELLCOMM)
+	SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetTextColor(0.5,0.5,0.5)
+	SCForgeMainFrame.SpellInfoCommandBox.Title = SCForgeMainFrame.SpellInfoCommandBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
+	SCForgeMainFrame.SpellInfoCommandBox.Title:SetText(COMMAND)
+	SCForgeMainFrame.SpellInfoCommandBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoCommandBox, "TOP", 0, 0)
+	SCForgeMainFrame.SpellInfoCommandBox:SetAutoFocus(false)
+	SCForgeMainFrame.SpellInfoCommandBox:SetSize(SCForgeMainFrame:GetWidth()/6,23)
+	SCForgeMainFrame.SpellInfoCommandBox:SetPoint("TOP", 0, -35)
+	SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		self.Timer = C_Timer.NewTimer(0.7,function()
+			GameTooltip:SetText(localization.SPELLCOMM, nil, nil, nil, nil, true)
+			GameTooltip:AddLine("The slash command trigger you want to use to call this spell.\n\rCast it using '/arcanum $command'.",1,1,1,true)
+			GameTooltip:AddLine(" ",1,1,1,true)
+			GameTooltip:AddLine("This must be unique. Saving a spell with the same command name as another will over-write the old spell.",1,1,1,true)
+			GameTooltip:Show()
+		end)
 	end)
-end)
-SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnLeave", function(self)
-	GameTooltip_Hide()
-	self.Timer:Cancel()
-end)
-SCForgeMainFrame.SpellInfoNameBox:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoCommandBox, "LEFT", -10, 0)
+	SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnLeave", function(self)
+		GameTooltip_Hide()
+		self.Timer:Cancel()
+	end)
+	SCForgeMainFrame.SpellInfoCommandBox:HookScript("OnTextChanged", function(self)
+		local selfText = self:GetText();
+		if selfText:match(",") then self:SetText(selfText:gsub(",","")) end
+	end)
+	SCForgeMainFrame.SpellInfoNameBox:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoCommandBox, "LEFT", -10, 0)
 
 SCForgeMainFrame.SpellInfoDescBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
-SCForgeMainFrame.SpellInfoDescBox:SetFontObject(ChatFontNormal)
-SCForgeMainFrame.SpellInfoDescBox:SetMaxBytes(100)
-SCForgeMainFrame.SpellInfoDescBox.disabledColor = GRAY_FONT_COLOR
-SCForgeMainFrame.SpellInfoDescBox.enabledColor = HIGHLIGHT_FONT_COLOR
-SCForgeMainFrame.SpellInfoDescBox.Instructions:SetText("Description")
-SCForgeMainFrame.SpellInfoDescBox.Instructions:SetTextColor(0.5,0.5,0.5)
-SCForgeMainFrame.SpellInfoDescBox.Title = SCForgeMainFrame.SpellInfoDescBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-SCForgeMainFrame.SpellInfoDescBox.Title:SetText("Description")
-SCForgeMainFrame.SpellInfoDescBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoDescBox, "TOP", 0, 0)
-SCForgeMainFrame.SpellInfoDescBox:SetAutoFocus(false)
-SCForgeMainFrame.SpellInfoDescBox:SetSize(100,23)
-SCForgeMainFrame.SpellInfoDescBox:SetPoint("TOPRIGHT", -20, -35)
-SCForgeMainFrame.SpellInfoDescBox:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Description", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("A short description of the spell.",1,1,1,true)
-		--GameTooltip:AddLine(" ",1,1,1,true)
-		--GameTooltip:AddLine("This is purely cosmetic.",1,1,1,true)
-		GameTooltip:Show()
+	SCForgeMainFrame.SpellInfoDescBox:SetFontObject(ChatFontNormal)
+	SCForgeMainFrame.SpellInfoDescBox:SetMaxBytes(100)
+	SCForgeMainFrame.SpellInfoDescBox.disabledColor = GRAY_FONT_COLOR
+	SCForgeMainFrame.SpellInfoDescBox.enabledColor = HIGHLIGHT_FONT_COLOR
+	SCForgeMainFrame.SpellInfoDescBox.Instructions:SetText("Description")
+	SCForgeMainFrame.SpellInfoDescBox.Instructions:SetTextColor(0.5,0.5,0.5)
+	SCForgeMainFrame.SpellInfoDescBox.Title = SCForgeMainFrame.SpellInfoDescBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
+	SCForgeMainFrame.SpellInfoDescBox.Title:SetText("Description")
+	SCForgeMainFrame.SpellInfoDescBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoDescBox, "TOP", 0, 0)
+	SCForgeMainFrame.SpellInfoDescBox:SetAutoFocus(false)
+	SCForgeMainFrame.SpellInfoDescBox:SetSize(100,23)
+	SCForgeMainFrame.SpellInfoDescBox:SetPoint("TOPRIGHT", -20, -35)
+	SCForgeMainFrame.SpellInfoDescBox:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		self.Timer = C_Timer.NewTimer(0.7,function()
+			GameTooltip:SetText("Description", nil, nil, nil, nil, true)
+			GameTooltip:AddLine("A short description of the spell.",1,1,1,true)
+			--GameTooltip:AddLine(" ",1,1,1,true)
+			--GameTooltip:AddLine("This is purely cosmetic.",1,1,1,true)
+			GameTooltip:Show()
+		end)
 	end)
-end)
-SCForgeMainFrame.SpellInfoDescBox:SetScript("OnLeave", function(self)
-	GameTooltip_Hide()
-	self.Timer:Cancel()
-end)
-SCForgeMainFrame.SpellInfoDescBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoCommandBox, "RIGHT", 10, 0)
+	SCForgeMainFrame.SpellInfoDescBox:SetScript("OnLeave", function(self)
+		GameTooltip_Hide()
+		self.Timer:Cancel()
+	end)
+	SCForgeMainFrame.SpellInfoDescBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoCommandBox, "RIGHT", 10, 0)
 
 -- Enable Tabing between editboxes
 SCForgeMainFrame.SpellInfoNameBox.nextEditBox = SCForgeMainFrame.SpellInfoCommandBox
@@ -2860,16 +2864,16 @@ StaticPopupDialogs["SCFORGE_CONFIRM_DELETE"] = {
 	preferredIndex = 3,
 }
 
-local function saveSpell(mousebutton, fromPhaseVault)
+local function saveSpell(mousebutton, fromPhaseVaultID)
 
 	local wasOverwritten = false
 	local newSpellData = {}
-	if fromPhaseVault then
-		newSpellData.commID = SCForge_PhaseVaultSpells[fromPhaseVault].commID
-		newSpellData.fullName = SCForge_PhaseVaultSpells[fromPhaseVault].fullName
-		newSpellData.description = SCForge_PhaseVaultSpells[fromPhaseVault].description or nil
-		newSpellData.actions = SCForge_PhaseVaultSpells[fromPhaseVault].actions
-		dprint("Saving Spell from Phase Vault, fake commID: "..fromPhaseVault..", real commID: "..newSpellData.commID)
+	if fromPhaseVaultID then
+		newSpellData.commID = SCForge_PhaseVaultSpells[fromPhaseVaultID].commID
+		newSpellData.fullName = SCForge_PhaseVaultSpells[fromPhaseVaultID].fullName
+		newSpellData.description = SCForge_PhaseVaultSpells[fromPhaseVaultID].description or nil
+		newSpellData.actions = SCForge_PhaseVaultSpells[fromPhaseVaultID].actions
+		dprint("Saving Spell from Phase Vault, fake commID: "..fromPhaseVaultID..", real commID: "..newSpellData.commID)
 	else
 		newSpellData.commID = SCForgeMainFrame.SpellInfoCommandBox:GetText()
 		newSpellData.fullName = SCForgeMainFrame.SpellInfoNameBox:GetText()
@@ -2888,7 +2892,7 @@ local function saveSpell(mousebutton, fromPhaseVault)
 				--cprint("Duplicate Spell Command Detected.. Press Save with right-click to over-write the old spell.")
 				StaticPopupDialogs["SCFORGE_CONFIRM_OVERWRITE"] = {
 					text = "Spell '"..newSpellData.commID.."' Already exists.\n\rDo you want to overwrite the spell ("..newSpellData.fullName..")".."?",
-					OnAccept = function() saveSpell("RightButton", (fromPhaseVault and fromPhaseVault or nil)) end,
+					OnAccept = function() saveSpell("RightButton", (fromPhaseVaultID and fromPhaseVaultID or nil)) end,
 					button1 = "Overwrite",
 					button2 = "Cancel",
 					hideOnEscape = true,
@@ -2899,7 +2903,7 @@ local function saveSpell(mousebutton, fromPhaseVault)
 			end
 		end
 
-	if not fromPhaseVault then
+	if not fromPhaseVaultID then
 		for i = 1, numberOfSpellRows do
 
 			local actionData = {}
@@ -2932,7 +2936,7 @@ local function saveSpell(mousebutton, fromPhaseVault)
 	else
 		cprint("Spell has no valid actions and was not saved. Please double check your actions & try again. You can turn on debug mode to see more information when trying to save (/sfdebug).")
 	end
-	if not fromPhaseVault then
+	if not fromPhaseVaultID then
 		updateSpellLoadRows()
 	end
 end
@@ -3937,7 +3941,11 @@ local gossipScript = {
 		if not spellRanSuccessfully then cprint("No spell with command "..payLoad.." found in the Phase Vault. Please let a phase officer know.") end
 	end,
 	save = function(payLoad)
-		saveSpell(nil, payLoad)
+		if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Please try again in a moment."); return; end
+		dprint("Scanning Phase Vault for Spell to Save: "..payLoad)
+		for k,v in pairs(SCForge_PhaseVaultSpells) do
+			if v.commID == payLoad then dprint("Found & Saving Spell '"..payLoad.."' ("..k..") to your Personal Vault."); saveSpell(nil, k); end
+		end
 	end,
 	cmd = function(payLoad)
 		cmd(payLoad)
@@ -4317,8 +4325,8 @@ function ARC:C(text)
 	end
 end
 
--- SYNTAX: ARC:RUNP("commID") - i.e., ARC:RUNP("teleportEffectsSpell")
-function ARC:RUNP(text)
+-- SYNTAX: ARC:CAST("commID") - i.e., ARC:CAST("teleportEffectsSpell")
+function ARC:CAST(text)
 	if text and text ~= "" then
 		local spellRanSuccessfully
 		if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
@@ -4330,9 +4338,29 @@ function ARC:RUNP(text)
 		end
 		if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault (or vault was not loaded). Please let a phase officer know.") end
 	else
-		cprint('ARC:API SYNTAX - RUNP - Casts a Spell from the Phase Vault.')
-		print(addonColor..'Function: |cffFFAAAAARC:RUNP("commID")|r')
-		print(addonColor..'Example: |cffFFAAAAARC:RUNP("teleportEffectsSpell")')
+		cprint('ARC:API SYNTAX - CAST - Casts a Spell from your Personal Vault.')
+		print(addonColor..'Function: |cffFFAAAAARC:CAST("commID")|r')
+		print(addonColor..'Example: |cffFFAAAAARC:CAST("teleportEffectsSpell")')
+		print(addonColor..'Silently Fails if there is no spell by that commID in your personal vault.')
+	end
+end
+
+-- SYNTAX: ARC:CASTP("commID") - i.e., ARC:CASTP("teleportEffectsSpell")
+function ARC:CASTP(text)
+	if text and text ~= "" then
+		local spellRanSuccessfully
+		if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
+		for k,v in pairs(SCForge_PhaseVaultSpells) do
+			if v.commID == text then
+				executeSpell(SCForge_PhaseVaultSpells[k].actions, true);
+				spellRanSuccessfully = true
+			end
+		end
+		if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault (or vault was not loaded). Please let a phase officer know.") end
+	else
+		cprint('ARC:API SYNTAX - CASTP - Casts a Spell from the Phase Vault.')
+		print(addonColor..'Function: |cffFFAAAAARC:CASTP("commID")|r')
+		print(addonColor..'Example: |cffFFAAAAARC:CASTP("teleportEffectsSpell")')
 		print(addonColor..'Silently Fails if there is no spell by that commID in the vault.')
 	end
 end
@@ -4351,6 +4379,22 @@ function ARC:IF(tag, command1, command2, var1, var2)
 		print(addonColor..'Example 1: |cffFFAAAAARC:IF("ToggleLight","aura 243893", "unau 243893")|r')
 		print(addonColor..'Example 2: |cffFFAAAAARC:IF("ToggleLight","aura", "unau", "243893")|r')
 		print(addonColor.."Both of these will result in the same outcome - If ToggleLight is true, then apply the aura, else unaura.|r")
+	end
+end
+
+-- SYNTAX: ARC:IF(tag, Command if True, Command if False, [Variables for True], [Variables for False])
+function ARC:IFS(tag, toEqual, command1, command2, var1, var2)
+	if (tag and command1 and command2) and (tag ~= "" and command1 ~= "" and command2 ~= "") then
+		if var1 == "" then var1 = nil end
+		if var2 == "" then var2 = nil end
+		command1 = command1..(var1 and " "..var1 or "")
+		command2 = command2..(var2 and " "..var2 or var1 and " "..var1 or "")
+		if ARC.VAR[tag] == toEqual then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
+	else
+		cprint('ARC:API SYNTAX - IFS - Checks if "tag" is equal to "toEqual", and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands, the same as ARC:IF.')
+		print(addonColor..'Function: |cffFFAAAAARC:IFS("tag", "toEqual", "CommandTrue", "CommandFalse", "Var1")|r')
+		print(addonColor..'Example 1: |cffFFAAAAARC:IFS("WhatFruit", "apple", "aura 243893", "unau 243893")|r')
+		print(addonColor..'This example will check if WhatFruit is "apple" and will apply the aura if so.|r')
 	end
 end
 
