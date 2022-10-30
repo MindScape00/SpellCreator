@@ -3746,8 +3746,7 @@ local gossipGreetPayload
 
 local gossipScript = {
 	show = function(doHide)
-		if shouldAutoHide then doHide = true end
-		if not doHide or (C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
+		if not doHide and (C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
 			scforge_showhide("enableMMIcon");
 		else
 			CloseGossip();
@@ -4006,7 +4005,6 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 					end
 				end
-				if shouldAutoHide then CloseGossip(); end
 			end
 
 			GossipResize(titleButton)
@@ -4033,9 +4031,8 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		isGossipLoaded = true
 		updateGossipVaultButtons(true)
 
-		if shouldAutoHide then
-			CloseGossip();
-		end
+		if shouldAutoHide and not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then CloseGossip(); end -- Final check if we toggled shouldAutoHide and close gossip if so.
+
 
 	elseif event == "GOSSIP_CLOSED" then
 
