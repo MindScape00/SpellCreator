@@ -62,6 +62,7 @@ local sfCmd_ReplacerChar = "@N@"
 local CloseGossip = CloseGossip or C_GossipInfo.CloseGossip;
 local GetNumGossipOptions = GetNumGossipOptions or C_GossipInfo.GetNumOptions;
 local SelectGossipOption = SelectGossipOption or C_GossipInfo.SelectOption;
+local GetGossipText = GetGossipText or C_GossipInfo.GetText;
 
 -------------------------------------------------------------------------------
 -- Simple Chat & Helper Functions
@@ -426,7 +427,6 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	end
 end
 
-local actionsToCommit = {}
 local function executeSpell(actionsToCommit, byPassCheck)
 	if not byPassCheck then
 		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than Dranosh Valley.") return; end
@@ -1164,7 +1164,7 @@ local function AddSpellRow()
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
 end
 
-function updateSpellRowOptions(row, selectedAction)
+function updateSpellRowOptions(row, selectedAction) -- breaks if not global, ffs
 		-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
 	if selectedAction then -- if we call it with no action, reset
 		_G["spellRow"..row].SelectedAction = selectedAction
@@ -1766,8 +1766,9 @@ button:SetMotionScriptsWhileDisabled(true)
 button:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Clear & Reset all rows.", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("WARNING: You'll lose any data that hasn't been saved yet using 'Create'!",1,1,1,true)
+		GameTooltip:SetText("Clear & Reset the Spell Forge UI.", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("Use this to clear the action rows & spell info, and start fresh.",1,1,1,true)
+		GameTooltip:AddLine("\nWARNING: You'll lose any data that hasn't been saved yet using 'Create'!",1,1,1,true)
 		GameTooltip:Show()
 	end)
 end)
@@ -1784,7 +1785,8 @@ SCForgeMainFrame.ExecuteSpellButton:SetSize(24*4,24)
 SCForgeMainFrame.ExecuteSpellButton:SetText(ACTION_SPELL_CAST_SUCCESS:gsub("^%l", string.upper))
 SCForgeMainFrame.ExecuteSpellButton:SetMotionScriptsWhileDisabled(true)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
-	setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.3)
+--	setFrameFlicker(frame: any, iter: any, timeToFadeOut: any, timeToFadeIn: any, startAlpha: any, endAlpha: any)
+	setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
 	local maxDelay = 0
 	local actionsToCommit = {}
 	for i = 1, numberOfSpellRows do
@@ -1803,7 +1805,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 			table.insert(actionsToCommit, actionData)
 		end
 	end
-	C_Timer.After(maxDelay, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.02, 0.25) end)
+	C_Timer.After(maxDelay, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25) end)
 	executeSpell(actionsToCommit)
 end)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnEnter", function(self)
@@ -1837,7 +1839,7 @@ local function loadSpell(spellToLoad)
 	if spellToLoad.description then SCForgeMainFrame.SpellInfoDescBox:SetText(spellToLoad.description) end
 
 	local spellActions = spellToLoad.actions
-	numberOfActionsToLoad = #spellActions
+	local numberOfActionsToLoad = #spellActions
 
 	-- Adjust the number of available Action Rows
 	if numberOfActionsToLoad > numberOfSpellRows then
@@ -1883,12 +1885,32 @@ local function loadSpell(spellToLoad)
 end
 
 SCForgeMainFrame.ResetUIButton:SetScript("OnClick", function(self)
-	-- load an empty spell to effectively reset the UI
+	-- 2 types of reset: Delete all the Rows, and load an empty spell to effectively reset the UI. We're doing both, the delete rows for visual, load for the actual reset
+	
 	local emptySpell = {
 		["fullName"] = "", ["commID"] = "", ["description"] = "",
 		["actions"] = { { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, },
 	}
-	loadSpell(emptySpell)
+
+	if SpellCreatorMasterTable.Options["fastReset"] then
+		UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay,0.2,0.05,0.8)
+		C_Timer.After(0.2, function() UIFrameFadeOut(SCForgeMainFrame.Inset.Bg.Overlay,0.2,0.8,0.05) end)
+		loadSpell(emptySpell)
+	else
+		UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay,0.1,0.05,0.8)
+		setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
+		local deleteRowIter = 0
+		for i = numberOfSpellRows, 1, -1 do
+			deleteRowIter = deleteRowIter+1
+			C_Timer.After(deleteRowIter/50, function() RemoveSpellRow(i) end)
+		end
+
+		C_Timer.After(numberOfSpellRows/50, function()
+			loadSpell(emptySpell)
+			stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
+		end)
+	end
+
 end)
 
 local phaseVaultKeys
@@ -1941,7 +1963,7 @@ local function getSpellForgePhaseVault(callback)
 				if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
 					messageTicketQueue[prefix] = nil -- remove it from the queue.. We'll reset the table next time anyways but whatever.
 					phaseVaultLoadingCount = phaseVaultLoadingCount+1
-					interAction = serialDecompressForAddonMsg(text)
+					local interAction = serialDecompressForAddonMsg(text)
 					dprint("Spell found & adding to Phase Vault Table: "..interAction.commID)
 					tinsert(SCForge_PhaseVaultSpells, interAction)
 					--print("phaseVaultLoadingCount: ",phaseVaultLoadingCount," | phaseVaultLoadingExpected: ",phaseVaultLoadingExpected)
@@ -2110,12 +2132,76 @@ local function clearSpellLoadRadios(self)
 end
 
 local gossipAddMenuInsert = CreateFrame("FRAME")
-gossipAddMenuInsert:SetSize(110,26)
+gossipAddMenuInsert:SetSize(300,60)
 gossipAddMenuInsert:Hide()
+
+gossipAddMenuInsert.RadioOption = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
+gossipAddMenuInsert.RadioOption.text:SetText("Cast on Click (Add New Option)")
+gossipAddMenuInsert.RadioOption:SetSize(26,26)
+gossipAddMenuInsert.RadioOption:SetChecked(true)
+gossipAddMenuInsert.RadioOption:SetHitRectInsets(0,-gossipAddMenuInsert.RadioOption.text:GetWidth(),0,0)
+gossipAddMenuInsert.RadioOption:SetPoint("TOPLEFT", 0, 0)
+gossipAddMenuInsert.RadioOption.CheckedTex = gossipAddMenuInsert.RadioOption:GetCheckedTexture()
+gossipAddMenuInsert.RadioOption.CheckedTex:SetAtlas("common-checkbox-partial")
+gossipAddMenuInsert.RadioOption.CheckedTex:ClearAllPoints()
+gossipAddMenuInsert.RadioOption.CheckedTex:SetPoint("CENTER", -1, 0)
+gossipAddMenuInsert.RadioOption.CheckedTex:SetSize(12,12)
+gossipAddMenuInsert.RadioOption:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Adds a new Gossip Option with the supplied text & the appropriate ArcTag.", nil, nil, nil, nil, true)
+		GameTooltip:Show()
+	end)
+end)
+gossipAddMenuInsert.RadioOption:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+gossipAddMenuInsert.RadioOption:SetScript("OnHide", function(self)
+	self:SetChecked(false)
+end)
+
+gossipAddMenuInsert.RadioBody = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
+gossipAddMenuInsert.RadioBody.text:SetText("Auto Cast when Opened (Add Gossip Text)")
+gossipAddMenuInsert.RadioBody:SetSize(26,26)
+gossipAddMenuInsert.RadioBody:SetChecked(false)
+gossipAddMenuInsert.RadioBody:SetHitRectInsets(0,-gossipAddMenuInsert.RadioBody.text:GetWidth(),0,0)
+gossipAddMenuInsert.RadioBody:SetPoint("TOPLEFT", gossipAddMenuInsert.RadioOption, "BOTTOMLEFT", 0, 0)
+gossipAddMenuInsert.RadioBody.CheckedTex = gossipAddMenuInsert.RadioBody:GetCheckedTexture()
+gossipAddMenuInsert.RadioBody.CheckedTex:SetAtlas("common-checkbox-partial")
+gossipAddMenuInsert.RadioBody.CheckedTex:ClearAllPoints()
+gossipAddMenuInsert.RadioBody.CheckedTex:SetPoint("CENTER", -1, 0)
+gossipAddMenuInsert.RadioBody.CheckedTex:SetSize(12,12)
+gossipAddMenuInsert.RadioBody:SetScript("OnEnter", function(self)
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	self.Timer = C_Timer.NewTimer(0.7,function()
+		GameTooltip:SetText("Adds a new line to the Gossip Text (body) with the supplied text & the appropriate ArcTag.", nil, nil, nil, nil, true)
+		GameTooltip:AddLine("\nLeave the text blank to just add an ArcTag w/o adding any more text.",1,1,1,true)
+		GameTooltip:Show()
+	end)
+end)
+gossipAddMenuInsert.RadioBody:SetScript("OnLeave", function(self)
+	GameTooltip_Hide()
+	self.Timer:Cancel()
+end)
+gossipAddMenuInsert.RadioBody:SetScript("OnHide", function(self)
+	self:SetChecked(false)
+end)
+
+gossipAddMenuInsert.RadioOption:SetScript("OnClick", function(self)
+	self:SetChecked(true)
+	gossipAddMenuInsert.RadioBody:SetChecked(false)
+end)
+gossipAddMenuInsert.RadioBody:SetScript("OnClick", function(self)
+	self:SetChecked(true)
+	gossipAddMenuInsert.RadioOption:SetChecked(false)
+end)
+
 gossipAddMenuInsert.hideButton = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
 gossipAddMenuInsert.hideButton:SetSize(26,26)
-gossipAddMenuInsert.hideButton:SetPoint("BOTTOMLEFT", 0, -7)
+gossipAddMenuInsert.hideButton:SetPoint("BOTTOMLEFT", 0, -8)
 gossipAddMenuInsert.hideButton.text:SetText("Hide after Casting")
+gossipAddMenuInsert.hideButton:SetHitRectInsets(0,-gossipAddMenuInsert.hideButton.text:GetWidth(),0,0)
 gossipAddMenuInsert.hideButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
@@ -2410,7 +2496,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 			button:SetScript("OnClick", function(self, button)
 				StaticPopupDialogs["SCFORGE_ADD_GOSSIP"] = {
-					text = "Add ArcSpell Gossip Option",
+					text = "Add ArcSpell to NPC Gossip",
 					subText = "ArcSpell: '"..savedSpellFromVault[self.commID].fullName.."' ("..savedSpellFromVault[self.commID].commID..")",
 					closeButton = true,
 					hasEditBox = true,
@@ -2420,20 +2506,19 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					maxLetters = 255-25-20-#savedSpellFromVault[self.commID].commID, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
 					OnButton1 = function(self, data)
 						local text = self.editBox:GetText();
-						if self.insertedFrame.button:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast:"..savedSpellFromVault[data].commID..">") end
+						local tag = "<arcanum_"..(function() if self.insertedFrame.RadioCast:GetChecked() then return "cast"; elseif self.insertedFrame.RadioSave:GetChecked() then return "save"; end end)
+						if self.insertedFrame.hideButton:GetChecked() then tag = tag.."_hide" end
+						tag = tag..":"
+						local command
+						if self.insertedFrame.RadioOption:GetChecked() then command = "ph fo np go op ad ", elseif self.insertedFrame.RadioBody:Getchecked() then command = "ph fo np go te ad " end
+
+						local finalCommand = command..tag..savedSpellFromVault[data].commID..">"
+
+						--if self.insertedFrame.hideButton:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast:"..savedSpellFromVault[data].commID..">") end
+						--savedSpellFromVault[data].commID
 					end,
-					OnButton2 = function(self, data)
-						local text = self.editBox:GetText();
-						if self.insertedFrame.button:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_auto_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast_auto:"..savedSpellFromVault[data].commID..">") end
-					end,
-					OnButton3 = function(self, data)
-						local text = self.editBox:GetText();
-						if self.insertedFrame.button:GetChecked() then cmd("ph fo np go te ad "..text.."<arcanum_cast_auto_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go te ad "..text.."<arcanum_cast_auto:"..savedSpellFromVault[data].commID..">") end
-					end,
-					button1 = "Option - Click",
-					button2 = "Option - Auto",
-					button3 = "Main Text - Auto",
-					extraButton = CANCEL,
+					button1 = ADD,
+					button2 = CANCEL,
 					hideOnEscape = true,
 					whileDead = true,
 				}
@@ -3609,6 +3694,8 @@ function CreateSpellCreatorInterfaceOptions()
 			button:SetChecked(false)
 		end
 		if buttonData.customOnLoad then buttonData.customOnLoad(); end
+		button:SetMotionScriptsWhileDisabled(true)
+
 		return button;
 	end
 
@@ -3667,9 +3754,19 @@ function CreateSpellCreatorInterfaceOptions()
 
 	local buttonData = {
 		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.loadChronologicallyToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
+		["title"] = "Fast Reset the Forge UI",
+		["tooltipTitle"] = "Fast Reset",
+		["tooltipText"] = "Skip the Animation of Resetting the UI, and instantly reset it, when you use the Clear & Reset button.",
+		["optionKey"] = "fastReset",
+		["onClickHandler"] = nil,
+		}
+	SpellCreatorInterfaceOptions.panel.fastResetToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+
+	local buttonData = {
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.fastResetToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -5,},
 		["title"] = "Show Tooltips",
 		["tooltipTitle"] = "Show Tooltips",
-		["tooltipText"] = "Show Tooltips when you mouse-over UI elements like buttons, editboxes, and spells in the vault, just like this one!",
+		["tooltipText"] = "Show Tooltips when you mouse-over UI elements like buttons, editboxes, and spells in the vault, just like this one!\nYou can't currently toggle these off, maybe later.",
 		["optionKey"] = "showTooltips",
 		["onClickHandler"] = nil,
 		}
@@ -3697,7 +3794,7 @@ function CreateSpellCreatorInterfaceOptions()
 	updateSCInterfaceOptions() -- Call this because OnShow isn't triggered first time, and neither is OnLoad for some reason, so lets just update them manually
 end
 
-function updateSCInterfaceOptions()
+function updateSCInterfaceOptions() -- errors if not global
 	if SpellCreatorMasterTable.Options["debug"] == true then SC_DebugToggleOption:SetChecked(true) else SC_DebugToggleOption:SetChecked(false) end
 end
 
@@ -3737,20 +3834,44 @@ end
 
 --- Gossip Helper Functions & Tables
 
-local spellsToCast = {} -- outside the for loops so we don't reset it every loop iteration
+local spellsToCast = {}
 local shouldAutoHide = false
 local shouldLoadSpellVault = false
 local useImmersion = false
 local gossipOptionPayload
 local gossipGreetPayload
+local lastGossipText
 
 local gossipScript = {
-	show = function(doHide)
-		if not doHide and (C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
-			scforge_showhide("enableMMIcon");
-		else
+	show = function()
+		scforge_showhide("enableMMIcon");
+	end,
+	auto_cast = function(payLoad)
+		table.insert(spellsToCast, payLoad)
+		dprint("Adding AutoCast from Gossip: '"..payLoad.."'.")
+	end,
+	click_cast = function(payLoad)
+		if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Casting when loaded..!"); table.insert(spellsToCast, payLoad) return; end
+		local spellRanSuccessfully
+		for k,v in pairs(SCForge_PhaseVaultSpells) do
+			if v.commID == payLoad then
+				executeSpell(SCForge_PhaseVaultSpells[k].actions, true);
+				spellRanSuccessfully = true
+			end
+		end
+		if not spellRanSuccessfully then cprint("No spell with command "..payLoad.." found in the Phase Vault. Please let a phase officer know.") end
+	end,
+	save = function(payLoad)
+		saveSpell(nil, payLoad)
+	end,
+	cmd = function(payLoad)
+		cmd(payLoad)
+	end,
+	hide_check = function(button)
+		if button then -- came from an OnClick, so we need to close now, instead of toggling AutoHide which already past.
 			CloseGossip();
-			scforge_showhide("enableMMIcon");
+		else
+			shouldAutoHide = true
 		end
 	end,
 }
@@ -3761,22 +3882,19 @@ local gossipTags = {
 	dm = "<arcanum::DM::_",
 	body = {
 		show = {tag = "show", script = gossipScript.show},
-		cast = {tag = "cast", script = function() 
-			
-		end},
-		save = {tag = "save", script = function() 
-			
-		end},
-		cmd = {tag = "cmd", script = function() end},
+		cast = {tag = "cast", script = gossipScript.auto_cast},
+		save = {tag = "save", script = gossipScript.save},
+		cmd = {tag = "cmd", script = gossipScript.cmd},
 	},
 	option = {
 		show = {tag = "show", script = gossipScript.show},
-		cast = {tag = "cast", script = function() end},
-		save = {tag = "save", script = function() end},
-		cmd = {tag = "cmd", script = function() end},
+		toggle = {tag = "toggle", script = gossipScript.show}, -- kept for back-compatibility, but undocumented. They should use Show now.
+		cast = {tag = "cast", script = gossipScript.click_cast},
+		save = {tag = "save", script = gossipScript.save},
+		cmd = {tag = "cmd", script = gossipScript.cmd},
 	},
 	extensions = {
-		{ ext = "hide", script = function() shouldAutoHide = true end},
+		{ ext = "hide", script = gossipScript.hide_check},
 	},
 }
 
@@ -3793,6 +3911,10 @@ SC_Addon_Listener:RegisterEvent("SCENARIO_UPDATE")
 SC_Addon_Listener:RegisterEvent("UI_ERROR_MESSAGE");
 SC_Addon_Listener:RegisterEvent("GOSSIP_SHOW");
 SC_Addon_Listener:RegisterEvent("GOSSIP_CLOSED");
+
+local function gossipReloadCheck()
+	if isGossipLoaded and lastGossipText and lastGossipText == currGossipText then return true; else return false; end
+end
 
 if not C_Epsilon.IsDM then C_Epsilon.IsDM = false end
 SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
@@ -3871,22 +3993,28 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		useImmersion = false
 		gossipOptionPayload = nil
 		gossipGreetPayload = nil
+		currGossipText = GetGossipText();
 
 		-- add GossipGreetingText support
 		local gossipGreetingText = GossipGreetingText:GetText()
 		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText; useImmersion = true; dprint("Immersion detected, using it"); end
 
-		while gossipGreetingText and gossipGreetingText:match(gossipTags.default) do -- while gossipGreetingText has an arcTag
+		while gossipGreetingText and gossipGreetingText:match(gossipTags.default) do -- while gossipGreetingText has an arcTag - this allows multiple tags
+			shouldLoadSpellVault = true
 			gossipGreetPayload = gossipGreetingText:match(gossipTags.capture) -- capture the tag
 			local strTag, strArg = strsplit(":", gossipGreetPayload) -- split the tag from the data
 			local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
-
-			if gossipTags.body[mainTag] then -- Checking Main Tags & Running their code if present
-				gossipTags.body[mainTag].script()
-			end
-			if extTags then
-				for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
-					if extTags:match(v.ext) then v.script() end
+			
+			if gossipReloadCheck() then
+				dprint("Gossip Reload of the Same Page detected. Skipping Auto Functions.")
+			else
+				if gossipTags.body[mainTag] then -- Checking Main Tags & Running their code if present
+					gossipTags.body[mainTag].script(strArg)
+				end
+				if extTags then
+					for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
+						if extTags:match(v.ext) then v.script() end
+					end
 				end
 			end
 
@@ -3926,6 +4054,53 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				if immersionButton then titleButton = immersionButton; titleButtonText = immersionButton:GetText() end
 			end
 
+			while titleButtonText and titleButtonText:match(gossipTags.default) do
+				shouldLoadSpellVault = true
+				gossipOptionPayload = titleButtonText:match(gossipTags.capture) -- capture the tag
+				local strTag, strArg = strsplit(":", gossipOptionPayload) -- split the tag from the data
+				local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
+
+				if gossipTags.option[mainTag] then -- Checking Main Tags & Running their code if present
+					titleButton:HookScript("OnClick", function() gossipTags.option[mainTag].script(strArg) end)
+					modifiedGossips[i] = titleButton
+
+					if extTags then
+						if extTags:match("auto") then -- legacy auto support - hard coded to avoid breaking gossipText
+							if (C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
+								cprint("Legacy Auto Gossip Option skipped due to DM Mode On.")
+							else
+								if mainTag == "cast" then
+									dprint("Running Legacy Auto-Cast..")
+									gossipScript.auto_cast(strArg)
+								else
+									gossipTags.option[mainTag].script(strArg)
+									dprint("Running Legacy Auto Tag Support.. This may not work.")
+								end
+							end
+						end
+						if extTags == "auto_hide" then shouldAutoHide = true end
+						for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
+							if extTags:match(v.ext) then
+								titleButton:HookScript("OnClick", function(self,button) v.script(strArg or button) end)
+							end
+						end
+					end
+
+				end
+
+
+				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then -- Update the text
+					-- Is DM and IsOfficer+
+					titleButton:SetText(titleButtonText:gsub(gossipTags.default, gossipTags.dm..gossipOptionPayload..">", 1));
+				else
+					-- Is not DM or Officer+
+					titleButton:SetText(titleButtonText:gsub(gossipTags.default, "", 1));
+				end
+				titleButtonText = titleButton:GetText();
+				dprint("Saw an option tag | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
+			end
+
+--[[	-- Old Tag Handler
 --			if titleButtonText:match("<arcanum_") then titleButton:SetScript("OnClick", function() end) end
 			if titleButtonText:match("<arcanum_auto>") then
 				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
@@ -3948,9 +4123,6 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				end
 				titleButton:HookScript("OnClick", function() scforge_showhide("enableMMIcon") end)
 				modifiedGossips[i] = titleButton
-			elseif titleButtonText:match("<arcanum_save:.*>") then
-				payLoad = titleButtonText:match("<arcanum_save:(.*)>")
-
 			end
 
 			if titleButtonText:match("<arcanum_cast") then
@@ -4006,8 +4178,9 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 					end
 				end
 			end
+--]]
 
-			GossipResize(titleButton)
+			GossipResize(titleButton) -- Fix the size if the gossip option changed number of lines.
 
 		end
 
@@ -4029,10 +4202,10 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		end
 
 		isGossipLoaded = true
+		lastGossipText = currGossipText
 		updateGossipVaultButtons(true)
 
 		if shouldAutoHide and not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then CloseGossip(); end -- Final check if we toggled shouldAutoHide and close gossip if so.
-
 
 	elseif event == "GOSSIP_CLOSED" then
 
@@ -4229,7 +4402,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 			table.sort(newTable)
 			dump(newTable)
 		elseif command == "resetPhaseSpellKeys" then
-			if reset == "confirm" then
+			if rest == "confirm" then
 				C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", "")
 				dprint(true, "Wiped all Spell Keys from Phase Vault memory. This does not wipe the data itself of the spells, so they can technically be recovered by manually adding the key back, or either exporting the data yourself using '/sfdebug getPhaseSpellData $commID' where commID is the command it was saved as...")
 			else
