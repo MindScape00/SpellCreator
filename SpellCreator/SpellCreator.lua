@@ -4379,7 +4379,7 @@ end
 -- SYNTAX: ARC:COPY("text to copy, like a URL") - i.e., ARC:COPY("https://discord.gg/C8DZ7AxxcG")
 function ARC:COPY(text)
 	if text and text ~= "" then
-		cmdWithDotCheck(text)
+		HTML_HyperlinkClick_Copy(nil, text)
 	else
 		cprint('ARC:API SYNTAX - COPY - Opens a Dialog to copy the given text.')
 		print(addonColor..'Function: |cffFFAAAAARC:COPY("text to copy, like a URL")|r')
@@ -4587,6 +4587,8 @@ function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
 	elseif command == "set" then
 		tag, rest = rest:match("^(%S*)%s*(.-)$")
 		ARC:SET(tag, rest)
+	elseif command == "copy" then
+		ARC:COPY(rest)
 	elseif command == "getname" then
 		ARC:GETNAME()
 	end

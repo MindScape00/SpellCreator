@@ -79,6 +79,7 @@ addonTable.ChangelogText = [[
                 /arc castp $commID -- Cast Phase ArcSpell (accepts spaces)
                 /arc cmd $serverCommand (i.e, /arc cmd cheat fly) (accepts spaces)
                 /arc getname -- Prints your taget's name in your chatbox (Try on a MogIt NPC!)
+                /arc copy $text/link -- Open a box to copy the text/link (accepts spaces)
                 /arc tog $ArcVar -- (no spaces)
                 /arc set $ArcVar $value -- (no spaces)
                 /arc if $ArcVar $trueCommand $falseCommand $trueVar $flaseVar -- (no spaces)
