@@ -72,7 +72,19 @@ addonTable.ChangelogText = [[
             ARC:SET("ArcVar", "value")  -- Sets an ArcVar to the specificed "value".
             ARC:GET("ArcVar")           -- Returns the value of an ArcVar. Needs embeded.
 
-            Please see the User Guide for more information on the ARC.API
+            Please see the User Guide for more information on the ARC.API, or use `/arc`.
+            Frequent ARC.API functions can also be ran using a more friendly slash command,
+            but are limited in that you cannot use spaces in the vars or commands.
+                /arc cast $commID -- Cast Personal ArcSpell (accepts spaces)
+                /arc castp $commID -- Cast Phase ArcSpell (accepts spaces)
+                /arc cmd $serverCommand (i.e, /arc cmd cheat fly) (accepts spaces)
+                /arc getname -- Prints your taget's name in your chatbox (Try on a MogIt NPC!)
+                /arc tog $ArcVar -- (no spaces)
+                /arc set $ArcVar $value -- (no spaces)
+                /arc if $ArcVar $trueCommand $falseCommand $trueVar $flaseVar -- (no spaces)
+                  - ex: /arc if ToggleTorch aura unaura 1234 all
+                  - Casts aura 1234 if ToggleTorch is true, or unaura all if false.
+                  - You can leave off $falseVar and $trueVar will be used for both true & false.
 
       NOTE: ArcVars exist in a global table, "ARC.VAR". You can access them directly if you
             understand Lua & know what you're doing. 
@@ -83,6 +95,10 @@ addonTable.ChangelogText = [[
 
 ### - NEW: Changelogs are now documented in-game in the Settings panel.
            Along with Links to the User Guide on Discord & the forums!
+
+### - BUG FIXES:
+        - Slash /Command & Server .Command actions no longer break when a comma is present.
+                - That said, Slash & Server actions no longer support comma multi-actions.
 
 {h2:c} __________________________________________________________ {/h2}
 ##v1.0.0 (October 20th, 2022)

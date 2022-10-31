@@ -605,7 +605,7 @@ actionTypeData = {
 		["command"] = cmdWithDotCheck,
 		["description"] = "Any other server command.\n\rType the full command you want, without the dot, in the input box.\n\ri.e., 'mod drunk 100'.",
 		["dataName"] = "Full Command",
-		["inputDescription"] = "You can use any server command here, without the '.', and it will run after the delay.\n\rTechnically accepts multiple commands, separated by commas.\n\rExample: 'mod drunk 100'.",
+		["inputDescription"] = "You can use any server command here, without the '.', and it will run after the delay.\n\rDoes NOT accept comma separated multi-actions.\n\rExample: 'mod drunk 100'.",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		["doNotDelimit"] = true,
@@ -4556,23 +4556,25 @@ function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
 		print(addonColor.."API Commands:")
 		print(addonColor.."/arc ..")
 		print(addonColor.."     .. cast $commID - The same as /arcanum or /sf")
-		print(addonColor.."     .. c $command - Runs the server $command specified (i.e., 'cheat fly').")
+		print(addonColor.."     .. cmd $command - Runs the server $command specified (i.e., 'cheat fly').")
 		print("               Direct Function: |cffFFAAAA/run ARC:C()|r".." - Run this for a better description.")
-		print(addonColor..'     .. if $tag "$commandTrue" "$commandFalse" ["$var1"]')
-		print(addonColor.."          Checks if the $tag is true and runs the $commandTrue (with $var1 added if given), or $commandFalse if not true (with $var1 added if given).")
+		print(addonColor..'     .. if $tag $commandTrue $commandFalse [$varTrue] [$varFalse]')
+		print(addonColor.."          Checks if the $tag is true and runs the $commandTrue (with $var1 added if given), or $commandFalse if not true (with $varTrue/$varFalse added if given).")
 		print("               Direct Function: |cffFFAAAA/run ARC:IF()|r".." - Run this for a better description.")
 		print(addonColor.."     .. tog $tag - Toggles the $tag between true & false, used with ARC:IF (/arc if).")
 		print("             Direct Function: |cffFFAAAA/run ARC:TOG()|r".." - Run this for a better description.")
-		print(addonColor..'     .. set $tag "$value" - Sets the $tag to a specific "$value". You will need to query with ARC:GET and compare directly.')
+		print(addonColor..'     .. set $tag $value - Sets the $tag to a specific "$value". You will need to query with ARC:GET and compare directly.')
 		print("               Direct Function: |cffFFAAAA/run ARC:SET()|r".." - Run this for a better description.")
-		print(addonColor.."/sfdebug - List all the Debug Commands. WARNING: These are for DEBUG, not for you to play with and complain you broke something.")
+		print(addonColor.."/sfdebug - List all the Debug Commands. WARNING: These are for DEBUG, not to play with and complain something broke.")
 		return;
 	elseif command == "cast" then
 		SlashCmdList.SCFORGEMAIN(rest)
+	elseif command == "castp" then
+		ARC:CASTP(rest)
 	elseif command == "tog" then
 		ARC:TOG(rest)
 	elseif command == "if" then
-		print(rest)
+		--print(rest)
 		local tag, command1, command2, var1, var2
 		tag, rest = rest:match("^(%S*)%s*(.-)$")
 		command1, rest = rest:match("^(%S*)%s*(.-)$")
@@ -4580,6 +4582,13 @@ function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
 		var1, rest = rest:match("^(%S*)%s*(.-)$")
 		var2, rest = rest:match("^(%S*)%s*(.-)$")
 		ARC:IF(tag, command1,command2,var1,var2)
+	elseif command == "cmd" then
+		cmdWithDotCheck(rest)
+	elseif command == "set" then
+		tag, rest = rest:match("^(%S*)%s*(.-)$")
+		ARC:SET(tag, rest)
+	elseif command == "getname" then
+		ARC:GETNAME()
 	end
 end
 
