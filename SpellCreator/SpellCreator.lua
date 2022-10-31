@@ -1170,28 +1170,29 @@ end
 
 function updateSpellRowOptions(row, selectedAction) -- breaks if not global, ffs
 		-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
+	local theSpellRow = _G["spellRow"..row]
 	if selectedAction then -- if we call it with no action, reset
-		_G["spellRow"..row].SelectedAction = selectedAction
-		if actionTypeData[selectedAction].selfAble then _G["spellRow"..row.."SelfCheckbox"]:Enable() else _G["spellRow"..row.."SelfCheckbox"]:Disable() end
+		theSpellRow.SelectedAction = selectedAction
+		if actionTypeData[selectedAction].selfAble then theSpellRow.SelfCheckbox:Enable() else theSpellRow.SelfCheckbox:Disable() end
 		if actionTypeData[selectedAction].dataName then
-			_G["spellRow"..row.."InputEntryBox"]:Enable()
-			_G["spellRow"..row.."InputEntryBox"].Instructions:SetText(actionTypeData[selectedAction].dataName)
-			if actionTypeData[selectedAction].inputDescription then _G["spellRow"..row.."InputEntryBox"].Description = actionTypeData[selectedAction].inputDescription end
+			theSpellRow.InputEntryBox:Enable()
+			theSpellRow.InputEntryBox.Instructions:SetText(actionTypeData[selectedAction].dataName)
+			if actionTypeData[selectedAction].inputDescription then theSpellRow.InputEntryBox.Description = actionTypeData[selectedAction].inputDescription end
 		else
-			_G["spellRow"..row.."InputEntryBox"]:Disable()
-			_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("n/a")
+			theSpellRow.InputEntryBox:Disable()
+			theSpellRow.InputEntryBox.Instructions:SetText("n/a")
 		end
 		if actionTypeData[selectedAction].revert then
-			_G["spellRow"..row.."RevertDelayBox"]:Enable();
+			theSpellRow.RevertDelayBox:Enable();
 		else
-			_G["spellRow"..row.."RevertDelayBox"]:Disable();
+			theSpellRow.RevertDelayBox:Disable();
 		end
 	else
-		_G["spellRow"..row].SelectedAction = nil
-		_G["spellRow"..row.."SelfCheckbox"]:Disable()
-		_G["spellRow"..row.."InputEntryBox"].Instructions:SetText("select an action...")
-		_G["spellRow"..row.."InputEntryBox"]:Disable()
-		_G["spellRow"..row.."RevertDelayBox"]:Disable()
+		theSpellRow.SelectedAction = nil
+		theSpellRow.SelfCheckbox:Disable()
+		theSpellRow.InputEntryBox.Instructions:SetText("select an action...")
+		theSpellRow.InputEntryBox:Disable()
+		theSpellRow.RevertDelayBox:Disable()
 	end
 end
 
@@ -1800,17 +1801,18 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 	local maxDelay = 0
 	local actionsToCommit = {}
 	for i = 1, numberOfSpellRows do
-		if isNotDefined(tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())) then
+		local theSpellRow = _G["spellRow"..row]
+		if isNotDefined(tonumber(theSpellRow.mainDelayBox:GetText())) then
 			dprint("Action Row "..i.." Invalid, Delay Not Set")
 		else
 			local actionData = {}
-			actionData.actionType = (_G["spellRow"..i].SelectedAction)
-			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())
+			actionData.actionType = (theSpellRow.SelectedAction)
+			actionData.delay = tonumber(theSpellRow.mainDelayBox:GetText())
 			if actionData.delay > maxDelay then maxDelay = actionData.delay end
-			actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
+			actionData.revertDelay = tonumber(theSpellRow.RevertDelayBox:GetText())
 			if actionData.revertDelay and actionData.revertDelay > maxDelay then maxDelay = actionData.revertDelay end
-			actionData.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
-			actionData.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
+			actionData.selfOnly = theSpellRow.SelfCheckbox:GetChecked()
+			actionData.vars = theSpellRow.InputEntryBox:GetText()
 			ddump(actionData)
 			table.insert(actionsToCommit, actionData)
 		end
@@ -2926,13 +2928,14 @@ local function saveSpell(mousebutton, fromPhaseVaultID)
 		for i = 1, numberOfSpellRows do
 
 			local actionData = {}
-			actionData.delay = tonumber(_G["spellRow"..i.."MainDelayBox"]:GetText())
+			local theSpellRow = _G["spellRow"..row]
+			actionData.delay = tonumber(theSpellRow.mainDelayBox:GetText())
 			if actionData.delay and actionData.delay >= 0 then
-				actionData.actionType = (_G["spellRow"..i].SelectedAction)
+				actionData.actionType = (theSpellRow.SelectedAction)
 				if actionTypeData[actionData.actionType] then
-					actionData.revertDelay = tonumber(_G["spellRow"..i.."RevertDelayBox"]:GetText())
-					actionData.selfOnly = _G["spellRow"..i.."SelfCheckbox"]:GetChecked()
-					actionData.vars = _G["spellRow"..i.."InputEntryBox"]:GetText()
+					actionData.revertDelay = tonumber(theSpellRow.RevertDelayBox:GetText())
+					actionData.selfOnly = theSpellRow.SelfCheckbox:GetChecked()
+					actionData.vars = theSpellRow.InputEntryBox:GetText()
 					table.insert(newSpellData.actions, actionData)
 					dprint(false,"Action Row "..i.." Captured successfully.. pending final save to data..")
 				else

@@ -3,7 +3,7 @@ local addonName, addonTable = ...
 addonTable.ChangelogText = [[
 
 {h3:c} See the User Guide for more help on how to use Arcanum.{/h3}
-{h3:c} [Link - Builder's Haven Discord Guide](https://discord.com/channels/718813797611208788/1031832007031930880/1032773498600439898) - [Link - Epsilon Forums Guide](https://forums.epsilonwow.net/topic/3413-addon-arcanum-spell-forge-user-guide/?tab=comments#comment-15529) {/h3}
+{h3:c} [Link - Builder's Haven Discord Guide](https://discord.com/channels/718813797611208788/1031832007031930880/1032773498600439898) - [Link - Epsilon Forums Guide](https://forums.epsilonwow.net/topic/3413-addon-arcanum-spell-forge-user-guide/) {/h3}
 
 {h1:c} Changelog {/h1}
 {h2:c} __________________________________________________________ {/h2}
@@ -76,7 +76,7 @@ Artwork by T (AJT#0715)
 Code by MindScape (MindScape#0332)
 Thank you to Azarchius & Razmatas for Epsilon Core, Executable, and Server support
 
-And thank YOU, the players of Epsilon, for being the drive behind this server, community, and the amazing things you have, and will, create. 
+### And thank YOU, the players of Epsilon, for being the drive behind this server, community, and the amazing things you have, and will, create. 
 {h2:c} __________________________________________________________ {/h2}
 ]]
 
