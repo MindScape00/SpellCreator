@@ -2968,6 +2968,7 @@ SCForgeMainFrame.SaveSpellButton:RegisterForClicks("LeftButtonUp", "RightButtonU
 SCForgeMainFrame.SaveSpellButton:SetScript("OnClick", function(self, button)
 	setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
 	saveSpell(button)
+	C_Timer.After(1, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25) end)
 end)
 SCForgeMainFrame.SaveSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -3699,23 +3700,23 @@ function CreateSpellCreatorInterfaceOptions()
 
 
 	local scrollFrame = CreateFrame("ScrollFrame", nil, SpellCreatorInterfaceOptions.panel, "UIPanelScrollFrameTemplate")
-	scrollFrame:SetPoint("TOPLEFT", 3, -75*2)
-	scrollFrame:SetPoint("BOTTOMRIGHT", -30, 30)
+	scrollFrame:SetPoint("TOPLEFT", 20, -75*2)
+	scrollFrame:SetPoint("BOTTOMRIGHT", -50, 30)
 
 	scrollFrame.backdrop = CreateFrame("FRAME", nil, scrollFrame)
-	scrollFrame.backdrop:SetPoint("TOPLEFT", scrollFrame, 3, 3)
-	scrollFrame.backdrop:SetPoint("BOTTOMRIGHT", scrollFrame, 26, -3)
+	scrollFrame.backdrop:SetPoint("TOPLEFT", scrollFrame, -15, 3)
+	scrollFrame.backdrop:SetPoint("BOTTOMRIGHT", scrollFrame, 40, -3)
 	scrollFrame.backdrop:SetBackdrop({
-    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-    edgeSize = 14,
-    insets = {
-        left = 4,
-        right = 4,
-        top = 4,
-        bottom = 4,
-    },
-})
+		bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+		edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+		edgeSize = 14,
+		insets = {
+			left = 4,
+			right = 4,
+			top = 4,
+			bottom = 4,
+		},
+	})
 	scrollFrame.backdrop:SetBackdropColor(0, 0, 0, 0.25)
 	scrollFrame.backdrop:SetFrameLevel(2)
 
@@ -3727,16 +3728,15 @@ function CreateSpellCreatorInterfaceOptions()
 
 	-- Create the scrolling child frame, set its width to fit, and give it an arbitrary minimum height (such as 1)
 	local scrollChild = CreateFrame("SimpleHTML")
-	scrollFrame:SetScrollChild(scrollChild)
-	scrollChild:SetWidth(InterfaceOptionsFramePanelContainer:GetWidth()-18)
+	scrollChild:SetWidth(InterfaceOptionsFramePanelContainer:GetWidth()-75)
 	scrollChild:SetHeight(1)
+	scrollFrame:SetScrollChild(scrollChild)
 	scrollChild:SetScript("OnHyperlinkClick", HTML_HyperlinkClick_Copy)
 	scrollChild:SetFontObject("p", GameFontNormal);
 	scrollChild:SetFontObject("h1", GameFontNormalHuge2);
 	scrollChild:SetFontObject("h2", GameFontNormalLarge);
 	scrollChild:SetFontObject("h3", GameFontNormalMed2);
-	scrollChild:SetText(stringtoHTML(addonTable.ChangelogText))
-
+	scrollChild:SetText(stringtoHTML(addonTable.ChangelogText));
 	-- Add widgets to the scrolling child frame as desired
 
 
@@ -4001,6 +4001,7 @@ local gossipTags = {
 		cast = {tag = "cast", script = gossipScript.click_cast},
 		save = {tag = "save", script = gossipScript.save},
 		cmd = {tag = "cmd", script = gossipScript.cmd},
+		macro = {tag = "macro", script = RunMacroText}
 	},
 	extensions = {
 		{ ext = "hide", script = gossipScript.hide_check},
@@ -4111,7 +4112,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		while gossipGreetingText and gossipGreetingText:match(gossipTags.default) do -- while gossipGreetingText has an arcTag - this allows multiple tags
 			shouldLoadSpellVault = true
 			gossipGreetPayload = gossipGreetingText:match(gossipTags.capture) -- capture the tag
-			local strTag, strArg = strsplit(":", gossipGreetPayload) -- split the tag from the data
+			local strTag, strArg = strsplit(":", gossipGreetPayload, 2) -- split the tag from the data
 			local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
 			
 			if gossipReloadCheck() then
@@ -4166,7 +4167,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			while titleButtonText and titleButtonText:match(gossipTags.default) do
 				shouldLoadSpellVault = true
 				gossipOptionPayload = titleButtonText:match(gossipTags.capture) -- capture the tag
-				local strTag, strArg = strsplit(":", gossipOptionPayload) -- split the tag from the data
+				local strTag, strArg = strsplit(":", gossipOptionPayload, 2) -- split the tag from the data
 				local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
 
 				if gossipTags.option[mainTag] then -- Checking Main Tags & Running their code if present
@@ -4340,18 +4341,45 @@ end);
 ARC = {}
 ARC.VAR = {}
 
--- SYNTAX: ARC:C("command here") - i.e., ARC:C("cheat fly")
-function ARC:C(text)
+-- SYNTAX: ARC:COMM("command here") - i.e., ARC:COMM("cheat fly")
+function ARC:COMM(text)
 	if text and text ~= "" then
 		cmdWithDotCheck(text)
 	else
-		cprint('ARC:API SYNTAX - C - Sends a Command to the Server.')
-		print(addonColor..'Function: |cffFFAAAAARC:C("command here")|r')
-		print(addonColor..'Example: |cffFFAAAAARC:C("cheat fly")')
+		cprint('ARC:API SYNTAX - COMM - Sends a Command to the Server.')
+		print(addonColor..'Function: |cffFFAAAAARC:COMM("command here")|r')
+		print(addonColor..'Example: |cffFFAAAAARC:COMM("cheat fly")')
 	end
 end
 
--- SYNTAX: ARC:CAST("commID") - i.e., ARC:CAST("teleportEffectsSpell")
+-- SYNTAX: ARC:COPY("text to copy, like a URL") - i.e., ARC:COPY("https://discord.gg/C8DZ7AxxcG")
+function ARC:COPY(text)
+	if text and text ~= "" then
+		cmdWithDotCheck(text)
+	else
+		cprint('ARC:API SYNTAX - COPY - Opens a Dialog to copy the given text.')
+		print(addonColor..'Function: |cffFFAAAAARC:COPY("text to copy, like a URL")|r')
+		print(addonColor..'Example: |cffFFAAAAARC:COPY("https://discord.gg/C8DZ7AxxcG")')
+	end
+end
+
+-- SYNTAX: ARC:GETNAME() - Gets the Name of the Target and prints it to chat, with MogIt Link Filtering. This allows MogIt links to be copied easily.
+function ARC:GETNAME() 
+	local unitName = GetUnitName("target")
+	if unitName:match("MogIt") then
+		if unitName:match("%[(MogItNPC[^%]]+)%]") then
+			unitName = unitName:gsub("%[(MogIt[^%]]+)%]","|cff00ccff|H%1|h[MogIt NPC]|h|r");
+		else
+			unitName = unitName:gsub("%[(MogIt[^%]]+)%]","|cffcc99ff|H%1|h[MogIt]|h|r");
+		end
+		print("MogIt Link: "..unitName)
+	else
+		print("Unit Name: "..unitName)
+	end
+	--SendChatMessage(GetUnitName("target", false), "WHISPER", nil, UnitName("player"))
+end
+
+-- SYNTAX: ARC:CAST("commID") - i.e., ARC:CAST("teleportEffectsSpell") -- Casts an ArcSpell from Personal Vault
 function ARC:CAST(text)
 	if text and text ~= "" then
 		if SpellCreatorSavedSpells[text] then
@@ -4367,7 +4395,7 @@ function ARC:CAST(text)
 	end
 end
 
--- SYNTAX: ARC:CASTP("commID") - i.e., ARC:CASTP("teleportEffectsSpell")
+-- SYNTAX: ARC:CASTP("commID") - i.e., ARC:CASTP("teleportEffectsSpell") -- Casts an ArcSpell from Phase Vault
 function ARC:CASTP(text)
 	if text and text ~= "" then
 		local spellRanSuccessfully
@@ -4389,12 +4417,16 @@ end
 
 -- SYNTAX: ARC:IF(tag, Command if True, Command if False, [Variables for True], [Variables for False])
 function ARC:IF(tag, command1, command2, var1, var2)
-	if (tag and command1 and command2) and (tag ~= "" and command1 ~= "" and command2 ~= "") then
-		if var1 == "" then var1 = nil end
-		if var2 == "" then var2 = nil end
-		command1 = command1..(var1 and " "..var1 or "")
-		command2 = command2..(var2 and " "..var2 or var1 and " "..var1 or "")
-		if ARC.VAR[tag] then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
+	if tag then
+		if (tag and command1 and command2) and (tag ~= "" and command1 ~= "" and command2 ~= "") then
+			if var1 == "" then var1 = nil end
+			if var2 == "" then var2 = nil end
+			command1 = command1..(var1 and " "..var1 or "")
+			command2 = command2..((var2 and " "..var2) or (var1 and " "..var1) or "")
+			if ARC.VAR[tag] then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
+		else
+			if ARC.VAR[tag] then return true; else return false; end
+		end
 	else
 		cprint('ARC:API SYNTAX - IF - Checks if "tag" is true, and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands.')
 		print(addonColor..'Function: |cffFFAAAAARC:IF("tag", "CommandTrue", "CommandFalse", "Var1")|r')
@@ -4406,12 +4438,16 @@ end
 
 -- SYNTAX: ARC:IF(tag, Command if True, Command if False, [Variables for True], [Variables for False])
 function ARC:IFS(tag, toEqual, command1, command2, var1, var2)
-	if (tag and command1 and command2) and (tag ~= "" and command1 ~= "" and command2 ~= "") then
-		if var1 == "" then var1 = nil end
-		if var2 == "" then var2 = nil end
-		command1 = command1..(var1 and " "..var1 or "")
-		command2 = command2..(var2 and " "..var2 or var1 and " "..var1 or "")
-		if ARC.VAR[tag] == toEqual then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
+	if tag and toEqual then 
+		if (command1 and command2) and (command1 ~= "" and command2 ~= "") then
+			if var1 == "" then var1 = nil end
+			if var2 == "" then var2 = nil end
+			command1 = command1..(var1 and " "..var1 or "")
+			command2 = command2..(var2 and " "..var2 or var1 and " "..var1 or "")
+			if ARC.VAR[tag] == toEqual then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
+		else
+			if ARC.VAR[tag] == toEqual then return true; else return false; end
+		end
 	else
 		cprint('ARC:API SYNTAX - IFS - Checks if "tag" is equal to "toEqual", and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands, the same as ARC:IF.')
 		print(addonColor..'Function: |cffFFAAAAARC:IFS("tag", "toEqual", "CommandTrue", "CommandFalse", "Var1")|r')
@@ -4420,6 +4456,7 @@ function ARC:IFS(tag, toEqual, command1, command2, var1, var2)
 	end
 end
 
+-- SYNTAX: ARC:TOG(tag) -- Flips the ArcVar between true and false.
 function ARC:TOG(tag)
 	if tag and tag ~= "" then
 		if ARC.VAR[tag] then ARC.VAR[tag] = false else ARC.VAR[tag] = true end
@@ -4432,6 +4469,7 @@ function ARC:TOG(tag)
 	end
 end
 
+-- SYNTAX: ARC:TOG(tag) -- Sets the ArcVar to the specified string.
 function ARC:SET(tag, str)
 	if tag == "" then tag = nil end
 	if str == "" then str = nil end
@@ -4525,11 +4563,13 @@ local _phaseSpellDebugDataTable = {}
 SLASH_SCFORGEDEBUG1 = '/sfdebug';
 function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 	local command, rest = msg:match("^(%S*)%s*(.-)$")
+	if command == "debug" then
+		SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
+		dprint(true, "SC-Forge Debug Set to: "..tostring(SpellCreatorMasterTable.Options["debug"]))
+		return;
+	end
 	if SpellCreatorMasterTable.Options["debug"] and msg ~= "" then
-		if command == "debug" then
-			SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
-			dprint(true, "SC-Forge Debug Set to: "..tostring(SpellCreatorMasterTable.Options["debug"]))
-		elseif command == "resetSpells" then
+		if command == "resetSpells" then
 			dprint(true, "All Arcaum Spells reset. #GoodBye #ThisCannotBeUndoneHopeYouDidn'tFuckUp!")
 			SpellCreatorSavedSpells = {}
 			updateSpellLoadRows()
@@ -4661,12 +4701,14 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 		cprint("Version: "..addonVersion)
 		--cprint("RuneIcon: "..runeIconOverlay.atlas or runeIconOverlay.tex)
 		cprint("Debug Commands (/sfdebug ...): ")
+		print("... debug: Toggles Debug mode on/off. Debug must be on for these commands to work.")
 		print("... resetSpells: reset your vault to empty. Cannot be undone.")
-		print("... listSpells: List all your vault spells.. this is alot of stuff.")
+		print("... listSpells: List all your vault spells' data.. this is alot of text!")
 		print("... listSpellKeys: List all your vault spells by just keys. Easier to read.")
-		print("... resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, and can be exported to your WTF file by using getPhaseSpellData below.")
 		print("... getPhaseKeys: Lists all the vault spells by keys.")
 		print("... getPhaseSpellData [$commID/key]: Exports the spell data for all current keys, or the specified commID/key, to your '|cffFFAAAA..epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua|r' file.")
+		print("... resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, and can be exported to your WTF file by using getPhaseSpellData.")
+		print("... removePhaseKey: Removes a single phase key from the Phase Vault. The data for the spell remains, and can be retrieved using getPhaseSpellData also.")
 	end
 end
 
