@@ -1801,7 +1801,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 	local maxDelay = 0
 	local actionsToCommit = {}
 	for i = 1, numberOfSpellRows do
-		local theSpellRow = _G["spellRow"..row]
+		local theSpellRow = _G["spellRow"..i]
 		if isNotDefined(tonumber(theSpellRow.mainDelayBox:GetText())) then
 			dprint("Action Row "..i.." Invalid, Delay Not Set")
 		else
@@ -2928,7 +2928,7 @@ local function saveSpell(mousebutton, fromPhaseVaultID)
 		for i = 1, numberOfSpellRows do
 
 			local actionData = {}
-			local theSpellRow = _G["spellRow"..row]
+			local theSpellRow = _G["spellRow"..i]
 			actionData.delay = tonumber(theSpellRow.mainDelayBox:GetText())
 			if actionData.delay and actionData.delay >= 0 then
 				actionData.actionType = (theSpellRow.SelectedAction)
