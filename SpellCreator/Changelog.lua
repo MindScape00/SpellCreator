@@ -20,7 +20,7 @@ addonTable.ChangelogText = [[
         will still be able to use private spells from Integrations (i.e., Gossip).
 
 ### - UPDATED: Forge UI
-      - The |cff59cdea+|r / |cffff3232—|r buttons to add/remove rows have been moved into the UI!
+      - The |cff59cdea+|r / |cffED4245—|r buttons to add/remove rows have been moved into the UI!
             - Individual Rows can now be deleted, not just the last row.
             - NOTE: You cannot restore a deleted row once deleted, unless you
               manually re-create it, or reload the spell from your vault.
@@ -47,23 +47,35 @@ addonTable.ChangelogText = [[
               instead now.
 
 ### - NEW: ARC.API - A pseudo API to make scripting in ArcSpells easier.
-      Tags:
-            ARC:COMM("command")     -- Sends a server command.
-            ARC:COPY("text / link") -- Open a Dialog box to Copy the text/link
+      Functions:
+            ARC:COMM("command")    -- Sends a server command.
+            ARC:COPY("text / link")      -- Open a Dialog box to Copy the text/link
             ARC:GETNAME()       -- Returns the Target's into chat. Try it on a MogIt NPC.
-            ARC:CAST("commID")      -- Casts an ArcSpell from your Personal Vault
-            ARC:CASTP("commID")     -- Casts an ArcSpell from the Phase Vault
+            ARC:CAST("commID")         -- Casts an ArcSpell from your Personal Vault
+            ARC:CASTP("commID")       -- Casts an ArcSpell from the Phase Vault
+
             ARC:IF("ArcVar", [trueCommand, falseCommand], [var1])
                 -- Checks if the ArcVar is true. If true & false command provided, runs the
                     command depending the ArcVar. If no commands provided, returns true if
                     the ArcVar is true, or false if not. If Var1 provided, it will append the
                     var to the true & false command, allowing shorter writen functions.
+
             ARC:IFS("ArcVar", "value", [trueCommand, falseCommand], [var1])
                 -- Works similar to ARC:IF but checks if the ArcVar matches the "value".
                     i.e., ARC:IFS("WhatFruit","Apple") checks if WhatFruit = Apple.
-            ARC:TOG("ArcVar")       -- Toggles an ArcVar between True & False.
+
+            ARC:TOG("ArcVar")             -- Toggles an ArcVar between True & False.
             ARC:SET("ArcVar", "value")  -- Sets an ArcVar to the specificed "value".
-            ARC:GET("ArcVar")       -- Returns the value of an ArcVar.
+            ARC:GET("ArcVar")           -- Returns the value of an ArcVar. Needs embeded.
+
+            Please see the User Guide for more information on the ARC.API
+
+      NOTE: ArcVars exist in a global table, "ARC.VAR". You can access them directly if you
+            understand Lua & know what you're doing. 
+
+            ArcVars are |cffED4245NOT SAVED|r between sessions. Persistent Vars may come in the
+            future if  the need is there, but they won't be secure. If you think of a good use
+            for them, let me know and I can push it up higher on the to-do list.
 
 ### - NEW: Changelogs are now documented in-game in the Settings panel.
            Along with Links to the User Guide on Discord & the Forums!
@@ -75,11 +87,12 @@ addonTable.ChangelogText = [[
 
 {h2:c} __________________________________________________________ {/h2}
 {h1:c} Credits {/h1}
-Artwork by T (AJT#0715)
-Code by MindScape (MindScape#0332)
+Artwork by T ( |cff5865F2AJT#0715|r )
+Code by MindScape ( |cff5865F2MindScape#0332|r )
+
 Thank you to Azarchius & Razmatas for Epsilon Core, Executable, and Server support
 
-### And thank YOU, the players of Epsilon, for being the drive behind this server, community, and the amazing things you have, and will, create. 
+### |cff57F287And thank YOU, the players of Epsilon, for being the drive behind this server, community, and the amazing things you have, and will, create.|r 
 {h2:c} __________________________________________________________ {/h2}
 ]]
 
