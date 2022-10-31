@@ -65,6 +65,9 @@ addonTable.ChangelogText = [[
             ARC:SET("ArcVar", "value")  -- Sets an ArcVar to the specificed "value".
             ARC:GET("ArcVar")       -- Returns the value of an ArcVar.
 
+### - NEW: Changelogs are now documented in-game in the Settings panel.
+           Along with Links to the User Guide on Discord & the Forums!
+
 {h2:c} __________________________________________________________ {/h2}
 ##v1.0.0 (October 25th, 2022)
 
