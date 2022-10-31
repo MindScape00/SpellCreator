@@ -69,7 +69,7 @@ addonTable.ChangelogText = [[
            Along with Links to the User Guide on Discord & the Forums!
 
 {h2:c} __________________________________________________________ {/h2}
-##v1.0.0 (October 25th, 2022)
+##v1.0.0 (October 20th, 2022)
 
 - Released! 
 

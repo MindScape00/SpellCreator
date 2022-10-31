@@ -1939,7 +1939,7 @@ local function noSpellsToLoad(fake)
 	phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" );
 	if not fake then
 		if C_Epsilon.IsOfficer() then
-			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty\n\rC'mon, add something fun!");
+			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty\n\n\rSelect a spell in\ryour personal vault\rand click the Transfer\rbutton below!\n\n\rGo on, add\rsomething fun!");
 		else
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty");
 		end
