@@ -2175,7 +2175,7 @@ gossipAddMenuInsert.hideButton = CreateFrame("CHECKBUTTON", nil, gossipAddMenuIn
 		self.Timer = C_Timer.NewTimer(0.7,function()
 			GameTooltip:SetText("Hide the Gossip menu after Casting/Saving.", nil, nil, nil, nil, true)
 			GameTooltip:AddLine("\n\rFor On Click: The Gossip menu will close after you click, and then the spell will be casted or saved.",1,1,1,true)
-			GameTooltip:AddLine("\nFor On Open: The Gossip menu will close immediately after opening, usually before it can be seen, and the spell will be casted or saved..",1,1,1,true)
+			GameTooltip:AddLine("\nFor On Open: The Gossip menu will close immediately after opening, usually before it can be seen, and the spell will be casted or saved.",1,1,1,true)
 			GameTooltip:Show()
 		end)
 	end)
@@ -2203,7 +2203,7 @@ gossipAddMenuInsert.RadioOption = CreateFrame("CHECKBUTTON", nil, gossipAddMenuI
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
 			GameTooltip:SetText("..On Click", nil, nil, nil, nil, true)
-			GameTooltip:AddLine("\nAdds the ArcSpell & Tag to a Gossip Option. When that option is clicked, the spell will be cast.")
+			GameTooltip:AddLine("\nAdds the ArcSpell & Tag to a Gossip Option. When that option is clicked, the spell will be cast.\n\rRequires Gossip Text, otherwise it's un-clickable.",1,1,1,true)
 			GameTooltip:Show()
 		end)
 	end)
@@ -2230,7 +2230,7 @@ gossipAddMenuInsert.RadioBody = CreateFrame("CHECKBUTTON", nil, gossipAddMenuIns
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
 			GameTooltip:SetText("..On Open (Auto)", nil, nil, nil, nil, true)
-			GameTooltip:AddLine("\nAdds the ArcSpell & Tag to the Gossip main menu, casting them atuotmaically from the Phase Vault when it is shown.",1,1,1,true)
+			GameTooltip:AddLine("\nAdds the ArcSpell & Tag to the Gossip main menu, casting them atuotmaically from the Phase Vault when it is shown.\n\rDoes not require Gossip Text, you can add a tag without any additional text.",1,1,1,true)
 			GameTooltip:Show()
 		end)
 	end)
@@ -2594,7 +2594,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					hasEditBox = true,
 					enterClicksFirstButton = true,
 					editBoxInstructions = "Gossip Text (i.e., 'Cast the Spell!')",
-					editBoxWidth = 350,
+					editBoxWidth = 310,
 					maxLetters = 255-25-20-#savedSpellFromVault[self.commID].commID, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
 					EditBoxOnTextChanged = function (self, data)
 						local text = self:GetText();
