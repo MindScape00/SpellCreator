@@ -3732,7 +3732,7 @@ function CreateSpellCreatorInterfaceOptions()
 	scrollChild:SetHeight(1)
 	scrollFrame:SetScrollChild(scrollChild)
 	scrollChild:SetScript("OnHyperlinkClick", HTML_HyperlinkClick_Copy)
-	scrollChild:SetFontObject("p", GameFontNormal);
+	scrollChild:SetFontObject("p", GameFontHighlight);
 	scrollChild:SetFontObject("h1", GameFontNormalHuge2);
 	scrollChild:SetFontObject("h2", GameFontNormalLarge);
 	scrollChild:SetFontObject("h3", GameFontNormalMed2);
