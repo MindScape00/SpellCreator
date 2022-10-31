@@ -30,6 +30,7 @@ addonTable.ChangelogText = [[
               manually re-create it, or reload the spell from your vault.
       - A new "Clear & Reset UI" button has been added! If the animation is too slow,
         you can toggle 'Fast Reset' in the options menu.
+      - The Revert Checkbox was killed. Now it's just Revert Delay - Simpler to use!
 
 ### - UPDATED: Transfer to Personal Vault Button added.
       - This should make it easier and more intuitive to transfer spells to
