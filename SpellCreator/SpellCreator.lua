@@ -1,6 +1,8 @@
 local addonName, addonTable = ...
 local addonVersion, addonAuthor, addonTitle = GetAddOnMetadata(addonName, "Version"), GetAddOnMetadata(addonName, "Author"), GetAddOnMetadata(addonName, "Title")
 local addonPath = "Interface/AddOns/"..tostring(addonName)
+local lastAddonVersion
+local addonUpdated
 
 local addonColor = "|cff".."ce2eff" -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
 local addonMsgPrefix = "SCFORGE"
@@ -15,9 +17,9 @@ local modifiedGossips = {}
 local isGossipLoaded
 
 -- localized frequent functions for speed
-local CTimerAfter = C_Timer.After
 local C_Timer = C_Timer
-
+local print = print
+local SendChatMessage = SendChatMessage
 --
 -- local curDate = date("*t") -- Current Date for surprise launch - disabled since it's over anyways
 
@@ -231,6 +233,9 @@ local function SC_loadMasterTable()
 	if isNotDefined(SpellCreatorMasterTable.Options["loadChronologically"]) then SpellCreatorMasterTable.Options["loadChronologically"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["minimapIcon"]) then SpellCreatorMasterTable.Options["minimapIcon"] = true end
 
+	lastAddonVersion = SpellCreatorMasterTable.Options["lastAddonVersion"] or "0"
+	SpellCreatorMasterTable.Options["lastAddonVersion"] = addonVersion
+
 	if not SpellCreatorSavedSpells then SpellCreatorSavedSpells = {} end
 
 	--[[ -- Current Date Check for past Oct 25, 2022. Disabled since we are past that anyways now.
@@ -350,7 +355,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 				actionData.command(v)
 			end
 		else
-			CTimerAfter(delay, function()
+			C_Timer.After(delay, function()
 				local varTable = varTable
 				for i = 1, #varTable do
 					local v = varTable[i]
@@ -375,7 +380,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 
 				end
 				if revertDelay and revertDelay > 0 then
-					CTimerAfter(revertDelay, function()
+					C_Timer.After(revertDelay, function()
 						local varTable = varTable
 						for i = 1, #varTable do
 							local v = varTable[i]
@@ -389,7 +394,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 					end)
 				end
 			else
-				CTimerAfter(delay, function()
+				C_Timer.After(delay, function()
 					local varTable = varTable
 					for i = 1, #varTable do
 						local v = varTable[i] -- v = the ID or input.
@@ -402,7 +407,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 
 					end
 					if revertDelay and revertDelay > 0 then
-						CTimerAfter(revertDelay, function()
+						C_Timer.After(revertDelay, function()
 							local varTable = varTable
 							for i = 1, #varTable do
 								local v = varTable[i]
@@ -419,9 +424,9 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 			end
 		else
 			if selfOnly then
-				CTimerAfter(delay, function() cmd(actionData.command.." self") end)
+				C_Timer.After(delay, function() cmd(actionData.command.." self") end)
 			else
-				CTimerAfter(delay, function() cmd(actionData.command) end)
+				C_Timer.After(delay, function() cmd(actionData.command) end)
 			end
 		end
 	end
@@ -3404,7 +3409,7 @@ function ChatFrame_OnHyperlinkShow(...)
 		ItemRefTooltip:AddDoubleLine( "Arcanum Spell", charOrPhase, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75 )
 		--ItemRefTooltip:AddLine("Actions: "..numActions, 1, 1, 1, 1 )
 		--ItemRefTooltip:AddLine(" ")
-			CTimerAfter(0, function()
+			C_Timer.After(0, function()
 				local button
 				if tonumber(charOrPhase) then -- is a phase, not a character
 					if charOrPhase == "169" then
@@ -3702,32 +3707,38 @@ function CreateSpellCreatorInterfaceOptions()
 	SpellCreatorInterfaceOptionsHeader:SetText(addonTitle.." v"..addonVersion.." by "..addonAuthor)
 
 
-	local scrollFrame = CreateFrame("ScrollFrame", nil, SpellCreatorInterfaceOptions.panel, "UIPanelScrollFrameTemplate")
-	scrollFrame:SetPoint("TOPLEFT", 20, -75*2)
-	scrollFrame:SetPoint("BOTTOMRIGHT", -50, 30)
+	SpellCreatorInterfaceOptions.panel.scrollFrame = CreateFrame("ScrollFrame", nil, SpellCreatorInterfaceOptions.panel, "UIPanelScrollFrameTemplate")
+	local scrollFrame = SpellCreatorInterfaceOptions.panel.scrollFrame
+		scrollFrame:SetPoint("TOPLEFT", 20, -75*2)
+		scrollFrame:SetPoint("BOTTOMRIGHT", -50, 30)
 
-	scrollFrame.backdrop = CreateFrame("FRAME", nil, scrollFrame)
-	scrollFrame.backdrop:SetPoint("TOPLEFT", scrollFrame, -15, 3)
-	scrollFrame.backdrop:SetPoint("BOTTOMRIGHT", scrollFrame, 40, -3)
-	scrollFrame.backdrop:SetBackdrop({
-		bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-		edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-		edgeSize = 14,
-		insets = {
-			left = 4,
-			right = 4,
-			top = 4,
-			bottom = 4,
-		},
-	})
-	scrollFrame.backdrop:SetBackdropColor(0, 0, 0, 0.25)
-	scrollFrame.backdrop:SetFrameLevel(2)
+		scrollFrame.backdrop = CreateFrame("FRAME", nil, scrollFrame)
+			scrollFrame.backdrop:SetPoint("TOPLEFT", scrollFrame, -15, 3)
+			scrollFrame.backdrop:SetPoint("BOTTOMRIGHT", scrollFrame, 40, -3)
+			scrollFrame.backdrop:SetBackdrop({
+				bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+				edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+				edgeSize = 14,
+				insets = {
+					left = 4,
+					right = 4,
+					top = 4,
+					bottom = 4,
+				},
+			})
+			scrollFrame.backdrop:SetBackdropColor(0, 0, 0, 0.25)
+			scrollFrame.backdrop:SetFrameLevel(2)
 
-	scrollFrame.Title = scrollFrame.backdrop:CreateFontString(nil,'ARTWORK')
-	scrollFrame.Title:SetFont(STANDARD_TEXT_FONT,12,'OUTLINE')
-	scrollFrame.Title:SetTextColor(1,1,1)
-	scrollFrame.Title:SetText("Spell Forge")
-	scrollFrame.Title:SetPoint('TOP',scrollFrame.backdrop,0,5)
+		scrollFrame.Title = scrollFrame.backdrop:CreateFontString(nil,'ARTWORK')
+			scrollFrame.Title:SetFont(STANDARD_TEXT_FONT,12,'OUTLINE')
+			scrollFrame.Title:SetTextColor(1,1,1)
+			scrollFrame.Title:SetText("Spell Forge")
+			scrollFrame.Title:SetPoint('TOP',scrollFrame.backdrop,0,5)
+
+		scrollFrame.Title.Backdrop = scrollFrame.backdrop:CreateTexture(nil, "BORDER", nil, 6)
+			scrollFrame.Title.Backdrop:SetColorTexture(0,0,0)
+			scrollFrame.Title.Backdrop:SetPoint("CENTER", scrollFrame.Title, "CENTER", -1, -1)
+			scrollFrame.Title.Backdrop:SetSize(scrollFrame.Title:GetWidth()-4, scrollFrame.Title:GetHeight()/2)
 
 	-- Create the scrolling child frame, set its width to fit, and give it an arbitrary minimum height (such as 1)
 	local scrollChild = CreateFrame("SimpleHTML")
@@ -3949,6 +3960,7 @@ local useImmersion = false
 local gossipOptionPayload
 local gossipGreetPayload
 local lastGossipText
+local currGossipText
 
 local gossipScript = {
 	show = function()
@@ -4056,7 +4068,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		scforge_ChannelID = GetChannelName("scforge_comm")
 
 		--Quickly Show / Hide the Frame on Start-Up to initialize everything for key bindings & loading
-		CTimerAfter(1,function()
+		C_Timer.After(1,function()
 			SCForgeMainFrame:Show();
 			if not SpellCreatorMasterTable.Options["debug"] then SCForgeMainFrame:Hide(); --[[ SCForgeLoadFrame:Hide() ]] end
 		end)
@@ -4088,6 +4100,15 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			SCForgeMainFrame.ExecuteSpellButton:Disable()
 		else
 			SCForgeMainFrame.ExecuteSpellButton:Enable()
+		end
+
+		if addonVersion ~= lastAddonVersion then
+			RaidNotice_AddMessage(RaidWarningFrame, "\n\r"..addonColor.."Arcanum - Updated to v"..addonVersion.."\n\rCheck-out the Changelog by right-clicking the Mini-map Icon!|r", ChatTypeInfo["RAID_WARNING"])
+--			InterfaceOptionsFrame_OpenToCategory(addonTitle);
+--			InterfaceOptionsFrame_OpenToCategory(addonTitle);
+			local titleText = SpellCreatorInterfaceOptions.panel.scrollFrame.Title
+			titleText:SetText("Spell Forge - |cff57F287UPDATED|r to v"..addonVersion)
+			titleText.Backdrop:SetSize(titleText:GetWidth()-4, titleText:GetHeight()/2)
 		end
 
 	-- Phase DM Toggle Listener
@@ -4704,7 +4725,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 		cprint("Version: "..addonVersion)
 		--cprint("RuneIcon: "..runeIconOverlay.atlas or runeIconOverlay.tex)
 		cprint("Debug Commands (/sfdebug ...): ")
-		print("... debug: Toggles Debug mode on/off. Debug must be on for these commands to work.")
+		print("... debug: Toggles Debug mode on/off. Must be on for these commands to work.")
 		print("... resetSpells: reset your vault to empty. Cannot be undone.")
 		print("... listSpells: List all your vault spells' data.. this is alot of text!")
 		print("... listSpellKeys: List all your vault spells by just keys. Easier to read.")

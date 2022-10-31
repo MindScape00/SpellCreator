@@ -19,6 +19,10 @@ addonTable.ChangelogText = [[
         Private spells will only show in the vault for Officers+. Players
         will still be able to use private spells from Integrations (i.e., Gossip).
 
+           - Spell visibility (Private vs Public) is represented by the eye-con on 
+             each spell row in the Phase Vault. Spells must be re-uploaded to change
+             their visibility.
+
 ### - UPDATED: Forge UI
       - The |cff59cdea+|r / |cffED4245—|r buttons to add/remove rows have been moved into the UI!
             - Individual Rows can now be deleted, not just the last row.
@@ -78,7 +82,7 @@ addonTable.ChangelogText = [[
             for them, let me know and I can push it up higher on the to-do list.
 
 ### - NEW: Changelogs are now documented in-game in the Settings panel.
-           Along with Links to the User Guide on Discord & the Forums!
+           Along with Links to the User Guide on Discord & the forums!
 
 {h2:c} __________________________________________________________ {/h2}
 ##v1.0.0 (October 20th, 2022)
