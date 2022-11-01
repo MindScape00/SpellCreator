@@ -44,8 +44,6 @@ addonTable.ChangelogText = [[
         you can toggle 'Fast Reset' in the options menu.
       - The Revert Checkbox was killed. Now it's just Revert Delay - Simpler to use!
 
-
-
 ### - RE-WORKED: Gossip Integration has been re-implemented.
       - The new implementation was needed for supporting...
         - NEW: Add to Gossip button/UI for ArcSpells in the Phase Vault, noted above!
