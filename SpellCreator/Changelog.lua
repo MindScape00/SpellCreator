@@ -23,6 +23,18 @@ addonTable.ChangelogText = [[
              each spell row in the Phase Vault. Spells must be re-uploaded to change
              their visibility.
 
+### - NEW: Right-Clicking ArcSpells in the Vault will show a context menu with quick actions, 
+           including Casting, Chatting and...
+
+### - NEW: ArcSpell Import & Export! ArcSpells can now be Imported & Exported
+             - Export: Right-Click an ArcSpell in your Vault, click Export, and copy the code.
+             - Import: Click the little Up Arrow in the bottom left of your Personal Vault,
+                       the code, and click Import!
+
+### - UPDATED: Transfer to Personal Vault Button added.
+      - This should make it easier and more intuitive to transfer spells to
+        your personal vault
+
 ### - UPDATED: Forge UI
       - The |cff59cdea+|r / |cffED4245—|r buttons to add/remove rows have been moved into the UI!
             - Individual Rows can now be deleted, not just the last row.
@@ -32,9 +44,7 @@ addonTable.ChangelogText = [[
         you can toggle 'Fast Reset' in the options menu.
       - The Revert Checkbox was killed. Now it's just Revert Delay - Simpler to use!
 
-### - UPDATED: Transfer to Personal Vault Button added.
-      - This should make it easier and more intuitive to transfer spells to
-        your personal vault
+
 
 ### - RE-WORKED: Gossip Integration has been re-implemented.
       - The new implementation was needed for supporting...
@@ -50,6 +60,16 @@ addonTable.ChangelogText = [[
             - Old tags will still function for legacy, but you should be
               using <arcanum_cast_(hide):spell> in '.ph fo np go text add' 
               instead now.
+
+        - VALID TAGS:
+                <arc_show> -- Opens the Spell Forge UI
+                <arc_cast: ..commID > -- Casts the (commID) from the Phase Vault
+                <arc_save: ..commID > -- Saves the (commID) from Phase -> Personal Vault
+                <arc_cmd: ..server command > -- Executes the server command given
+                <arc_macro: ..slash command > -- Executes the macro-script given
+           - Tag Extensions: ( added to the end of a tag, before the :command )
+                _hide -- Hides the Gossip UI after executing the tag.
+                        Example: <arc_cast_hide:teleportToStormwindSpell>
 
 ### - NEW: ARC.API - A pseudo API to make scripting in ArcSpells easier.
       Functions:

@@ -48,6 +48,21 @@ local function serialDecompressForAddonMsg(str)
 	return str;
 end
 
+local function serialCompressForExport(str)
+	str = AceSerializer:Serialize(str)
+	str = LibDeflate:CompressDeflate(str, {level = 9})
+	--str = LibDeflate:EncodeForWoWChatChannel(str)
+	str = LibDeflate:EncodeForPrint(str)
+	return str;
+end
+
+local function serialDecompressForImport(str)
+	str = LibDeflate:DecodeForPrint(str)
+	str = LibDeflate:DecompressDeflate(str)
+	_, str = AceSerializer:Deserialize(str)
+	return str;
+end
+
 -- This is deprecated, vault style 1 is no longer supported.
 local vaultStyle = 2	-- 1 = pop-up window, 2 = attached tray
 
@@ -2325,6 +2340,86 @@ gossipAddMenuInsert.RadioSave:SetScript("OnClick", function(self)
 end)
 
 ------------------------
+local exportMenuFrame = CreateFrame("Frame")
+exportMenuFrame:SetSize(350,120)
+exportMenuFrame.ScrollFrame = CreateFrame("ScrollFrame", nil, exportMenuFrame, "InputScrollFrameTemplate")
+exportMenuFrame.ScrollFrame.CharCount:Hide()
+exportMenuFrame.ScrollFrame:SetSize(350,100)
+exportMenuFrame.ScrollFrame:SetPoint("CENTER")
+exportMenuFrame.ScrollFrame.EditBox:SetWidth(exportMenuFrame.ScrollFrame:GetWidth()-18)
+exportMenuFrame.ScrollFrame.EditBox:SetScript("OnEscapePressed", function(self) self:GetParent():GetParent():GetParent():Hide(); end)
+exportMenuFrame:Hide();
+
+StaticPopupDialogs["SCFORGE_EXPORT_SPELL"] = {
+	text = "ArcSpell Export: %s",
+	subText = "CTRL+C to Copy",
+	closeButton = true,
+	enterClicksFirstButton = true,
+	button1 = DONE,
+	hideOnEscape = true,
+	whileDead = true,
+}
+
+-- Import Menu table moved below SaveSpell...
+
+local function showExportMenu(spellName, data)
+	local dialog = StaticPopup_Show("SCFORGE_EXPORT_SPELL", spellName, nil, nil, exportMenuFrame)
+	dialog.insertedFrame.ScrollFrame.EditBox:SetText(data);
+	dialog.insertedFrame.ScrollFrame.EditBox:SetFocus();
+	dialog.insertedFrame.ScrollFrame.EditBox:HighlightText();
+end
+
+local function showImportMenu()
+	local dialog = StaticPopup_Show("SCFORGE_IMPORT_SPELL", nil, nil, nil, exportMenuFrame)
+	dialog.insertedFrame.ScrollFrame.EditBox:SetText("");
+	dialog.insertedFrame.ScrollFrame.EditBox:SetFocus();
+end
+
+
+local function genDropDownContextOptions(vault, spellCommID)
+	local menuList = {}
+	local item
+	if vault == "PHASE" then 
+		item = {text = SCForge_PhaseVaultSpells[spellCommID].fullName, notCheckable = true, isTitle=true}
+		tinsert(menuList, item)
+		item = {text = "Cast", notCheckable = true, func = function() executeSpell(SCForge_PhaseVaultSpells[spellCommID].actions) end}
+		tinsert(menuList, item)
+		item = {text = "Edit", notCheckable = true, func = function() loadSpell(SCForge_PhaseVaultSpells[spellCommID]) end}
+		tinsert(menuList, item)
+		item = {text = "Transfer", notCheckable = true, func = function() saveSpell(nil, spellCommID) end}
+		tinsert(menuList, item)
+		item = {text = "Add to Gossip", notCheckable = true, func = function() _G["scForgeLoadRow"..spellCommID].gossipButton:Click() end}
+		if not isGossipLoaded then item.disabled = true; item.text = "(Open a Gossip Menu)"; end
+		tinsert(menuList, item)
+	else
+		item = {text = SpellCreatorSavedSpells[spellCommID].fullName, notCheckable = true, isTitle=true}
+		tinsert(menuList, item)
+		item = {text = "Cast", notCheckable = true, func = function() ARC:CAST(spellCommID) end}
+		tinsert(menuList, item)
+		item = {text = "Edit", notCheckable = true, func = function() loadSpell(savedSpellFromVault[spellCommID]) end}
+		tinsert(menuList, item)
+		item = {text = "Transfer", notCheckable = true, func = function() saveSpellToPhaseVault(spellCommID) end}
+		tinsert(menuList, item)
+	end
+
+	item = {text = "Chatlink", notCheckable = true, func = function()
+		SELECTED_CHAT_FRAME.editBox:SetFocus();
+		ChatEdit_InsertLink(generateSpellChatLink(spellCommID, vault));
+	end}
+	tinsert(menuList, item)
+	item = {text = "Export", notCheckable = true, func = function()
+		local exportData = savedSpellFromVault[spellCommID]
+		showExportMenu(savedSpellFromVault[spellCommID].commID, savedSpellFromVault[spellCommID].commID..":"..serialCompressForExport(exportData))
+	end}
+	tinsert(menuList, item)
+
+
+	return menuList
+end
+
+local contextDropDownMenu = CreateFrame("BUTTON", "ARCLoadRowContextMenu", UIParent, "UIDropDownMenuTemplate")
+
+------------------------
 
 local loadRowHeight = 45
 local loadRowSpacing = 5
@@ -2347,6 +2442,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.30,0.10,0.40,0.5)
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
+		SCForgeMainFrame.LoadSpellFrame.ImportSpellButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Hide()
 		if next(savedSpellFromVault) == nil then
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty")
@@ -2359,6 +2455,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Disable()
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Hide()
+		SCForgeMainFrame.LoadSpellFrame.ImportSpellButton:Hide()
 		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.20,0.40,0.50,0.5)
 		if fromPhaseDataLoaded then
@@ -2622,6 +2719,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					button1 = ADD,
 					button2 = CANCEL,
 					hideOnEscape = true,
+					EditBoxOnEscapePressed = StaticPopup_StandardEditBoxOnEscapePressed,
 					whileDead = true,
 					OnShow = function (self, data)
 						self.button1:Disable()
@@ -2819,26 +2917,27 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				GameTooltip_Hide()
 				self.Timer:Cancel()
 			end)
-			thisRow:SetScript("OnClick", function(self)
-				if IsModifiedClick("CHATLINK") then
-					ChatEdit_InsertLink(generateSpellChatLink(k, currentVault));
-					self:SetChecked(not self:GetChecked());
-					return;
-				end
-				clearSpellLoadRadios(self)
-				if self:GetChecked() then
-					setSelectedVaultRow(self.rowID)
-				else
-					setSelectedVaultRow(nil)
+			thisRow:SetScript("OnClick", function(self, button)
+				if button == "LeftButton" then 
+					if IsModifiedClick("CHATLINK") then
+						SELECTED_CHAT_FRAME.editBox:SetFocus()
+						ChatEdit_InsertLink(generateSpellChatLink(k, currentVault));
+						self:SetChecked(not self:GetChecked());
+						return;
+					end
+					clearSpellLoadRadios(self)
+					if self:GetChecked() then
+						setSelectedVaultRow(self.rowID)
+					else
+						setSelectedVaultRow(nil)
+					end
+				elseif button == "RightButton" then
+					--Show & Update Right-Click Context Menu
+					EasyMenu(genDropDownContextOptions(currentVault, self.commID), contextDropDownMenu, "cursor", 0 , 0, "MENU");
+					self:SetChecked( not self:GetChecked() )
 				end
 			end)
-			--[[
-			thisRow:SetScript("OnMouseDown", function(self)
-				if IsModifiedClick("CHATLINK") then
-					ChatEdit_InsertLink(generateSpellChatLink(k, currentVault))
-				end
-			end)
-			--]]
+			thisRow:RegisterForClicks("LeftButtonUp","RightButtonUp")
 		end
 
 		-- Limit our Spell Name to 2 lines - but by downsizing the text instead of truncating..
@@ -2890,7 +2989,7 @@ StaticPopupDialogs["SCFORGE_CONFIRM_DELETE"] = {
 	preferredIndex = 3,
 }
 
-local function saveSpell(mousebutton, fromPhaseVaultID)
+local function saveSpell(mousebutton, fromPhaseVaultID, manualData)
 
 	local wasOverwritten = false
 	local newSpellData = {}
@@ -2900,6 +2999,10 @@ local function saveSpell(mousebutton, fromPhaseVaultID)
 		newSpellData.description = SCForge_PhaseVaultSpells[fromPhaseVaultID].description or nil
 		newSpellData.actions = SCForge_PhaseVaultSpells[fromPhaseVaultID].actions
 		dprint("Saving Spell from Phase Vault, fake commID: "..fromPhaseVaultID..", real commID: "..newSpellData.commID)
+	elseif manualData then
+		newSpellData = manualData
+		dump(manualData)
+		dprint("Saving Manual Spell Data (Import): "..newSpellData.commID)
 	else
 		newSpellData.commID = SCForgeMainFrame.SpellInfoCommandBox:GetText()
 		newSpellData.fullName = SCForgeMainFrame.SpellInfoNameBox:GetText()
@@ -2918,7 +3021,7 @@ local function saveSpell(mousebutton, fromPhaseVaultID)
 				--cprint("Duplicate Spell Command Detected.. Press Save with right-click to over-write the old spell.")
 				StaticPopupDialogs["SCFORGE_CONFIRM_OVERWRITE"] = {
 					text = "Spell '"..newSpellData.commID.."' Already exists.\n\rDo you want to overwrite the spell ("..newSpellData.fullName..")".."?",
-					OnAccept = function() saveSpell("RightButton", (fromPhaseVaultID and fromPhaseVaultID or nil)) end,
+					OnAccept = function() saveSpell("RightButton", (fromPhaseVaultID and fromPhaseVaultID or nil), (manualData and manualData or nil)) end,
 					button1 = "Overwrite",
 					button2 = "Cancel",
 					hideOnEscape = true,
@@ -2992,6 +3095,29 @@ SCForgeMainFrame.SaveSpellButton:SetScript("OnLeave", function(self)
 	self.Timer:Cancel()
 end)
 
+StaticPopupDialogs["SCFORGE_IMPORT_SPELL"] = {
+	text = "ArcSpell Import",
+	subText = "CTRL+V to Paste",
+	closeButton = true,
+	enterClicksFirstButton = true,
+	button1 = "Import",
+	OnButton1 = function(self)
+		local text = self.insertedFrame.ScrollFrame.EditBox:GetText();
+		if not text then return; end
+		local text, rest = strsplit(":", text, 2)
+		local spellData
+		if text and rest and rest ~= "" then 
+			spellData = serialDecompressForImport(rest)
+		elseif text ~= "" then
+			spellData = serialDecompressForImport(test)
+		else
+			dprint("Invalid ArcSpell data. Try again."); return;
+		end
+		if spellData and spellData ~= "" then saveSpell(nil, nil, spellData) end
+	end,
+	hideOnEscape = true,
+	whileDead = true,
+}
 
 SCForgeMainFrame.LoadSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
 SCForgeMainFrame.LoadSpellButton:SetPoint("LEFT", SCForgeMainFrame.SaveSpellButton, "RIGHT", 0, 0)
@@ -3063,57 +3189,94 @@ end
 
 SCForgeMainFrame.LoadSpellFrame:SetTitle("Spell Vault")
 SCForgeMainFrame.LoadSpellFrame.TitleBgColor = SCForgeMainFrame.LoadSpellFrame:CreateTexture(nil, "BACKGROUND")
-SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
-SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
-SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
+	SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
+	SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
+	SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
+
+SCForgeMainFrame.LoadSpellFrame.ImportSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame)
+	local button = SCForgeMainFrame.LoadSpellFrame.ImportSpellButton
+	button:SetPoint("BOTTOMLEFT", 3, 3)
+	button:SetSize(24,24)
+	button:SetText("Import")
+	button:SetMotionScriptsWhileDisabled(true)
+	button:SetScript("OnClick", showImportMenu);
+
+
+	button:SetNormalTexture("interface/buttons/ui-microstream-yellow")
+	button.NormalTex = button:GetNormalTexture();
+	button.NormalTex:SetTexCoord(0,1,1,0)
+	button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+	button.PushedTex = button:CreateTexture(nil, "ARTWORK")
+	button.PushedTex:SetAllPoints(true)
+	button.PushedTex:SetTexture("interface/buttons/ui-microstream-green")
+	button.PushedTex:SetTexCoord(0,1,1,0)
+	button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+	button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+	button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+	button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+	button:SetPushedTexture(button.PushedTex)
+
+	button:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		self.Timer = C_Timer.NewTimer(0.7,function()
+			GameTooltip:SetText("Import an ArcSpell.", nil, nil, nil, nil, true)
+			GameTooltip:AddLine("Paste an ArcSpell export code into the UI to save it to your Personal Vault.",1,1,1,true)
+			GameTooltip:Show()
+		end)
+	end)
+	button:SetScript("OnLeave", function(self)
+		GameTooltip_Hide()
+		self.Timer:Cancel()
+	end)
 
 SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelButtonNoTooltipTemplate")
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetPoint("BOTTOM", 0, 3)
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetSize(24*5,24)
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetText("    Phase Vault")
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetMotionScriptsWhileDisabled(true)
+	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetPoint("BOTTOM", 0, 3)
+	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetSize(24*5,24)
+	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetText("    Phase Vault")
+	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetMotionScriptsWhileDisabled(true)
 
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon = SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:CreateTexture(nil, "ARTWORK")
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture(addonPath.."/assets/icon-transfer")
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexCoord(0,1,1,0)
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetPoint("TOPLEFT", 5, 0)
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetSize(24,24)
+	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon = SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:CreateTexture(nil, "ARTWORK")
+		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture(addonPath.."/assets/icon-transfer")
+		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexCoord(0,1,1,0)
+		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetPoint("TOPLEFT", 5, 0)
+		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetSize(24,24)
 
-
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnClick", function(self, button)
-	if selectedVaultRow then
-		local commID = spellLoadRows[selectedVaultRow].commID
-		saveSpellToPhaseVault(commID, IsShiftKeyDown())
-	end
-end)
-
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnDisable", function(self)
-	self.icon:SetDesaturated(true)
-end)
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnable", function(self)
-	self.icon:SetDesaturated(false)
-end)
-
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Transfer to Phase Vault.", nil, nil, nil, nil, true)
-		if self:IsEnabled() then
-			GameTooltip:AddLine("Transfer the spell to the Phase Vault.\n\rShift-Click to automatically over-write any spell with the same command ID in the Phase Vault.",1,1,1,true)
-		else
-			if selectedVaultRow then
-				GameTooltip:AddLine("You do not currently have permissions to upload to this phase's vault.\n\rIf you were just given officer, rejoin the phase.",1,1,1,true)
-			else
-				GameTooltip:AddLine("Select a spell above to transfer it.",1,1,1,true)
-			end
+	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnClick", function(self, button)
+		if selectedVaultRow then
+			local commID = spellLoadRows[selectedVaultRow].commID
+			saveSpellToPhaseVault(commID, IsShiftKeyDown())
 		end
-		GameTooltip:Show()
 	end)
-end)
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnLeave", function(self)
-	GameTooltip_Hide()
-	self.Timer:Cancel()
-end)
+
+	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnDisable", function(self)
+		self.icon:SetDesaturated(true)
+	end)
+	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnable", function(self)
+		self.icon:SetDesaturated(false)
+	end)
+
+	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		self.Timer = C_Timer.NewTimer(0.7,function()
+			GameTooltip:SetText("Transfer to Phase Vault.", nil, nil, nil, nil, true)
+			if self:IsEnabled() then
+				GameTooltip:AddLine("Transfer the spell to the Phase Vault.\n\rShift-Click to automatically over-write any spell with the same command ID in the Phase Vault.",1,1,1,true)
+			else
+				if selectedVaultRow then
+					GameTooltip:AddLine("You do not currently have permissions to upload to this phase's vault.\n\rIf you were just given officer, rejoin the phase.",1,1,1,true)
+				else
+					GameTooltip:AddLine("Select a spell above to transfer it.",1,1,1,true)
+				end
+			end
+			GameTooltip:Show()
+		end)
+	end)
+	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnLeave", function(self)
+		GameTooltip_Hide()
+		self.Timer:Cancel()
+	end)
+
 
 ------------
 SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle = CreateFrame("CHECKBUTTON", nil, SCForgeMainFrame.LoadSpellFrame)
@@ -4004,11 +4167,12 @@ local gossipTags = {
 	default = "<arc[anum]-_.->",
 	capture = "<arc[anum]-_(.-)>",
 	dm = "<arcanum::DM::_",
-	body = {
+	body = { -- tag is pointless, I changed it to tags are the table key, but kept for readability
 		show = {tag = "show", script = gossipScript.show},
 		cast = {tag = "cast", script = gossipScript.auto_cast},
 		save = {tag = "save", script = gossipScript.save},
 		cmd = {tag = "cmd", script = gossipScript.cmd},
+		macro = {tag = "macro", script = RunMacroText},
 	},
 	option = {
 		show = {tag = "show", script = gossipScript.show},
@@ -4016,7 +4180,7 @@ local gossipTags = {
 		cast = {tag = "cast", script = gossipScript.click_cast},
 		save = {tag = "save", script = gossipScript.save},
 		cmd = {tag = "cmd", script = gossipScript.cmd},
-		macro = {tag = "macro", script = RunMacroText}
+		macro = {tag = "macro", script = RunMacroText},
 	},
 	extensions = {
 		{ ext = "hide", script = gossipScript.hide_check},
@@ -4233,86 +4397,6 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				titleButtonText = titleButton:GetText();
 				dprint("Saw an option tag | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
 			end
-
---[[	-- Old Tag Handler
---			if titleButtonText:match("<arcanum_") then titleButton:SetScript("OnClick", function() end) end
-			if titleButtonText:match("<arcanum_auto>") then
-				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then
-					titleButton:SetText(titleButtonText:gsub("<arcanum_auto>", "<arcanum_auto::DM>"));
-					titleButtonText = titleButton:GetText()
-					titleButton:HookScript("OnClick", function() scforge_showhide("enableMMIcon") end)
-					modifiedGossips[i] = titleButton
-				else
-					CloseGossip();
-					scforge_showhide("enableMMIcon");
-				end
-
-			elseif titleButtonText:match("<arcanum_toggle>") then
-				if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
-					titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", ""));
-					titleButtonText = titleButton:GetText()
-				else
-					titleButton:SetText(titleButtonText:gsub("<arcanum_toggle>", "<arcanum_toggle::DM>"));
-					titleButtonText = titleButton:GetText()
-				end
-				titleButton:HookScript("OnClick", function() scforge_showhide("enableMMIcon") end)
-				modifiedGossips[i] = titleButton
-			end
-
-			if titleButtonText:match("<arcanum_cast") then
-
-				shouldLoadSpellVault = true
-
-				local patterns = {
-					"<arcanum_cast:(.*)>",
-					"<arcanum_cast_hide:(.*)>",
-					"<arcanum_cast_auto:(.*)>",
-					"<arcanum_cast_auto_hide:(.*)>",
-					}
-
-				for n = 1, #patterns do
-					if not titleButtonText then break; end
-					if titleButtonText:match(patterns[n]) then
-						local payLoad = string.match(titleButtonText, patterns[n]);
-						local shouldHide = false
-
-						if not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
-
-							if titleButtonText:match("<arcanum_cast_.*hide:") then -- Only close gossip frame if "hide" is part of the tag.
-								shouldHide = true
-							end
-
-							if titleButtonText:match("<arcanum_cast_auto.*:") then
-								table.insert(spellsToCast, payLoad)
-								dprint("Adding AutoCast from Gossip: '"..payLoad.."'.")
-								if shouldHide then shouldAutoHide = true end
-								--titleButton:Hide()
-							end
-							titleButton:SetText(titleButtonText:gsub(patterns[n], ""));
-							titleButtonText = titleButton:GetText()
-						else
-							titleButton:SetText(titleButtonText:gsub(patterns[n], patterns[n]:gsub("%(%.%*%)",payLoad.."::DM")));
-							titleButtonText = titleButton:GetText()
-						end
-
-						titleButton:HookScript("OnClick", function()
-							if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
-							local spellRanSuccessfully
-							for k,v in pairs(SCForge_PhaseVaultSpells) do
-								if v.commID == payLoad then
-									executeSpell(SCForge_PhaseVaultSpells[k].actions, true);
-									spellRanSuccessfully = true
-								end
-							end
-							if not spellRanSuccessfully then cprint("No spell with command "..payLoad.." found in the Phase Vault. Please let a phase officer know.") end
-							if shouldHide then CloseGossip(); end
-						end)
-						modifiedGossips[i] = titleButton
-
-					end
-				end
-			end
---]]
 
 			GossipResize(titleButton) -- Fix the size if the gossip option changed number of lines.
 
