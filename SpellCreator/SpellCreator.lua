@@ -815,6 +815,34 @@ StaticPopupDialogs["SCFORGE_RELOADUI_REQUIRED"] = {
 -- Main UI Frame
 -------------------------------------------------------------------------------
 
+local function updateSpellRowOptions(row, selectedAction)
+	-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
+	local theSpellRow = _G["spellRow"..row]
+	if selectedAction then -- if we call it with no action, reset
+		theSpellRow.SelectedAction = selectedAction
+		if actionTypeData[selectedAction].selfAble then theSpellRow.SelfCheckbox:Enable() else theSpellRow.SelfCheckbox:Disable() end
+		if actionTypeData[selectedAction].dataName then
+			theSpellRow.InputEntryBox:Enable()
+			theSpellRow.InputEntryBox.Instructions:SetText(actionTypeData[selectedAction].dataName)
+			if actionTypeData[selectedAction].inputDescription then theSpellRow.InputEntryBox.Description = actionTypeData[selectedAction].inputDescription end
+		else
+			theSpellRow.InputEntryBox:Disable()
+			theSpellRow.InputEntryBox.Instructions:SetText("n/a")
+		end
+		if actionTypeData[selectedAction].revert then
+			theSpellRow.RevertDelayBox:Enable();
+		else
+			theSpellRow.RevertDelayBox:Disable();
+		end
+	else
+		theSpellRow.SelectedAction = nil
+		theSpellRow.SelfCheckbox:Disable()
+		theSpellRow.InputEntryBox.Instructions:SetText("select an action...")
+		theSpellRow.InputEntryBox:Disable()
+		theSpellRow.RevertDelayBox:Disable()
+	end
+end
+
 local function RemoveSpellRow(rowToRemove)
 	if numberOfSpellRows <= 1 then 
 		local theSpellRow = _G["spellRow"..numberOfSpellRows]
@@ -1186,34 +1214,6 @@ local function AddSpellRow()
 	SCForgeMainFrame.AddRowRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows, "BOTTOMLEFT", 0, 0)
 
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
-end
-
-function updateSpellRowOptions(row, selectedAction) -- breaks if not global, ffs
-		-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
-	local theSpellRow = _G["spellRow"..row]
-	if selectedAction then -- if we call it with no action, reset
-		theSpellRow.SelectedAction = selectedAction
-		if actionTypeData[selectedAction].selfAble then theSpellRow.SelfCheckbox:Enable() else theSpellRow.SelfCheckbox:Disable() end
-		if actionTypeData[selectedAction].dataName then
-			theSpellRow.InputEntryBox:Enable()
-			theSpellRow.InputEntryBox.Instructions:SetText(actionTypeData[selectedAction].dataName)
-			if actionTypeData[selectedAction].inputDescription then theSpellRow.InputEntryBox.Description = actionTypeData[selectedAction].inputDescription end
-		else
-			theSpellRow.InputEntryBox:Disable()
-			theSpellRow.InputEntryBox.Instructions:SetText("n/a")
-		end
-		if actionTypeData[selectedAction].revert then
-			theSpellRow.RevertDelayBox:Enable();
-		else
-			theSpellRow.RevertDelayBox:Disable();
-		end
-	else
-		theSpellRow.SelectedAction = nil
-		theSpellRow.SelfCheckbox:Disable()
-		theSpellRow.InputEntryBox.Instructions:SetText("select an action...")
-		theSpellRow.InputEntryBox:Disable()
-		theSpellRow.RevertDelayBox:Disable()
-	end
 end
 
 
@@ -4063,7 +4063,7 @@ function CreateSpellCreatorInterfaceOptions()
 	SC_DebugToggleOptionText:SetText("Debug")
 	SC_DebugToggleOptionText:SetPoint("LEFT", -30, 0)
 	SC_DebugToggleOption:SetScript("OnShow", function(self)
-		updateSCInterfaceOptions()
+		if SpellCreatorMasterTable.Options["debug"] == true then SC_DebugToggleOption:SetChecked(true) else SC_DebugToggleOption:SetChecked(false) end
 	end)
 	SC_DebugToggleOption:SetScript("OnClick", function(self)
 		SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
@@ -4073,10 +4073,6 @@ function CreateSpellCreatorInterfaceOptions()
 	end)
 
 	InterfaceOptions_AddCategory(SpellCreatorInterfaceOptions.panel);
-	updateSCInterfaceOptions() -- Call this because OnShow isn't triggered first time, and neither is OnLoad for some reason, so lets just update them manually
-end
-
-function updateSCInterfaceOptions() -- errors if not global
 	if SpellCreatorMasterTable.Options["debug"] == true then SC_DebugToggleOption:SetChecked(true) else SC_DebugToggleOption:SetChecked(false) end
 end
 
