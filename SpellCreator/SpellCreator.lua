@@ -2549,7 +2549,7 @@ local function genDropDownContextOptions(vault, spellCommID)
 		-- Profiles Menu
 		item = {text = "Profile", notCheckable=true, hasArrow=true, keepShownOnClick=true, 
 			menuList = {
-				{ text = "Account", notCheckable=true, disabled = (SpellCreatorSavedSpells[spellCommID].profile=="Account" and true or false), func = function() setSpellProfile(spellCommID, "Account", 1); CloseDropDownMenus() end },
+				{ text = "Account", notCheckable=true, disabled = (SpellCreatorSavedSpells[spellCommID].profile=="Account"), func = function() setSpellProfile(spellCommID, "Account", 1); CloseDropDownMenus() end },
 			},
 		}
 
@@ -2560,7 +2560,7 @@ local function genDropDownContextOptions(vault, spellCommID)
 				end
 				for k,v in orderedPairs(interTagTable) do
 					if k ~= "Account" then 
-						tinsert(item.menuList, { text = k, notCheckable = true, disabled = (SpellCreatorSavedSpells[spellCommID].profile==k and true or false), func = function() setSpellProfile(spellCommID, k, 1); CloseDropDownMenus() end })
+						tinsert(item.menuList, { text = k, notCheckable = true, disabled = (SpellCreatorSavedSpells[spellCommID].profile==k), func = function() setSpellProfile(spellCommID, k, 1); CloseDropDownMenus() end })
 					end
 				end
 				tinsert(item.menuList, { text = "..Add New", notCheckable = true, func = function() setSpellProfile(spellCommID); CloseDropDownMenus(); end })
