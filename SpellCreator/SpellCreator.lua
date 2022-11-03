@@ -792,7 +792,7 @@ local function generateSpellChatLink(commID, vaultType)
 		charOrPhase = GetUnitName("player",false)
 	end
 	local numActions = #savedSpellFromVault[commID].actions
-	local chatLink = addonColor.."|HarcSpell:"..spellComm..":"..charOrPhase..":"..spellName..":"..numActions..":"..spellDesc.."|h["..spellName.."]|h|r"
+	local chatLink = addonColor.."|HarcSpell:"..spellComm..":"..charOrPhase..":"..numActions..":"..spellDesc.."|h["..spellName.."]|h|r"
 	return chatLink;
 end
 
@@ -816,7 +816,7 @@ StaticPopupDialogs["SCFORGE_RELOADUI_REQUIRED"] = {
 -------------------------------------------------------------------------------
 
 local function updateSpellRowOptions(row, selectedAction)
-	-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options. 
+	-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options.
 	local theSpellRow = _G["spellRow"..row]
 	if selectedAction then -- if we call it with no action, reset
 		theSpellRow.SelectedAction = selectedAction
@@ -916,17 +916,41 @@ local function RemoveSpellRow(rowToRemove)
 	SCForgeMainFrame.AddRowRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows, "BOTTOMLEFT", 0, 0)
 end
 
-local function AddSpellRow()
-	--if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable() return; end -- hard cap
+local function genSpellRowTextures(newRow)
+	newRow.Background = newRow:CreateTexture(nil,"BACKGROUND", nil, 5)
+	newRow.Background:SetAllPoints()
+	newRow.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
+	newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
+	newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
+	newRow.Background:SetAlpha(0.9)
+	--newRow.Background:SetColorTexture(0,0,0,0.25)
+
+	newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
+	newRow.Background2:SetAllPoints()
+	newRow.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+	newRow.Background2:SetTexCoord(0.208,1-0.209,0,1)
+	newRow.Background2:SetPoint("TOPLEFT",-3,0)
+	newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
+	--newRow.Background2:SetAlpha(0.8)
+	--newRow.Background:SetColorTexture(0,0,0,0.25)
+
+	newRow.RowGem = newRow:CreateTexture(nil,"ARTWORK")
+	newRow.RowGem:SetPoint("CENTER", newRow.Background2, "LEFT", 2, 0)
+	newRow.RowGem:SetHeight(40)
+	newRow.RowGem:SetWidth(40)
+	newRow.RowGem:SetTexture(addonPath.."/assets/DragonGem")
+	--newRow.RowGem:SetTexCoord(0.208,1-0.209,0,1)
+	--newRow.RowGem:SetPoint("RIGHT",-9,0)
+end
+
+local function AddSpellRow(rowToAdd)
 	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddRowRow.AddRowButton:Disable() return; end -- hard cap
-	--SCForgeMainFrame.RemoveSpellRowButton:Enable()
 	numberOfSpellRows = numberOfSpellRows+1		-- The number of spell rows that this row will be.
 	local newRow
 	if _G["spellRow"..numberOfSpellRows] then
 		newRow = _G["spellRow"..numberOfSpellRows]
 		newRow:Show();
 	else
-
 		-- The main row frame
 		newRow = CreateFrame("Frame", "spellRow"..numberOfSpellRows, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
 		newRow.rowNum = numberOfSpellRows
@@ -938,30 +962,7 @@ local function AddSpellRow()
 		newRow:SetWidth(mainFrameSize.x-50)
 		newRow:SetHeight(rowHeight)
 
-		newRow.Background = newRow:CreateTexture(nil,"BACKGROUND", nil, 5)
-			newRow.Background:SetAllPoints()
-			newRow.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
-			newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
-			newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
-			newRow.Background:SetAlpha(0.9)
-			--newRow.Background:SetColorTexture(0,0,0,0.25)
-
-			newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
-			newRow.Background2:SetAllPoints()
-			newRow.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
-			newRow.Background2:SetTexCoord(0.208,1-0.209,0,1)
-			newRow.Background2:SetPoint("TOPLEFT",-3,0)
-			newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
-			--newRow.Background2:SetAlpha(0.8)
-			--newRow.Background:SetColorTexture(0,0,0,0.25)
-
-			newRow.RowGem = newRow:CreateTexture(nil,"ARTWORK")
-			newRow.RowGem:SetPoint("CENTER", newRow.Background2, "LEFT", 2, 0)
-			newRow.RowGem:SetHeight(40)
-			newRow.RowGem:SetWidth(40)
-			newRow.RowGem:SetTexture(addonPath.."/assets/DragonGem")
-			--newRow.RowGem:SetTexCoord(0.208,1-0.209,0,1)
-			--newRow.RowGem:SetPoint("RIGHT",-9,0)
+		genSpellRowTextures(newRow)
 
 		-- main delay entry box
 		newRow.mainDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."MainDelayBox", newRow, "InputBoxInstructionsTemplate")
@@ -1013,7 +1014,7 @@ local function AddSpellRow()
 			menuItem.value = v
 			menuItem.arg1 = numberOfSpellRows
 			menuItem.func = function(self, arg1)
-				for k,v in pairs(menuList) do
+				for k,v in pairs( newRow.menuList ) do
 					v.checked = false
 				end
 				UIDropDownMenu_SetSelectedID(_G["spellRow"..arg1.."ActionSelectButton"], self:GetID())
@@ -1021,7 +1022,7 @@ local function AddSpellRow()
 				ddump(self)
 				updateSpellRowOptions(arg1, menuItem.value)
 			end
-			table.insert(menuList, menuItem)
+			table.insert( newRow.menuList , menuItem )
 		end
 
 		newRow.actionSelectButton = CreateFrame("Frame", "spellRow"..numberOfSpellRows.."ActionSelectAnchor", newRow)
@@ -1131,10 +1132,55 @@ local function AddSpellRow()
 				self.Timer:Cancel()
 			end)
 
+		newRow.AddSpellRowButton = CreateFrame("BUTTON", nil, newRow)
+			newRow.AddSpellRowButton.rowNum = numberOfSpellRows
+			newRow.AddSpellRowButton:SetPoint("TOPLEFT", 2, -2)
+			newRow.AddSpellRowButton:SetSize(24,24)
+			--local _atlas = "transmog-icon-remove"
+			local _atlas = "communities-chat-icon-plus"
+
+			newRow.AddSpellRowButton:SetNormalAtlas(_atlas)
+			newRow.AddSpellRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+			newRow.AddSpellRowButton.DisabledTex = newRow.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
+			newRow.AddSpellRowButton.DisabledTex:SetAllPoints(true)
+			newRow.AddSpellRowButton.DisabledTex:SetAtlas(_atlas)
+			newRow.AddSpellRowButton.DisabledTex:SetDesaturated(true)
+			newRow.AddSpellRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
+			newRow.AddSpellRowButton:SetDisabledTexture(newRow.AddSpellRowButton.DisabledTex)
+
+			newRow.AddSpellRowButton.PushedTex = newRow.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
+			newRow.AddSpellRowButton.PushedTex:SetAllPoints(true)
+			newRow.AddSpellRowButton.PushedTex:SetAtlas(_atlas)
+			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+			newRow.AddSpellRowButton:SetPushedTexture(newRow.AddSpellRowButton.PushedTex)
+
+			newRow.AddSpellRowButton:SetMotionScriptsWhileDisabled(true)
+			newRow.AddSpellRowButton:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				self.Timer = C_Timer.NewTimer(0.7,function()
+					GameTooltip:SetText("Add a blank row above this one.", nil, nil, nil, nil, true)
+					GameTooltip:Show()
+				end)
+			end)
+			newRow.AddSpellRowButton:SetScript("OnLeave", function(self)
+				GameTooltip_Hide()
+				self.Timer:Cancel()
+			end)
+			newRow.AddSpellRowButton:SetScript("OnClick", function(self)
+				AddSpellRow(self.rowNum)
+			end)
+			newRow.AddSpellRowButton:SetScript("OnShow", function(self)
+				if SCForgeMainFrame.AddRowRow.AddRowButton:IsEnabled() then self:Enable(); else self:Disable(); end
+			end)
+			newRow.AddSpellRowButton:Hide()
 
 		newRow.RemoveSpellRowButton = CreateFrame("BUTTON", nil, newRow)
 			newRow.RemoveSpellRowButton.rowNum = numberOfSpellRows
-			newRow.RemoveSpellRowButton:SetPoint("TOPRIGHT", -8, 0)
+			newRow.RemoveSpellRowButton:SetPoint("TOPRIGHT", -11, -1)
 			newRow.RemoveSpellRowButton:SetSize(24,24)
 			--local _atlas = "transmog-icon-remove"
 			local _atlas = "communities-chat-icon-minus"
@@ -1162,7 +1208,7 @@ local function AddSpellRow()
 			newRow.RemoveSpellRowButton:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Remove this row.", nil, nil, nil, nil, true)
+					GameTooltip:SetText("Delete this row.", nil, nil, nil, nil, true)
 					GameTooltip:Show()
 				end)
 			end)
@@ -1182,9 +1228,11 @@ local function AddSpellRow()
 				self:SetScript("OnUpdate", function(self)
 					if not self:GetParent():IsMouseOver() then self:Hide(); end
 				end)
+				newRow.AddSpellRowButton:Show()
 			end)
 			newRow.RemoveSpellRowButton:SetScript("OnHide", function(self)
 				self:SetScript("OnUpdate", nil)
+				newRow.AddSpellRowButton:Hide()
 			end)
 			newRow:SetScript("OnEnter", function(self)
 				self.RemoveSpellRowButton:Show()
@@ -1214,6 +1262,36 @@ local function AddSpellRow()
 	SCForgeMainFrame.AddRowRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows, "BOTTOMLEFT", 0, 0)
 
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
+
+	if rowToAdd then
+		for i = numberOfSpellRows, rowToAdd+1, -1 do
+			local theRowToSet = _G["spellRow"..i]
+			local theRowToGrab = _G["spellRow"..i-1]
+
+			for k,v in pairs(theRowToSet.menuList) do
+				v.checked = false
+			end
+
+			UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, UIDropDownMenu_GetSelectedID(theRowToGrab.actionSelectButton.Dropdown))
+			theRowToSet.actionSelectButton.Dropdown.Text:SetText(theRowToGrab.actionSelectButton.Dropdown.Text:GetText())
+			theRowToSet.SelectedAction = theRowToGrab.SelectedAction
+			updateSpellRowOptions(i, theRowToGrab.SelectedAction)
+			
+			theRowToSet.mainDelayBox:SetText(theRowToGrab.mainDelayBox:GetText())
+			theRowToSet.SelfCheckbox:SetChecked(theRowToGrab.SelfCheckbox:GetChecked())
+			theRowToSet.InputEntryBox:SetText(theRowToGrab.InputEntryBox:GetText())
+			theRowToSet.RevertDelayBox:SetText(theRowToGrab.RevertDelayBox:GetText())
+		end
+		local theRowToSet = _G["spellRow"..rowToAdd]
+		UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, 0)
+		theRowToSet.actionSelectButton.Dropdown.Text:SetText("Action")
+		updateSpellRowOptions(rowToAdd)
+		
+		theRowToSet.mainDelayBox:SetText("")
+		theRowToSet.SelfCheckbox:SetChecked(false)
+		theRowToSet.InputEntryBox:SetText("")
+		theRowToSet.RevertDelayBox:SetText("")
+	end
 end
 
 
@@ -1521,19 +1599,24 @@ SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame.Inset)
 	SCForgeMainFrame.TitleBar:SetSize(mainFrameSize.x-50, 24)
 	--SCForgeMainFrame.TitleBar:SetHeight(20)
 
+
 	SCForgeMainFrame.TitleBar.Background = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 5)
 		SCForgeMainFrame.TitleBar.Background:SetAllPoints()
-		SCForgeMainFrame.TitleBar.Background:SetColorTexture(0,0,0,0.25)
-		local titleBackgroundClamp = 0
-		SCForgeMainFrame.TitleBar.Background:SetPoint("TOPLEFT",-3+titleBackgroundClamp,0)
-		SCForgeMainFrame.TitleBar.Background:SetPoint("BOTTOMRIGHT",-8-titleBackgroundClamp,0)
+		--SCForgeMainFrame.TitleBar.Background:SetColorTexture(0,0,0,1)
+		SCForgeMainFrame.TitleBar.Background:SetAtlas("Rewards-Shadow") -- AftLevelup-ToastBG; Garr_BuildingInfoShadow; Rewards-Shadow
+		SCForgeMainFrame.TitleBar.Background:SetAlpha(0.5)
+		SCForgeMainFrame.TitleBar.Background:SetPoint("TOPLEFT",-20,0)
+		SCForgeMainFrame.TitleBar.Background:SetPoint("BOTTOMRIGHT", 10, -3)
 
 	SCForgeMainFrame.TitleBar.Overlay = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 6)
-		SCForgeMainFrame.TitleBar.Overlay:SetAllPoints(SCForgeMainFrame.TitleBar.Background)
+		--SCForgeMainFrame.TitleBar.Overlay:SetAllPoints(SCForgeMainFrame.TitleBar.Background)
+		SCForgeMainFrame.TitleBar.Overlay:SetPoint("TOPLEFT",-3,0)
+		SCForgeMainFrame.TitleBar.Overlay:SetPoint("BOTTOMRIGHT",-8,-3)
 		--SCForgeMainFrame.TitleBar.Overlay:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
-		SCForgeMainFrame.TitleBar.Overlay:SetAtlas("search-select")
+		SCForgeMainFrame.TitleBar.Overlay:SetAtlas("search-select") -- Garr_CostBar
 		SCForgeMainFrame.TitleBar.Overlay:SetDesaturated(true)
 		SCForgeMainFrame.TitleBar.Overlay:SetVertexColor(0.35,0.7,0.85)
+		SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.075,0.925,0,1)
 		--SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.208,1-0.209,0,1-0)
 
 	SCForgeMainFrame.TitleBar.MainDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
@@ -1588,9 +1671,7 @@ local _frame = SCForgeMainFrame.AddRowRow
 
 		-- SCForgeMainFrame.AddRowRow.AddRowButton
 	_frame.AddRowButton = CreateFrame("BUTTON", nil, _frame)
-		--_frame.AddRowButton:SetPoint("CENTER")
 		_frame.AddRowButton:SetAllPoints()
-		--_frame.AddRowButton:SetSize(24,24)
 
 		--local _atlas = "Garr_Building-AddFollowerPlus"
 		local _atlas = "communities-chat-icon-plus"
@@ -2375,31 +2456,137 @@ local function showImportMenu()
 	dialog.insertedFrame.ScrollFrame.EditBox:SetFocus();
 end
 
+local baseVaultFilterTags = {
+	"Macro", "Utility", "Morph", "Animation", "Teleport", "Quest", "Fun", "Officer+", "Gossip", "Spell",
+}
+
+local function editVaultTags( tag, spellCommID, vaultType ) -- 
+	print(spellCommID, tag)
+	if not tag and not spellComm then return; end
+	if not vaultType then vaultType = 1 end
+	if vaultType == 1 then
+		if not SpellCreatorSavedSpells[spellCommID].tags then SpellCreatorSavedSpells[spellCommID].tags = {} end
+		if SpellCreatorSavedSpells[spellCommID].tags[tag] then SpellCreatorSavedSpells[spellCommID].tags[tag] = nil else SpellCreatorSavedSpells[spellCommID].tags[tag] = true end
+		print(SpellCreatorSavedSpells[spellCommID].tags[tag])
+	end
+end
+
+local function setSpellProfile(spellCommID, profileName, vaultType, doNotReload)
+	if not vaultType then vaultType = 1 end
+	if not spellCommID then return; end
+	if not profileName then 
+		StaticPopupDialogs["SCFORGE_NEW_PROFILE"] = {
+			text = "Assign to new Profile",
+			subText = "Assigning ArcSpell: '"..savedSpellFromVault[spellCommID].fullName.."'",
+			closeButton = true,
+			hasEditBox = true,
+			enterClicksFirstButton = true,
+			editBoxInstructions = "New Profile Name",
+			--editBoxWidth = 310,
+			maxLetters = 255,
+			OnButton1 = function(self, data)
+				local text = self.editBox:GetText();
+				setSpellProfile(data.comm, text, data.vault, data.doNotReload )
+			end,
+			EditBoxOnTextChanged = function (self)
+				local text = self:GetText();
+				if #text > 0 and text ~= "" then 
+					self:GetParent().button1:Enable()
+				else
+					self:GetParent().button1:Disable()
+				end
+			end,
+			
+			button1 = ADD,
+			button2 = CANCEL,
+			hideOnEscape = true,
+			EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
+			EditBoxOnEnterPressed = function(self)
+				local parent = self:GetParent();
+				if parent.button1:IsEnabled() then
+					parent.button1:Click()
+				end
+			end,
+			whileDead = true,
+			OnShow = function (self, data)
+				self.button1:Disable()
+			end,
+		}
+		local dialog = StaticPopup_Show("SCFORGE_NEW_PROFILE")
+		dialog.data = {comm = spellCommID, vault = vaultType, doNotReload = doNotReload}
+		return;
+	end
+	if vaultType == 1 then
+		SpellCreatorSavedSpells[spellCommID].profile = profileName
+	end
+	if not doNotReload then
+		-- reload the vault rows to refresh filter
+	end
+end
 
 local function genDropDownContextOptions(vault, spellCommID)
 	local menuList = {}
 	local item
 	if vault == "PHASE" then 
-		item = {text = SCForge_PhaseVaultSpells[spellCommID].fullName, notCheckable = true, isTitle=true}
-		tinsert(menuList, item)
-		item = {text = "Cast", notCheckable = true, func = function() executeSpell(SCForge_PhaseVaultSpells[spellCommID].actions) end}
-		tinsert(menuList, item)
-		item = {text = "Edit", notCheckable = true, func = function() loadSpell(SCForge_PhaseVaultSpells[spellCommID]) end}
-		tinsert(menuList, item)
-		item = {text = "Transfer", notCheckable = true, func = function() saveSpell(nil, spellCommID) end}
-		tinsert(menuList, item)
+		menuList = {
+			{text = SCForge_PhaseVaultSpells[spellCommID].fullName, notCheckable = true, isTitle=true},
+			{text = "Cast", notCheckable = true, func = function() executeSpell(SCForge_PhaseVaultSpells[spellCommID].actions) end},
+			{text = "Edit", notCheckable = true, func = function() loadSpell(SCForge_PhaseVaultSpells[spellCommID]) end},
+			{text = "Transfer", tooltipTitle="Transfer to Personal Vault", tooltipOnButton=true, notCheckable = true, func = function() saveSpell(nil, spellCommID) end},
+		}
 		item = {text = "Add to Gossip", notCheckable = true, func = function() _G["scForgeLoadRow"..spellCommID].gossipButton:Click() end}
 		if not isGossipLoaded then item.disabled = true; item.text = "(Open a Gossip Menu)"; end
 		tinsert(menuList, item)
 	else
-		item = {text = SpellCreatorSavedSpells[spellCommID].fullName, notCheckable = true, isTitle=true}
+		menuList = {
+			{text = SpellCreatorSavedSpells[spellCommID].fullName, notCheckable = true, isTitle=true},
+			{text = "Cast", notCheckable = true, func = function() ARC:CAST(spellCommID) end},
+			{text = "Edit", notCheckable = true, func = function() loadSpell(savedSpellFromVault[spellCommID]) end},
+			{text = "Transfer", tooltipTitle="Transfer to Phase Vault", tooltipOnButton=true, notCheckable = true, func = function() saveSpellToPhaseVault(spellCommID) end},
+		}
+
+		local interTagTable = {}
+		-- Profiles Menu
+		item = {text = "Profile", notCheckable=true, hasArrow=true, keepShownOnClick=true, 
+			menuList = {
+				{ text = "Account", notCheckable=true, disabled = (SpellCreatorSavedSpells[spellCommID].profile=="Account" and true or false), func = function() setSpellProfile(spellCommID, "Account", 1); CloseDropDownMenus() end },
+			},
+		}
+
+				for k,v in pairs(SpellCreatorSavedSpells) do
+					if v.profile then
+						interTagTable[v.profile] = true
+					end
+				end
+				for k,v in orderedPairs(interTagTable) do
+					if k ~= "Account" then 
+						tinsert(item.menuList, { text = k, notCheckable = true, disabled = (SpellCreatorSavedSpells[spellCommID].profile==k and true or false), func = function() setSpellProfile(spellCommID, k, 1); CloseDropDownMenus() end })
+					end
+				end
+				tinsert(item.menuList, { text = "..Add New", notCheckable = true, func = function() setSpellProfile(spellCommID); CloseDropDownMenus(); end })
+
 		tinsert(menuList, item)
-		item = {text = "Cast", notCheckable = true, func = function() ARC:CAST(spellCommID) end}
+
+		-- Tags Menu
+		--[[
+		item = {text = "Edit Tags", notCheckable=true, hasArrow=true, keepShownOnClick=true,
+			menuList = {}
+		}
+		for k,v in ipairs(baseVaultFilterTags) do
+			interTagTable[v] = false
+		end
+		if SpellCreatorSavedSpells[spellCommID].tags then
+			for k,v in pairs(SpellCreatorSavedSpells[spellCommID].tags) do
+				interTagTable[k] = true
+			end
+		end
+		for k,v in orderedPairs(interTagTable) do
+			tinsert(item.menuList, { text = k, checked = v, keepShownOnClick=true, func = function(self) editVaultTags(k, spellCommID, 1); end })
+		end
+		--tinsert(item.menuList, { })
+		--tinsert(item.menuList, { text = "Add New", })
 		tinsert(menuList, item)
-		item = {text = "Edit", notCheckable = true, func = function() loadSpell(savedSpellFromVault[spellCommID]) end}
-		tinsert(menuList, item)
-		item = {text = "Transfer", notCheckable = true, func = function() saveSpellToPhaseVault(spellCommID) end}
-		tinsert(menuList, item)
+		--]]
 	end
 
 	item = {text = "Chatlink", notCheckable = true, func = function()
@@ -2719,7 +2906,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					button1 = ADD,
 					button2 = CANCEL,
 					hideOnEscape = true,
-					EditBoxOnEscapePressed = StaticPopup_StandardEditBoxOnEscapePressed,
+					EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
 					whileDead = true,
 					OnShow = function (self, data)
 						self.button1:Disable()
@@ -3009,6 +3196,7 @@ local function saveSpell(mousebutton, fromPhaseVaultID, manualData)
 		newSpellData.description = SCForgeMainFrame.SpellInfoDescBox:GetText()
 		newSpellData.actions = {}
 	end
+	newSpellData.profile = GetUnitName("player")
 	if isNotDefined(newSpellData.fullName) or isNotDefined(newSpellData.commID) then
 		cprint("Spell Name and/or Spell Command cannot be blank.")
 		return;
@@ -3056,7 +3244,6 @@ local function saveSpell(mousebutton, fromPhaseVaultID, manualData)
 	end
 
 	if #newSpellData.actions >= 1 then
-		--table.insert(SpellCreatorSavedSpells, newSpellData)
 		SpellCreatorSavedSpells[newSpellData.commID] = newSpellData
 		if wasOverwritten then
 			cprint("Over-wrote spell with name: "..newSpellData.fullName..". Use command: '/sf "..newSpellData.commID.."' to cast it! ("..#newSpellData.actions.." actions).")
@@ -3216,6 +3403,10 @@ SCForgeMainFrame.LoadSpellFrame.ImportSpellButton = CreateFrame("BUTTON", nil, S
 	button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
 	button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
 	button:SetPushedTexture(button.PushedTex)
+
+--	button.backIcon = button:CreateTexture(nil, "BACKGROUND")
+--	button.backIcon:SetAllPoints(true)
+--	button.backIcon:SetAtlas("poi-workorders")
 
 	button:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -3430,83 +3621,123 @@ end
 
 SCForgeMainFrame.LoadSpellFrame.TabButton1 = CreateFrame("BUTTON", "$parentTab1", SCForgeMainFrame.LoadSpellFrame, "TabButtonTemplate")
 local button = SCForgeMainFrame.LoadSpellFrame.TabButton1
-button.text = "Personal"
-button.id = 1
-button:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.Inset, "TOP", 0, 0)
---PanelTemplates_TabResize(button, 0)
-button.HighlightTexture:SetWidth(button:GetTextWidth()+31)
-button:SetScript("OnClick", function(self)
-	PanelTemplates_SetTab(SCForgeMainFrame.LoadSpellFrame, 1)
-	updateSpellLoadRows()
-end)
-button:SetScript("OnShow", function(self)
-	self.Text:SetText(self.text)
-	self.HighlightTexture:SetWidth(self:GetTextWidth()+31)
-	PanelTemplates_TabResize(self, 0)
-end)
+	button.text = "Personal"
+	button.id = 1
+	button:SetPoint("BOTTOMLEFT", SCForgeMainFrame.LoadSpellFrame.Inset, "TOPLEFT", 0, 0)
+	--PanelTemplates_TabResize(button, 0)
+	button.HighlightTexture:SetWidth(button:GetTextWidth()+31)
+	button:SetScript("OnClick", function(self)
+		PanelTemplates_SetTab(SCForgeMainFrame.LoadSpellFrame, 1)
+		updateSpellLoadRows()
+	end)
+	button:SetScript("OnShow", function(self)
+		self.Text:SetText(self.text)
+		self.HighlightTexture:SetWidth(self:GetTextWidth()+31)
+		PanelTemplates_TabResize(self, 0)
+	end)
 
 SCForgeMainFrame.LoadSpellFrame.TabButton2 = CreateFrame("BUTTON", "$parentTab2", SCForgeMainFrame.LoadSpellFrame, "TabButtonTemplate")
 local button = SCForgeMainFrame.LoadSpellFrame.TabButton2
-button.text = "Phase"
-button.id = 2
-button:SetPoint("LEFT", SCForgeMainFrame.LoadSpellFrame.TabButton1, "RIGHT", 0, 0)
---PanelTemplates_TabResize(button, 0)
-button.HighlightTexture:SetWidth(button:GetTextWidth()+31)
-button:SetScript("OnClick", function(self)
-	PanelTemplates_SetTab(SCForgeMainFrame.LoadSpellFrame, 2)
-	updateSpellLoadRows()
-end)
-button:SetScript("OnShow", function(self)
-	self.Text:SetText(self.text)
-	self.HighlightTexture:SetWidth(self:GetTextWidth()+31)
-	PanelTemplates_TabResize(self, 0)
-end)
+	button.text = "Phase"
+	button.id = 2
+	button:SetPoint("LEFT", SCForgeMainFrame.LoadSpellFrame.TabButton1, "RIGHT", 0, 0)
+	--PanelTemplates_TabResize(button, 0)
+	button.HighlightTexture:SetWidth(button:GetTextWidth()+31)
+	button:SetScript("OnClick", function(self)
+		PanelTemplates_SetTab(SCForgeMainFrame.LoadSpellFrame, 2)
+		updateSpellLoadRows()
+	end)
+	button:SetScript("OnShow", function(self)
+		self.Text:SetText(self.text)
+		self.HighlightTexture:SetWidth(self:GetTextWidth()+31)
+		PanelTemplates_TabResize(self, 0)
+	end)
 
 PanelTemplates_SetNumTabs(SCForgeMainFrame.LoadSpellFrame, 2)
 PanelTemplates_SetTab(SCForgeMainFrame.LoadSpellFrame, 1)
 
--- Disabled button - Replacing with Tabbed Vault Experience
 SCForgeMainFrame.LoadSpellFrame.refreshVaultButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame)
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.Inset,"TOPRIGHT", -5, 2)
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetSize(24,24)
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.Inset,"TOPRIGHT", -5, 2)
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetSize(24,24)
 
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetNormalAtlas("UI-RefreshButton")
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetPushedAtlas("UI-RefreshButton")
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetDisabledAtlas("UI-RefreshButton")
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetHighlightTexture("Interface/Buttons/UI-Common-MouseHilight", "ADD")
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetNormalAtlas("UI-RefreshButton")
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetPushedAtlas("UI-RefreshButton")
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.Pushed = SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:GetPushedTexture()
+		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.Pushed:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.Pushed:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.Pushed:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.Pushed:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetDisabledAtlas("UI-RefreshButton")
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.disabled = SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:GetDisabledTexture()
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.disabled:SetDesaturated(true)
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetHighlightTexture("Interface/Buttons/UI-Common-MouseHilight", "ADD")
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.animations = SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:CreateAnimationGroup()
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.animations:SetLooping("REPEAT")
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.animations.rotate = SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.animations:CreateAnimation("Rotation")
+	local _rot = SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.animations.rotate
+	_rot:SetDegrees(-360)
+	_rot:SetDuration(0.25)
 
-
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnClick", function(self, button)
-	updateSpellLoadRows();
-end)
-
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Refresh Phase Vault", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Reload the Phase Vault from the server, getting any new changes.",1,1,1,true)
-		GameTooltip:Show()
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnClick", function(self, button)
+		updateSpellLoadRows();
+		self.animations.rotate:SetSmoothing("NONE")
+		self.animations:Play()
 	end)
-end)
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnLeave", function(self)
-	GameTooltip_Hide()
-	self.Timer:Cancel()
-end)
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnMouseDown", function(self)
-	local point, relativeTo, relativePoint, xOfs, yOfs = self:GetPoint(1)
-	self:SetPoint(point, relativeTo, relativePoint, xOfs+2, yOfs-2)
-end)
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnMouseUp", function(self)
-	local point, relativeTo, relativePoint, xOfs, yOfs = self:GetPoint(1)
-	self:SetPoint(point, relativeTo, relativePoint, xOfs-2, yOfs+2)
-end)
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnDisable", function(self)
-	self:GetDisabledTexture():SetDesaturated(true)
-end)
-SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnEnable", function(self)
-	self:GetDisabledTexture():SetDesaturated(false)
-end)
 
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		self.Timer = C_Timer.NewTimer(0.7,function()
+			GameTooltip:SetText("Refresh Phase Vault", nil, nil, nil, nil, true)
+			GameTooltip:AddLine("Reload the Phase Vault from the server, getting any new changes.",1,1,1,true)
+			GameTooltip:Show()
+		end)
+	end)
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnLeave", function(self)
+		GameTooltip_Hide()
+		self.Timer:Cancel()
+	end)
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetScript("OnEnable", function(self)
+		self.animations:Finish()
+		self.animations.rotate:SetSmoothing("IN_OUT")
+	end)
+
+SCForgeMainFrame.LoadSpellFrame.profileButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame)
+	SCForgeMainFrame.LoadSpellFrame.profileButton:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.Inset,"TOPRIGHT", -5, 2)
+	SCForgeMainFrame.LoadSpellFrame.profileButton:SetSize(24,24)
+
+	-- PartySizeIcon; QuestSharing-QuestLog-Active; QuestSharing-DialogIcon; socialqueuing-icon-group
+	SCForgeMainFrame.LoadSpellFrame.profileButton:SetNormalAtlas("socialqueuing-icon-group")
+	SCForgeMainFrame.LoadSpellFrame.profileButton.normal = SCForgeMainFrame.LoadSpellFrame.profileButton:GetNormalTexture()
+	SCForgeMainFrame.LoadSpellFrame.profileButton.normal:SetDesaturated(true)
+	SCForgeMainFrame.LoadSpellFrame.profileButton.normal:SetVertexColor(1,0.8,0)
+	SCForgeMainFrame.LoadSpellFrame.profileButton:SetPushedAtlas("socialqueuing-icon-group")
+		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed = SCForgeMainFrame.LoadSpellFrame.profileButton:GetPushedTexture()
+		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed:SetVertexColor(1,0.8,0)
+		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+	SCForgeMainFrame.LoadSpellFrame.profileButton:SetDisabledAtlas("socialqueuing-icon-group")
+		SCForgeMainFrame.LoadSpellFrame.profileButton.disabled = SCForgeMainFrame.LoadSpellFrame.profileButton:GetDisabledTexture()
+		SCForgeMainFrame.LoadSpellFrame.profileButton.disabled:SetDesaturated(true)
+	SCForgeMainFrame.LoadSpellFrame.profileButton:SetHighlightTexture("Interface/Buttons/UI-Common-MouseHilight", "ADD")
+
+	SCForgeMainFrame.LoadSpellFrame.profileButton:SetScript("OnClick", function(self, button)
+		-- change profile dropdown menu...
+	end)
+
+	SCForgeMainFrame.LoadSpellFrame.profileButton:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		self.Timer = C_Timer.NewTimer(0.7,function()
+			GameTooltip:SetText("Change Profile", nil, nil, nil, nil, true)
+			GameTooltip:AddLine("Switch to another profile to view that profiles vault.",1,1,1,true)
+			GameTooltip:Show()
+		end)
+	end)
+	SCForgeMainFrame.LoadSpellFrame.profileButton:SetScript("OnLeave", function(self)
+		GameTooltip_Hide()
+		self.Timer:Cancel()
+	end)
 
 -------------------------------------------------------------------------------
 -- Custom Chat Link Stuff
@@ -3559,6 +3790,8 @@ function ChatFrame_OnHyperlinkShow(...)
 	local linkType, linkData, displayText = LinkUtil.ExtractLink(select(3, ...))
 	if linkType == "arcSpell" then
 		local spellComm, charOrPhase, spellName, numActions, spellDesc = strsplit(":", linkData)
+		if not spellDesc then spellDesc = numActions; numActions = spellName end -- legacy support for old link types
+		local spellName = displayText:gsub("%[(.+)%]","%1")
 		local spellIconPath = addonPath.."/assets/BookIcon"
 		local spellIconSize = 24
 		local spellIconSequence = "|T"..spellIconPath..":"..spellIconSize.."|t "
