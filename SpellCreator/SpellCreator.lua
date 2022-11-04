@@ -260,8 +260,9 @@ local function SC_loadMasterTable()
 		selectedProfileFilter["Account"] = true
 	elseif SpellCreatorMasterTable.Options["defaultProfile"] == "All" then
 		selectedProfileFilter.showAll = true
-	else
-		selectedProfileFilter[GetUnitName("player")] = true
+	else -- default filter
+		--selectedProfileFilter[GetUnitName("player")] = true
+		selectedProfileFilter.showAll = true
 	end
 
 	-- reset these so we are not caching debug data longer than a single reload.
@@ -2573,7 +2574,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 						tinsert(item.menuList, { text = k, notCheckable = true, disabled = (SpellCreatorSavedSpells[spellCommID].profile==k), disablecolor = ((SpellCreatorSavedSpells[spellCommID].profile==k) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, k, 1, callback); CloseDropDownMenus(); end })
 					end
 				end
-				tinsert(item.menuList, { text = "..Add New", notCheckable = true, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end })
+				tinsert(item.menuList, { text = "Add New", fontObject=GameFontNormalSmallLeft, notCheckable = true, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end })
 
 		tinsert(menuList, item)
 
@@ -4574,6 +4575,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		end
 
 		if addonVersion ~= lastAddonVersion then
+			addonUpdated = true
 			RaidNotice_AddMessage(RaidWarningFrame, "\n\r"..addonColor.."Arcanum - Updated to v"..addonVersion.."\n\rCheck-out the Changelog by right-clicking the Mini-map Icon!|r", ChatTypeInfo["RAID_WARNING"])
 --			InterfaceOptionsFrame_OpenToCategory(addonTitle);
 --			InterfaceOptionsFrame_OpenToCategory(addonTitle);
