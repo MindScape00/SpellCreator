@@ -12,6 +12,7 @@ localization.SPELLNAME = STAT_CATEGORY_SPELL.." "..NAME
 localization.SPELLCOMM = STAT_CATEGORY_SPELL.." "..COMMAND
 
 local savedSpellFromVault = {}
+local selectedProfileFilter = {}
 
 local modifiedGossips = {}
 local isGossipLoaded
@@ -253,11 +254,15 @@ local function SC_loadMasterTable()
 
 	if not SpellCreatorSavedSpells then SpellCreatorSavedSpells = {} end
 
-	--[[ -- Current Date Check for past Oct 25, 2022. Disabled since we are past that anyways now.
-	if (curDate.year >= 2023 or curDate.yday >= 298) then -- Only default to showing the minimap icon after October 25th, 2022
-		
+	if SpellCreatorMasterTable.Options["defaultProfile"] == "Character" then
+		selectedProfileFilter[GetUnitName("player")] = true
+	elseif SpellCreatorMasterTable.Options["defaultProfile"] == "Account" then
+		selectedProfileFilter["Account"] = true
+	elseif SpellCreatorMasterTable.Options["defaultProfile"] == "All" then
+		selectedProfileFilter.showAll = true
+	else
+		selectedProfileFilter[GetUnitName("player")] = true
 	end
-	--]]
 
 	-- reset these so we are not caching debug data longer than a single reload.
 	SpellCreatorMasterTable.Options["debugPhaseData"] = nil
@@ -2471,7 +2476,7 @@ local function editVaultTags( tag, spellCommID, vaultType ) --
 	end
 end
 
-local function setSpellProfile(spellCommID, profileName, vaultType, doNotReload)
+local function setSpellProfile(spellCommID, profileName, vaultType, callback)
 	if not vaultType then vaultType = 1 end
 	if not spellCommID then return; end
 	if not profileName then 
@@ -2486,7 +2491,7 @@ local function setSpellProfile(spellCommID, profileName, vaultType, doNotReload)
 			maxLetters = 255,
 			OnButton1 = function(self, data)
 				local text = self.editBox:GetText();
-				setSpellProfile(data.comm, text, data.vault, data.doNotReload )
+				setSpellProfile(data.comm, text, data.vault, data.callback )
 			end,
 			EditBoxOnTextChanged = function (self)
 				local text = self:GetText();
@@ -2513,20 +2518,24 @@ local function setSpellProfile(spellCommID, profileName, vaultType, doNotReload)
 			end,
 		}
 		local dialog = StaticPopup_Show("SCFORGE_NEW_PROFILE")
-		dialog.data = {comm = spellCommID, vault = vaultType, doNotReload = doNotReload}
+		dialog.data = {comm = spellCommID, vault = vaultType, callback = callback}
 		return;
 	end
 	if vaultType == 1 then
 		SpellCreatorSavedSpells[spellCommID].profile = profileName
 	end
-	if not doNotReload then
-		-- reload the vault rows to refresh filter
+	if callback then
+		callback()
 	end
 end
 
-local function genDropDownContextOptions(vault, spellCommID)
+local contextDropDownMenu = CreateFrame("BUTTON", "ARCLoadRowContextMenu", UIParent, "UIDropDownMenuTemplate")
+local profileDropDownMenu = CreateFrame("BUTTON", "ARCLoadRowContextMenu", UIParent, "UIDropDownMenuTemplate")
+
+local function genDropDownContextOptions(vault, spellCommID, callback)
 	local menuList = {}
 	local item
+	local playerName = GetUnitName("player")
 	if vault == "PHASE" then 
 		menuList = {
 			{text = SCForge_PhaseVaultSpells[spellCommID].fullName, notCheckable = true, isTitle=true},
@@ -2549,7 +2558,8 @@ local function genDropDownContextOptions(vault, spellCommID)
 		-- Profiles Menu
 		item = {text = "Profile", notCheckable=true, hasArrow=true, keepShownOnClick=true, 
 			menuList = {
-				{ text = "Account", notCheckable=true, disabled = (SpellCreatorSavedSpells[spellCommID].profile=="Account"), func = function() setSpellProfile(spellCommID, "Account", 1); CloseDropDownMenus() end },
+				{ text = "Account", notCheckable=true, disabled = (SpellCreatorSavedSpells[spellCommID].profile=="Account"), disablecolor = ((SpellCreatorSavedSpells[spellCommID].profile=="Account") and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, "Account", 1, callback); CloseDropDownMenus(); end },
+				{ text = playerName, notCheckable=true, disabled = (SpellCreatorSavedSpells[spellCommID].profile==playerName), disablecolor = ((SpellCreatorSavedSpells[spellCommID].profile==playerName) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, playerName, 1, callback); CloseDropDownMenus(); end },
 			},
 		}
 
@@ -2559,11 +2569,11 @@ local function genDropDownContextOptions(vault, spellCommID)
 					end
 				end
 				for k,v in orderedPairs(interTagTable) do
-					if k ~= "Account" then 
-						tinsert(item.menuList, { text = k, notCheckable = true, disabled = (SpellCreatorSavedSpells[spellCommID].profile==k), func = function() setSpellProfile(spellCommID, k, 1); CloseDropDownMenus() end })
+					if k ~= "Account" and k ~= playerName then 
+						tinsert(item.menuList, { text = k, notCheckable = true, disabled = (SpellCreatorSavedSpells[spellCommID].profile==k), disablecolor = ((SpellCreatorSavedSpells[spellCommID].profile==k) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, k, 1, callback); CloseDropDownMenus(); end })
 					end
 				end
-				tinsert(item.menuList, { text = "..Add New", notCheckable = true, func = function() setSpellProfile(spellCommID); CloseDropDownMenus(); end })
+				tinsert(item.menuList, { text = "..Add New", notCheckable = true, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end })
 
 		tinsert(menuList, item)
 
@@ -2604,8 +2614,6 @@ local function genDropDownContextOptions(vault, spellCommID)
 	return menuList
 end
 
-local contextDropDownMenu = CreateFrame("BUTTON", "ARCLoadRowContextMenu", UIParent, "UIDropDownMenuTemplate")
-
 ------------------------
 
 local loadRowHeight = 45
@@ -2626,6 +2634,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		currentVault = "PERSONAL"
 		savedSpellFromVault = SpellCreatorSavedSpells
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Hide()
+		SCForgeMainFrame.LoadSpellFrame.profileButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.30,0.10,0.40,0.5)
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
@@ -2639,8 +2648,10 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	elseif currentVaultTab == 2 then
 		--phase vault is shown
 		currentVault = "PHASE"
+		SCForgeMainFrame.LoadSpellFrame.profileButton:Hide()
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Disable()
+		--SCForgeMainFrame.LoadSpellFrame.refreshVaultButton.animations:Play() -- not a fan of it playing here lol
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Hide()
 		SCForgeMainFrame.LoadSpellFrame.ImportSpellButton:Hide()
 		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Show()
@@ -2672,483 +2683,543 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		rowNum = realRowNum-numSkippedRows
 		--]]
 		rowNum = rowNum+1
-
-		if spellLoadRows[rowNum] then
-			thisRow = spellLoadRows[rowNum]
-			thisRow:Show()
-			dprint(false,"SCForge Load Row "..rowNum.." Already existed - showing & setting it")
-
-			-- Position the Rows
-			if rowNum == 1 or rowNum-1-numSkippedRows < 1 then
-				thisRow:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
-			else
-				thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
-			end
-
+		if currentVault == "PERSONAL" and not v.profile then savedSpellFromVault[k].profile = "Unassigned"; dprint("Spell '"..k.."' didn't have a profile. Set to Unassigned.") end
+		if currentVault == "PERSONAL" and ((not selectedProfileFilter.showAll) and (not selectedProfileFilter[v.profile])) then 
+			dprint("Load Row Filtered from Personal Vault Profiles (skipped): "..k)
+			rowNum = rowNum-1
 		else
-			dprint(false,"SCForge Load Row "..rowNum.." Didn't exist - making it!")
-			spellLoadRows[rowNum] = CreateFrame("CheckButton", "scForgeLoadRow"..rowNum, spellLoadFrame)
-			thisRow = spellLoadRows[rowNum]
+			if spellLoadRows[rowNum] then
+				thisRow = spellLoadRows[rowNum]
+				thisRow:Show()
+				dprint(false,"SCForge Load Row "..rowNum.." Already existed - showing & setting it")
 
-			-- Position the Rows
-			if rowNum == 1 or rowNum-1-numSkippedRows < 1 then
-				thisRow:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
-			else
-				thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
-			end
-			thisRow:SetWidth(columnWidth-20)
-			thisRow:SetHeight(loadRowHeight)
-
-			-- A nice lil background to make them easier to tell apart			
-			thisRow.Background = thisRow:CreateTexture(nil,"BACKGROUND",nil,5)
-			thisRow.Background:SetPoint("TOPLEFT",-3,0)
-			thisRow.Background:SetPoint("BOTTOMRIGHT",0,0)
-			thisRow.Background:SetTexture(load_row_background)
-			thisRow.Background:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
-
-			--[[
-			thisRow.BGOverlay = thisRow:CreateTexture(nil,"BACKGROUND",nil,6)
-			thisRow.BGOverlay:SetAllPoints(thisRow.Background)
-			thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
-			thisRow.BGOverlay:SetAlpha(0.25)
-			--]]
-
-			thisRow:SetCheckedTexture("Interface\\AddOns\\SpellCreator\\assets\\l_row_selected")
-			thisRow.CheckedTexture = thisRow:GetCheckedTexture()
-			thisRow.CheckedTexture:SetAllPoints(thisRow.Background)
-			thisRow.CheckedTexture:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
-			thisRow.CheckedTexture:SetAlpha(0.75)
-			--thisRow.CheckedTexture:SetPoint("RIGHT", thisRow.Background, "RIGHT", 5, 0)
-
-			-- Original Atlas based texture with vertex shading for a unique look. Actually looked pretty good imo.
-			--thisRow.Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
-			--thisRow.Background:SetVertexColor(0.75,0.70,0.8) -- Let T color it naturally :)
-			--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
-
-			--[[ -- Disabled, not needed on the new load row backgrounds
-			thisRow.spellNameBackground = thisRow:CreateTexture(nil, "BACKGROUND")
-			thisRow.spellNameBackground:SetPoint("TOPLEFT", thisRow.Background, "TOPLEFT", 5, -2)
-			thisRow.spellNameBackground:SetPoint("BOTTOMRIGHT", thisRow.Background, "BOTTOM", 10, 2) -- default position - move it later with the actual name font string.
-
-			thisRow.spellNameBackground:SetColorTexture(1,1,1,0.25)
-			thisRow.spellNameBackground:SetGradient("HORIZONTAL", 0.5,0.5,0.5,1,1,1)
-			thisRow.spellNameBackground:SetBlendMode("MOD")
-			--]]
-
-
-			-- Make the Spell Name Text
-			thisRow.spellName = thisRow:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
-			thisRow.spellName:SetWidth(columnWidth*2/3)
-			thisRow.spellName:SetJustifyH("LEFT")
-			thisRow.spellName:SetPoint("LEFT", 10, 0)
-			thisRow.spellName:SetText(v.fullName) -- initial text, reset later when it needs updated
-			thisRow.spellName:SetShadowColor(0, 0, 0)
-			thisRow.spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
---			thisRow.spellNameBackground:SetPoint("RIGHT", thisRow.spellName, "RIGHT", 0, 0) -- move the right edge of the gradient to the right edge of the name
-
-			-- Make the delete saved spell button
-			thisRow.deleteButton = CreateFrame("BUTTON", nil, thisRow)
-			local button = thisRow.deleteButton
-			button.commID = k
-			button:SetPoint("RIGHT", 0, 0)
-			button:SetSize(24,24)
-			--button:SetText("x")
-
-			button:SetNormalTexture(addonPath.."/assets/icon-x")
-			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-
-			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
-			button.DisabledTex:SetAllPoints(true)
-			button.DisabledTex:SetTexture(addonPath.."/assets/icon-x")
-			button.DisabledTex:SetDesaturated(true)
-			button.DisabledTex:SetVertexColor(.6,.6,.6)
-			button:SetDisabledTexture(button.DisabledTex)
-
-			button.PushedTex = button:CreateTexture(nil, "ARTWORK")
-			button.PushedTex:SetAllPoints(true)
-			button.PushedTex:SetTexture(addonPath.."/assets/icon-x")
-			button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-			button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-			button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-			button:SetPushedTexture(button.PushedTex)
-
-			button:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Delete '"..savedSpellFromVault[self.commID].commID.."'", nil, nil, nil, nil, true)
-					GameTooltip:Show()
-				end)
-			end)
-			button:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-
-
-			-- Make the load button
-			thisRow.loadButton = CreateFrame("BUTTON", nil, thisRow)
-			local button = thisRow.loadButton
-			button.commID = k
-			button:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
-			button:SetSize(24,24)
-			--button:SetText(EDIT)
-
-			button:SetNormalTexture(addonPath.."/assets/icon-edit")
-			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-
-			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
-			button.DisabledTex:SetAllPoints(true)
-			button.DisabledTex:SetTexture(addonPath.."/assets/icon-edit")
-			button.DisabledTex:SetDesaturated(true)
-			button.DisabledTex:SetVertexColor(.6,.6,.6)
-			button:SetDisabledTexture(button.DisabledTex)
-
-			button.PushedTex = button:CreateTexture(nil, "ARTWORK")
-			button.PushedTex:SetAllPoints(true)
-			button.PushedTex:SetTexture(addonPath.."/assets/icon-edit")
-			button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-			button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-			button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-			button:SetPushedTexture(button.PushedTex)
-			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-			button:SetScript("OnClick", function(self, button)
-				if button == "RightButton" then
-					table.sort(savedSpellFromVault[self.commID].actions, function (k1, k2) return k1.delay < k2.delay end)
-				end
-				loadSpell(savedSpellFromVault[self.commID])
-				if vaultStyle ~= 2 then SCForgeMainFrame.LoadSpellFrame:Hide(); end
-			end)
-			button:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Load ArcSpell '"..savedSpellFromVault[self.commID].commID.."' into the forge, where you can edit it.", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("\nRight-click to load the ArcSpell, and re-sort it's actions into chronological order by delay.", 1,1,1,1)
-					GameTooltip:Show()
-				end)
-			end)
-			button:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-
-			--
-
-			thisRow.gossipButton = CreateFrame("BUTTON", nil, thisRow)
-			local button = thisRow.gossipButton
-			button.commID = k
-			button:SetPoint("TOP", thisRow.deleteButton, "BOTTOM", 0, 0)
-			button:SetSize(16,16)
-
-			button:SetNormalAtlas("groupfinder-waitdot")
-			button.normal = button:GetNormalTexture()
-			button.normal:SetVertexColor(1,0.8,0)
-			button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-
-			button.speechIcon = button:CreateTexture(nil, "ARTWORK", nil, 7)
-			button.speechIcon:SetTexture("interface/gossipframe/chatbubblegossipicon")
-			button.speechIcon:SetSize(10,10)
-			button.speechIcon:SetTexCoord(1,0,0,1)
-			button.speechIcon:SetPoint("CENTER", button, "TOPRIGHT",-2,-1)
-
-			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
-			button.DisabledTex:SetAllPoints(true)
-			button.DisabledTex:SetAtlas("groupfinder-waitdot")
-			button.DisabledTex:SetDesaturated(true)
-			button.DisabledTex:SetVertexColor(.6,.6,.6)
-			button:SetDisabledTexture(button.DisabledTex)
-
-			button.PushedTex = button:CreateTexture(nil, "ARTWORK")
-			button.PushedTex:SetAllPoints(true)
-			button.PushedTex:SetAtlas("groupfinder-waitdot")
-			button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-			button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-			button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-			button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-			button:SetPushedTexture(button.PushedTex)
-
-			button:SetMotionScriptsWhileDisabled(true)
-			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-			button:SetScript("OnClick", function(self, button)
-				StaticPopupDialogs["SCFORGE_ADD_GOSSIP"] = {
-					text = "Add ArcSpell to NPC Gossip",
-					subText = "ArcSpell: '"..savedSpellFromVault[self.commID].fullName.."' ("..savedSpellFromVault[self.commID].commID..")",
-					closeButton = true,
-					hasEditBox = true,
-					enterClicksFirstButton = true,
-					editBoxInstructions = "Gossip Text (i.e., 'Cast the Spell!')",
-					editBoxWidth = 310,
-					maxLetters = 255-25-20-#savedSpellFromVault[self.commID].commID, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
-					EditBoxOnTextChanged = function (self, data)
-						local text = self:GetText();
-						if #text > 0 and text ~= "" then 
-							self:GetParent().button1:Enable()
-						else
-							self:GetParent().button1:Disable()
-						end
-					end,
-					OnButton1 = function(self, data)
-						local text = self.editBox:GetText();
-						local tag = "<arc_"
-						if self.insertedFrame.RadioCast:GetChecked() then tag = tag.."cast"; elseif self.insertedFrame.RadioSave:GetChecked() then tag = tag.."save"; end
-						if self.insertedFrame.hideButton:GetChecked() then tag = tag.."_hide" end
-						tag = tag..":"
-						local command
-						if self.insertedFrame.RadioOption:GetChecked() then command = "ph fo np go op ad "; elseif self.insertedFrame.RadioBody:Getchecked() then command = "ph fo np go te ad "; end
-
-						local finalCommand = command..text.." "..tag..savedSpellFromVault[data].commID..">"
-						cmd(finalCommand)
-
-						--if self.insertedFrame.hideButton:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast:"..savedSpellFromVault[data].commID..">") end
-						--savedSpellFromVault[data].commID
-					end,
-					button1 = ADD,
-					button2 = CANCEL,
-					hideOnEscape = true,
-					EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
-					whileDead = true,
-					OnShow = function (self, data)
-						self.button1:Disable()
-					end,
-				}
-				local dialog = StaticPopup_Show("SCFORGE_ADD_GOSSIP", nil, nil, nil, gossipAddMenuInsert)
-				dialog.data = self.commID
-			end)
-
-			button:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Add to Gossip Menu", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("\nWith a gossip menu open, click here to add this ArcSpell to an NPC's gossip.", 1,1,1,1)
-					GameTooltip:Show()
-				end)
-			end)
-			button:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-			button:SetScript("OnDisable", function(self)
-				self.speechIcon:SetDesaturated(true)
-				self.speechIcon:SetVertexColor(.6,.6,.6)
-			end)
-			button:SetScript("OnEnable", function(self)
-				self.speechIcon:SetDesaturated(false)
-				self.speechIcon:SetVertexColor(1,1,1)
-			end)
-
-
-			-------------
-			thisRow.privateIconButton = CreateFrame("BUTTON", nil, thisRow)
-			local button = thisRow.privateIconButton
-			button.commID = k
-			button:SetSize(16,16)
-			button:SetPoint("RIGHT", thisRow.gossipButton, "LEFT", -8, 0)
-
-			--button:SetNormalAtlas("UI_Editor_Eye_Icon")
-			button:SetNormalTexture(addonPath.."/assets/icon_visible_32")
-			button.normal = button:GetNormalTexture()
-			button.normal:SetVertexColor(0.9,0.65,0)
-			--button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-
-			button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
-			button.DisabledTex:SetAllPoints(true)
-			--button.DisabledTex:SetAtlas("transmog-icon-hidden")
-			button.DisabledTex:SetTexture(addonPath.."/assets/icon_hidden_32")
-			--button.DisabledTex:SetDesaturated(true)
-			button.DisabledTex:SetVertexColor(.6,.6,.6)
-			button:SetDisabledTexture(button.DisabledTex)
-
-			button:SetMotionScriptsWhileDisabled(true)
-
-			button:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					if self:IsEnabled() then
-						GameTooltip:SetText("'"..savedSpellFromVault[self.commID].fullName.."' is visible to everyone.", nil, nil, nil, nil, true)
-					else
-						GameTooltip:SetText("'"..savedSpellFromVault[self.commID].fullName.."' is visible only to Officers+.", nil, nil, nil, nil, true)
-					end
-					GameTooltip:AddLine("\nTo change this spells privacy, please re-upload it with the privacy desired.", 1,1,1,1)
-					GameTooltip:Show()
-				end)
-			end)
-			button:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-			----------
-
-			--
-
-			--[[
-			-- Transfer to Phase Button
-			thisRow.saveToPhaseButton = CreateFrame("BUTTON", nil, thisRow, "UIPanelButtonTemplate")
-			local button = thisRow.saveToPhaseButton
-			button.commID = k
-			button:SetPoint("RIGHT", thisRow.loadButton, "LEFT", 0, 0)
-			button:SetSize(24,24)
-			--button:SetText("P")
-			button.icon = button:CreateTexture(nil, "ARTWORK")
-			button.icon:SetTexture(addonPath.."/assets/icon-transfer")
-			--button.icon:SetTexCoord(0,1,1,0)
-			button.icon:SetAllPoints()
-			button:Hide()
-			button:SetScript("OnClick", function(self)
-				saveSpellToPhaseVault(self.commID)
-			end)
-			button:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Transfer '"..self.commID.."' into the Phase Vault, where anyone in the phase can save a copy to their personal vault.", nil, nil, nil, nil, true)
-					GameTooltip:Show()
-				end)
-			end)
-			button:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-			--]]
-		end
-
-		-- Set the buttons stuff
-		do
-			-- make sure to set the data, otherwise it will still use old data if new spells have been saved since last.
-			thisRow.spellName:SetText(v.fullName)
-			thisRow.loadButton.commID = k
-			thisRow.deleteButton.commID = k
-			thisRow.gossipButton.commID = k
-			thisRow.privateIconButton.commID = k
-			thisRow.commID = k -- used in new Transfer to Phase Button
-			thisRow.rowID = rowNum
-
-			thisRow.deleteButton:SetScript("OnClick", function(self, button)
-				if button == "LeftButton" then
-					deleteSpellConf(self.commID, currentVault)
-				elseif button == "RightButton" then
-
-				end
-			end)
-
-			-- NEED TO UPDATE THE ROWS IF WE ARE IN PHASE VAULT
-			if currentVault == "PERSONAL" then
-				--thisRow.loadButton:SetText(EDIT)
-				--thisRow.saveToPhaseButton.commID = k
-				--thisRow.Background:SetVertexColor(0.75,0.70,0.8)
-				--thisRow.Background:SetTexCoord(0,1,0,1)
-				thisRow.deleteButton:Show()
-				thisRow.deleteButton:ClearAllPoints()
-				thisRow.deleteButton:SetPoint("RIGHT")
-				thisRow.loadButton:ClearAllPoints()
-				thisRow.loadButton:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
-				thisRow.gossipButton:Hide()
-				thisRow.privateIconButton:Hide()
-				--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
-
-				--[[	-- Replaced with the <-> Phase Vault button
-				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
-					thisRow.saveToPhaseButton:Show()
+				-- Position the Rows
+				if rowNum == 1 or rowNum-1-numSkippedRows < 1 then
+					thisRow:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
 				else
-					thisRow.saveToPhaseButton:Hide()
+					thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
 				end
+
+			else
+				dprint(false,"SCForge Load Row "..rowNum.." Didn't exist - making it!")
+				spellLoadRows[rowNum] = CreateFrame("CheckButton", "scForgeLoadRow"..rowNum, spellLoadFrame)
+				thisRow = spellLoadRows[rowNum]
+
+				-- Position the Rows
+				if rowNum == 1 or rowNum-1-numSkippedRows < 1 then
+					thisRow:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
+				else
+					thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
+				end
+				thisRow:SetWidth(columnWidth-20)
+				thisRow:SetHeight(loadRowHeight)
+
+				-- A nice lil background to make them easier to tell apart			
+				thisRow.Background = thisRow:CreateTexture(nil,"BACKGROUND",nil,5)
+				thisRow.Background:SetPoint("TOPLEFT",-3,0)
+				thisRow.Background:SetPoint("BOTTOMRIGHT",0,0)
+				thisRow.Background:SetTexture(load_row_background)
+				thisRow.Background:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
+
+				--[[
+				thisRow.BGOverlay = thisRow:CreateTexture(nil,"BACKGROUND",nil,6)
+				thisRow.BGOverlay:SetAllPoints(thisRow.Background)
+				thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
+				thisRow.BGOverlay:SetAlpha(0.25)
 				--]]
 
-			elseif currentVault == "PHASE" then
-				--thisRow.loadButton:SetText("Load")
-				--thisRow.saveToPhaseButton:Hide()
-				--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
-				--thisRow.Background:SetTexCoord(0,1,0,1)
-				--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Epic")
+				thisRow:SetCheckedTexture("Interface\\AddOns\\SpellCreator\\assets\\l_row_selected")
+				thisRow.CheckedTexture = thisRow:GetCheckedTexture()
+				thisRow.CheckedTexture:SetAllPoints(thisRow.Background)
+				thisRow.CheckedTexture:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
+				thisRow.CheckedTexture:SetAlpha(0.75)
+				--thisRow.CheckedTexture:SetPoint("RIGHT", thisRow.Background, "RIGHT", 5, 0)
 
-				if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
-					thisRow.deleteButton:Show()
-					thisRow.deleteButton:ClearAllPoints()
-					thisRow.deleteButton:SetPoint("TOPRIGHT")
-					thisRow.loadButton:ClearAllPoints()
-					thisRow.loadButton:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
-					thisRow.gossipButton:Show()
-					thisRow.privateIconButton:Show()
-					if isGossipLoaded then
-						thisRow.gossipButton:Enable()
-					else
-						thisRow.gossipButton:Disable()
+				-- Original Atlas based texture with vertex shading for a unique look. Actually looked pretty good imo.
+				--thisRow.Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
+				--thisRow.Background:SetVertexColor(0.75,0.70,0.8) -- Let T color it naturally :)
+				--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
+
+				--[[ -- Disabled, not needed on the new load row backgrounds
+				thisRow.spellNameBackground = thisRow:CreateTexture(nil, "BACKGROUND")
+				thisRow.spellNameBackground:SetPoint("TOPLEFT", thisRow.Background, "TOPLEFT", 5, -2)
+				thisRow.spellNameBackground:SetPoint("BOTTOMRIGHT", thisRow.Background, "BOTTOM", 10, 2) -- default position - move it later with the actual name font string.
+
+				thisRow.spellNameBackground:SetColorTexture(1,1,1,0.25)
+				thisRow.spellNameBackground:SetGradient("HORIZONTAL", 0.5,0.5,0.5,1,1,1)
+				thisRow.spellNameBackground:SetBlendMode("MOD")
+				--]]
+
+
+				-- Make the Spell Name Text
+				thisRow.spellName = thisRow:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
+				thisRow.spellName:SetWidth(columnWidth*2/3)
+				thisRow.spellName:SetJustifyH("LEFT")
+				thisRow.spellName:SetPoint("LEFT", 10, 0)
+				thisRow.spellName:SetText(v.fullName) -- initial text, reset later when it needs updated
+				thisRow.spellName:SetShadowColor(0, 0, 0)
+				thisRow.spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
+				--thisRow.spellNameBackground:SetPoint("RIGHT", thisRow.spellName, "RIGHT", 0, 0) -- move the right edge of the gradient to the right edge of the name
+
+				-- Make the delete saved spell button
+				thisRow.deleteButton = CreateFrame("BUTTON", nil, thisRow)
+				local button = thisRow.deleteButton
+				button.commID = k
+				button:SetPoint("RIGHT", 0, 0)
+				button:SetSize(24,24)
+				--button:SetText("x")
+
+				button:SetNormalTexture(addonPath.."/assets/icon-x")
+				button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+				button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
+				button.DisabledTex:SetAllPoints(true)
+				button.DisabledTex:SetTexture(addonPath.."/assets/icon-x")
+				button.DisabledTex:SetDesaturated(true)
+				button.DisabledTex:SetVertexColor(.6,.6,.6)
+				button:SetDisabledTexture(button.DisabledTex)
+
+				button.PushedTex = button:CreateTexture(nil, "ARTWORK")
+				button.PushedTex:SetAllPoints(true)
+				button.PushedTex:SetTexture(addonPath.."/assets/icon-x")
+				button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+				button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+				button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+				button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+				button:SetPushedTexture(button.PushedTex)
+
+				button:SetScript("OnEnter", function(self)
+					GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+					self.Timer = C_Timer.NewTimer(0.7,function()
+						GameTooltip:SetText("Delete '"..savedSpellFromVault[self.commID].commID.."'", nil, nil, nil, nil, true)
+						GameTooltip:Show()
+					end)
+				end)
+				button:SetScript("OnLeave", function(self)
+					GameTooltip_Hide()
+					self.Timer:Cancel()
+				end)
+
+
+				-- Make the load button
+				thisRow.loadButton = CreateFrame("BUTTON", nil, thisRow)
+				local button = thisRow.loadButton
+				button.commID = k
+				button:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
+				button:SetSize(24,24)
+				--button:SetText(EDIT)
+
+				button:SetNormalTexture(addonPath.."/assets/icon-edit")
+				button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+				button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
+				button.DisabledTex:SetAllPoints(true)
+				button.DisabledTex:SetTexture(addonPath.."/assets/icon-edit")
+				button.DisabledTex:SetDesaturated(true)
+				button.DisabledTex:SetVertexColor(.6,.6,.6)
+				button:SetDisabledTexture(button.DisabledTex)
+
+				button.PushedTex = button:CreateTexture(nil, "ARTWORK")
+				button.PushedTex:SetAllPoints(true)
+				button.PushedTex:SetTexture(addonPath.."/assets/icon-edit")
+				button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+				button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+				button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+				button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+				button:SetPushedTexture(button.PushedTex)
+				button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+				button:SetScript("OnClick", function(self, button)
+					if button == "RightButton" then
+						table.sort(savedSpellFromVault[self.commID].actions, function (k1, k2) return k1.delay < k2.delay end)
 					end
-				else
-					thisRow.deleteButton:Hide()
+					loadSpell(savedSpellFromVault[self.commID])
+					if vaultStyle ~= 2 then SCForgeMainFrame.LoadSpellFrame:Hide(); end
+				end)
+				button:SetScript("OnEnter", function(self)
+					GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+					self.Timer = C_Timer.NewTimer(0.7,function()
+						GameTooltip:SetText("Load ArcSpell '"..savedSpellFromVault[self.commID].commID.."' into the forge, where you can edit it.", nil, nil, nil, nil, true)
+						GameTooltip:AddLine("\nRight-click to load the ArcSpell, and re-sort it's actions into chronological order by delay.", 1,1,1,1)
+						GameTooltip:Show()
+					end)
+				end)
+				button:SetScript("OnLeave", function(self)
+					GameTooltip_Hide()
+					self.Timer:Cancel()
+				end)
+
+				--
+
+				thisRow.gossipButton = CreateFrame("BUTTON", nil, thisRow)
+				local button = thisRow.gossipButton
+				button.commID = k
+				button:SetPoint("TOP", thisRow.deleteButton, "BOTTOM", 0, 0)
+				button:SetSize(16,16)
+
+				button:SetNormalAtlas("groupfinder-waitdot")
+				button.normal = button:GetNormalTexture()
+				button.normal:SetVertexColor(1,0.8,0)
+				button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+				button.speechIcon = button:CreateTexture(nil, "ARTWORK", nil, 7)
+				button.speechIcon:SetTexture("interface/gossipframe/chatbubblegossipicon")
+				button.speechIcon:SetSize(10,10)
+				button.speechIcon:SetTexCoord(1,0,0,1)
+				button.speechIcon:SetPoint("CENTER", button, "TOPRIGHT",-2,-1)
+
+				button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
+				button.DisabledTex:SetAllPoints(true)
+				button.DisabledTex:SetAtlas("groupfinder-waitdot")
+				button.DisabledTex:SetDesaturated(true)
+				button.DisabledTex:SetVertexColor(.6,.6,.6)
+				button:SetDisabledTexture(button.DisabledTex)
+
+				button.PushedTex = button:CreateTexture(nil, "ARTWORK")
+				button.PushedTex:SetAllPoints(true)
+				button.PushedTex:SetAtlas("groupfinder-waitdot")
+				button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+				button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+				button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+				button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+				button:SetPushedTexture(button.PushedTex)
+
+				button:SetMotionScriptsWhileDisabled(true)
+				button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+				button:SetScript("OnClick", function(self, button)
+					StaticPopupDialogs["SCFORGE_ADD_GOSSIP"] = {
+						text = "Add ArcSpell to NPC Gossip",
+						subText = "ArcSpell: '"..savedSpellFromVault[self.commID].fullName.."' ("..savedSpellFromVault[self.commID].commID..")",
+						closeButton = true,
+						hasEditBox = true,
+						enterClicksFirstButton = true,
+						editBoxInstructions = "Gossip Text (i.e., 'Cast the Spell!')",
+						editBoxWidth = 310,
+						maxLetters = 255-25-20-#savedSpellFromVault[self.commID].commID, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
+						EditBoxOnTextChanged = function (self, data)
+							local text = self:GetText();
+							if #text > 0 and text ~= "" then 
+								self:GetParent().button1:Enable()
+							else
+								self:GetParent().button1:Disable()
+							end
+						end,
+						OnButton1 = function(self, data)
+							local text = self.editBox:GetText();
+							local tag = "<arc_"
+							if self.insertedFrame.RadioCast:GetChecked() then tag = tag.."cast"; elseif self.insertedFrame.RadioSave:GetChecked() then tag = tag.."save"; end
+							if self.insertedFrame.hideButton:GetChecked() then tag = tag.."_hide" end
+							tag = tag..":"
+							local command
+							if self.insertedFrame.RadioOption:GetChecked() then command = "ph fo np go op ad "; elseif self.insertedFrame.RadioBody:Getchecked() then command = "ph fo np go te ad "; end
+
+							local finalCommand = command..text.." "..tag..savedSpellFromVault[data].commID..">"
+							cmd(finalCommand)
+
+							--if self.insertedFrame.hideButton:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast:"..savedSpellFromVault[data].commID..">") end
+							--savedSpellFromVault[data].commID
+						end,
+						button1 = ADD,
+						button2 = CANCEL,
+						hideOnEscape = true,
+						EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
+						whileDead = true,
+						OnShow = function (self, data)
+							self.button1:Disable()
+						end,
+					}
+					local dialog = StaticPopup_Show("SCFORGE_ADD_GOSSIP", nil, nil, nil, gossipAddMenuInsert)
+					dialog.data = self.commID
+				end)
+
+				button:SetScript("OnEnter", function(self)
+					GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+					self.Timer = C_Timer.NewTimer(0.7,function()
+						GameTooltip:SetText("Add to Gossip Menu", nil, nil, nil, nil, true)
+						GameTooltip:AddLine("\nWith a gossip menu open, click here to add this ArcSpell to an NPC's gossip.", 1,1,1,1)
+						GameTooltip:Show()
+					end)
+				end)
+				button:SetScript("OnLeave", function(self)
+					GameTooltip_Hide()
+					self.Timer:Cancel()
+				end)
+				button:SetScript("OnDisable", function(self)
+					self.speechIcon:SetDesaturated(true)
+					self.speechIcon:SetVertexColor(.6,.6,.6)
+				end)
+				button:SetScript("OnEnable", function(self)
+					self.speechIcon:SetDesaturated(false)
+					self.speechIcon:SetVertexColor(1,1,1)
+				end)
+
+
+				-------------
+				thisRow.privateIconButton = CreateFrame("BUTTON", nil, thisRow)
+				local button = thisRow.privateIconButton
+				button.commID = k
+				button:SetSize(16,16)
+				button:SetPoint("RIGHT", thisRow.gossipButton, "LEFT", -8, 0)
+
+				--button:SetNormalAtlas("UI_Editor_Eye_Icon")
+				button:SetNormalTexture(addonPath.."/assets/icon_visible_32")
+				button.normal = button:GetNormalTexture()
+				button.normal:SetVertexColor(0.9,0.65,0)
+				--button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+
+				button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
+				button.DisabledTex:SetAllPoints(true)
+				--button.DisabledTex:SetAtlas("transmog-icon-hidden")
+				button.DisabledTex:SetTexture(addonPath.."/assets/icon_hidden_32")
+				--button.DisabledTex:SetDesaturated(true)
+				button.DisabledTex:SetVertexColor(.6,.6,.6)
+				button:SetDisabledTexture(button.DisabledTex)
+
+				button:SetMotionScriptsWhileDisabled(true)
+
+				button:SetScript("OnEnter", function(self)
+					GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+					self.Timer = C_Timer.NewTimer(0.7,function()
+						if self:IsEnabled() then
+							GameTooltip:SetText("'"..savedSpellFromVault[self.commID].fullName.."' is visible to everyone.", nil, nil, nil, nil, true)
+						else
+							GameTooltip:SetText("'"..savedSpellFromVault[self.commID].fullName.."' is visible only to Officers+.", nil, nil, nil, nil, true)
+						end
+						GameTooltip:AddLine("\nTo change this spells privacy, please re-upload it with the privacy desired.", 1,1,1,1)
+						GameTooltip:Show()
+					end)
+				end)
+				button:SetScript("OnLeave", function(self)
+					GameTooltip_Hide()
+					self.Timer:Cancel()
+				end)
+			end
+
+			-- Set the buttons stuff
+			do
+				-- make sure to set the data, otherwise it will still use old data if new spells have been saved since last.
+				thisRow.spellName:SetText(v.fullName)
+				thisRow.loadButton.commID = k
+				thisRow.deleteButton.commID = k
+				thisRow.gossipButton.commID = k
+				thisRow.privateIconButton.commID = k
+				thisRow.commID = k -- used in new Transfer to Phase Button
+				thisRow.rowID = rowNum
+
+				thisRow.deleteButton:SetScript("OnClick", function(self, button)
+					if button == "LeftButton" then
+						deleteSpellConf(self.commID, currentVault)
+					elseif button == "RightButton" then
+
+					end
+				end)
+
+				-- NEED TO UPDATE THE ROWS IF WE ARE IN PHASE VAULT
+				if currentVault == "PERSONAL" then
+					--thisRow.loadButton:SetText(EDIT)
+					--thisRow.saveToPhaseButton.commID = k
+					--thisRow.Background:SetVertexColor(0.75,0.70,0.8)
+					--thisRow.Background:SetTexCoord(0,1,0,1)
+					thisRow.deleteButton:Show()
 					thisRow.deleteButton:ClearAllPoints()
 					thisRow.deleteButton:SetPoint("RIGHT")
 					thisRow.loadButton:ClearAllPoints()
-					thisRow.loadButton:SetPoint("CENTER", thisRow.deleteButton, "CENTER", 0, 0)
+					thisRow.loadButton:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
 					thisRow.gossipButton:Hide()
 					thisRow.privateIconButton:Hide()
-				end
-			end
+					--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
 
-			-- Update the main row frame for mouse over - this allows us to hover & shift-click for links
-			thisRow:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText(v.fullName, nil, nil, nil, nil, true)
-					if v.description then
-						GameTooltip:AddLine(v.description, 1, 1, 1, 1)
-					end
-					GameTooltip:AddLine(" ", 1, 1, 1, 1)
-					GameTooltip:AddLine("Command: '/sf "..v.commID.."'", 1, 1, 1, 1)
-					GameTooltip:AddLine("Actions: "..#v.actions, 1, 1, 1, 1)
-					GameTooltip:AddLine(" ", 1, 1, 1, 1)
-					GameTooltip:AddLine("Shift-Click to link in chat & share with other players.", 1, 1, 1, 1)
-					GameTooltip:Show()
-				end)
-			end)
-			thisRow:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-			thisRow:SetScript("OnClick", function(self, button)
-				if button == "LeftButton" then 
-					if IsModifiedClick("CHATLINK") then
-						SELECTED_CHAT_FRAME.editBox:SetFocus()
-						ChatEdit_InsertLink(generateSpellChatLink(k, currentVault));
-						self:SetChecked(not self:GetChecked());
-						return;
-					end
-					clearSpellLoadRadios(self)
-					if self:GetChecked() then
-						setSelectedVaultRow(self.rowID)
+					--[[	-- Replaced with the <-> Phase Vault button
+					if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
+						thisRow.saveToPhaseButton:Show()
 					else
-						setSelectedVaultRow(nil)
+						thisRow.saveToPhaseButton:Hide()
 					end
-				elseif button == "RightButton" then
-					--Show & Update Right-Click Context Menu
-					EasyMenu(genDropDownContextOptions(currentVault, self.commID), contextDropDownMenu, "cursor", 0 , 0, "MENU");
-					self:SetChecked( not self:GetChecked() )
+					--]]
+
+				elseif currentVault == "PHASE" then
+					--thisRow.loadButton:SetText("Load")
+					--thisRow.saveToPhaseButton:Hide()
+					--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
+					--thisRow.Background:SetTexCoord(0,1,0,1)
+					--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Epic")
+
+					if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
+						thisRow.deleteButton:Show()
+						thisRow.deleteButton:ClearAllPoints()
+						thisRow.deleteButton:SetPoint("TOPRIGHT")
+						thisRow.loadButton:ClearAllPoints()
+						thisRow.loadButton:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
+						thisRow.gossipButton:Show()
+						thisRow.privateIconButton:Show()
+						if isGossipLoaded then
+							thisRow.gossipButton:Enable()
+						else
+							thisRow.gossipButton:Disable()
+						end
+					else
+						thisRow.deleteButton:Hide()
+						thisRow.deleteButton:ClearAllPoints()
+						thisRow.deleteButton:SetPoint("RIGHT")
+						thisRow.loadButton:ClearAllPoints()
+						thisRow.loadButton:SetPoint("CENTER", thisRow.deleteButton, "CENTER", 0, 0)
+						thisRow.gossipButton:Hide()
+						thisRow.privateIconButton:Hide()
+					end
 				end
-			end)
-			thisRow:RegisterForClicks("LeftButtonUp","RightButtonUp")
-		end
 
-		-- Limit our Spell Name to 2 lines - but by downsizing the text instead of truncating..
-		do
-			local fontName,fontHeight,fontFlags = thisRow.spellName:GetFont()
-			thisRow.spellName:SetFont(fontName, 14, fontFlags) -- reset the font to default first, then test if we need to scale it down.
-			while thisRow.spellName:GetNumLines() > 2 do
-				fontName,fontHeight,fontFlags = thisRow.spellName:GetFont()
-				thisRow.spellName:SetFont(fontName, fontHeight-1, fontFlags)
-				if fontHeight-1 <= 8 then break; end
+				-- Update the main row frame for mouse over - this allows us to hover & shift-click for links
+				thisRow:SetScript("OnEnter", function(self)
+					GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+					self.Timer = C_Timer.NewTimer(0.7,function()
+						GameTooltip:SetText(v.fullName, nil, nil, nil, nil, true)
+						if v.description then
+							GameTooltip:AddLine(v.description, 1, 1, 1, 1)
+						end
+						GameTooltip:AddLine(" ", 1, 1, 1, 1)
+						GameTooltip:AddLine("Command: '/sf "..v.commID.."'", 1, 1, 1, 1)
+						GameTooltip:AddLine("Actions: "..#v.actions, 1, 1, 1, 1)
+						GameTooltip:AddLine(" ", 1, 1, 1, 1)
+						GameTooltip:AddLine("Shift-Click to link in chat & share with other players.", 1, 1, 1, 1)
+						GameTooltip:Show()
+					end)
+				end)
+				thisRow:SetScript("OnLeave", function(self)
+					GameTooltip_Hide()
+					self.Timer:Cancel()
+				end)
+				thisRow:SetScript("OnClick", function(self, button)
+					if button == "LeftButton" then 
+						if IsModifiedClick("CHATLINK") then
+							SELECTED_CHAT_FRAME.editBox:SetFocus()
+							ChatEdit_InsertLink(generateSpellChatLink(k, currentVault));
+							self:SetChecked(not self:GetChecked());
+							return;
+						end
+						clearSpellLoadRadios(self)
+						if self:GetChecked() then
+							setSelectedVaultRow(self.rowID)
+						else
+							setSelectedVaultRow(nil)
+						end
+					elseif button == "RightButton" then
+						--Show & Update Right-Click Context Menu
+						EasyMenu(genDropDownContextOptions(currentVault, self.commID, updateSpellLoadRows), contextDropDownMenu, "cursor", 0 , 0, "MENU");
+						self:SetChecked( not self:GetChecked() )
+					end
+				end)
+				thisRow:RegisterForClicks("LeftButtonUp","RightButtonUp")
 			end
-		end
 
-		if currentVault=="PHASE" and v.private and not (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() or SpellCreatorMasterTable.Options["debug"]) then
-			thisRow:Hide()
-			numSkippedRows = numSkippedRows+1
-		end
-		if v.private then
-			thisRow.privateIconButton:Disable()
-		else
-			thisRow.privateIconButton:Enable()
+			-- Limit our Spell Name to 2 lines - but by downsizing the text instead of truncating..
+			do
+				local fontName,fontHeight,fontFlags = thisRow.spellName:GetFont()
+				thisRow.spellName:SetFont(fontName, 14, fontFlags) -- reset the font to default first, then test if we need to scale it down.
+				while thisRow.spellName:GetNumLines() > 2 do
+					fontName,fontHeight,fontFlags = thisRow.spellName:GetFont()
+					thisRow.spellName:SetFont(fontName, fontHeight-1, fontFlags)
+					if fontHeight-1 <= 8 then break; end
+				end
+			end
+
+			if currentVault=="PHASE" and v.private and not (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() or SpellCreatorMasterTable.Options["debug"]) then
+				thisRow:Hide()
+				numSkippedRows = numSkippedRows+1
+			end
+			if v.private then
+				thisRow.privateIconButton:Disable()
+			else
+				thisRow.privateIconButton:Enable()
+			end
 		end
 	end
 	updateFrameChildScales(SCForgeMainFrame)
+end
+
+local function selectProfile(self,arg1,arg2,checked)
+	local profileName
+	if self.value then 
+		profileName = self.value
+	else
+		profileName = self
+	end
+	if checked then
+		selectedProfileFilter[profileName] = checked
+	else
+		selectedProfileFilter[profileName] = not selectedProfileFilter[profileName]
+	end
+	selectedProfileFilter.showAll = nil
+	updateSpellLoadRows();
+	--print(profileName, checked)
+end
+
+local function setDefaultProfile(self, profile)
+	SpellCreatorMasterTable.Options.defaultProfile = profile
+end
+
+local function genProfileSelectDropDown(changeDefault)
+	local menuList = {}
+	local item
+	local playerName = GetUnitName("player")
+	local isNotAllChecked
+
+	if changeDefault then
+		local currentDefault = SpellCreatorMasterTable.Options.defaultProfile
+		menuList = {
+			{text = "Change Default Profile", notCheckable = true, isTitle=true},
+			{text = "Account", notCheckable = true, disabled = (currentDefault == "Account"), disablecolor = ((currentDefault == "Account") and "|cFFCE2EFF" or nil), arg1="Account", func = setDefaultProfile},
+			{text = "Character (Default)", notCheckable = true, disabled = (currentDefault == "Character"), disablecolor = ((currentDefault == "Character") and "|cFFCE2EFF" or nil), arg1="Character", func = setDefaultProfile },
+			{text = "All", notCheckable = true, disabled = (currentDefault == "All"), arg1="All", disablecolor = ((currentDefault == "All") and "|cFFCE2EFF" or nil), func = setDefaultProfile },
+		}
+		return menuList;
+	end
+	menuList = {
+		{text = "Select a Profile", notCheckable = true, isTitle=true},
+		{text = "Account", checked = selectedProfileFilter["Account"], keepShownOnClick=true, func = selectProfile},
+		{text = playerName, checked = selectedProfileFilter[playerName], keepShownOnClick=true, func = selectProfile},
+	}
+
+	local interTagTable = {}
+	-- gen dynamic list of available characters / profiles
+	for k,v in pairs(SpellCreatorSavedSpells) do
+		if v.profile then
+			interTagTable[v.profile] = true
+		end
+	end
+	for k,v in orderedPairs(interTagTable) do
+		if k ~= "Account" and k ~= playerName then
+			if not selectedProfileFilter[k] then isNotAllChecked = true; end
+			tinsert(menuList, { text = k, checked = selectedProfileFilter[k], keepShownOnClick=true, func = selectProfile })
+		end
+	end
+	item = { text = "----", notCheckable=true, disabled=true, justifyH = "CENTER",}
+	menuList[#menuList+1] = item
+	if isNotAllChecked then
+		item = {text = "      Show All", arg1 = interTagTable, notCheckable = true, func = function(self,arg1)
+			for k,v in pairs(arg1) do
+				print(k)
+				selectedProfileFilter[k] = true
+			end
+			selectedProfileFilter["Account"] = true
+			selectedProfileFilter[playerName] = true
+			selectedProfileFilter.showAll = true
+			updateSpellLoadRows();
+		end}
+		tinsert(menuList, item)
+	else
+		item = {text = "      Reset", arg1 = interTagTable, notCheckable = true, func = function(self,arg1)
+			for k,v in pairs(arg1) do
+				print(k)
+				selectedProfileFilter[k] = nil
+			end
+			selectedProfileFilter["Account"] = nil
+			selectedProfileFilter[playerName] = true
+			selectedProfileFilter.showAll = nil
+			updateSpellLoadRows();
+		end}
+		tinsert(menuList, item)
+	end
+
+	return menuList
 end
 
 local function deleteSpell(spellKey)
@@ -3623,7 +3694,7 @@ SCForgeMainFrame.LoadSpellFrame.TabButton1 = CreateFrame("BUTTON", "$parentTab1"
 local button = SCForgeMainFrame.LoadSpellFrame.TabButton1
 	button.text = "Personal"
 	button.id = 1
-	button:SetPoint("BOTTOMLEFT", SCForgeMainFrame.LoadSpellFrame.Inset, "TOPLEFT", 0, 0)
+	button:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.Inset, "TOP", 0, 0)
 	--PanelTemplates_TabResize(button, 0)
 	button.HighlightTexture:SetWidth(button:GetTextWidth()+31)
 	button:SetScript("OnClick", function(self)
@@ -3702,39 +3773,45 @@ SCForgeMainFrame.LoadSpellFrame.refreshVaultButton = CreateFrame("BUTTON", nil, 
 	end)
 
 SCForgeMainFrame.LoadSpellFrame.profileButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame)
-	SCForgeMainFrame.LoadSpellFrame.profileButton:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.Inset,"TOPRIGHT", -5, 2)
-	SCForgeMainFrame.LoadSpellFrame.profileButton:SetSize(24,24)
+	local _button = SCForgeMainFrame.LoadSpellFrame.profileButton
+	_button:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.Inset,"TOPRIGHT", -5, 2)
+	_button:SetSize(24,24)
 
 	-- PartySizeIcon; QuestSharing-QuestLog-Active; QuestSharing-DialogIcon; socialqueuing-icon-group
-	SCForgeMainFrame.LoadSpellFrame.profileButton:SetNormalAtlas("socialqueuing-icon-group")
-	SCForgeMainFrame.LoadSpellFrame.profileButton.normal = SCForgeMainFrame.LoadSpellFrame.profileButton:GetNormalTexture()
-	SCForgeMainFrame.LoadSpellFrame.profileButton.normal:SetDesaturated(true)
-	SCForgeMainFrame.LoadSpellFrame.profileButton.normal:SetVertexColor(1,0.8,0)
-	SCForgeMainFrame.LoadSpellFrame.profileButton:SetPushedAtlas("socialqueuing-icon-group")
-		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed = SCForgeMainFrame.LoadSpellFrame.profileButton:GetPushedTexture()
-		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed:SetVertexColor(1,0.8,0)
-		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-		SCForgeMainFrame.LoadSpellFrame.profileButton.pushed:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-	SCForgeMainFrame.LoadSpellFrame.profileButton:SetDisabledAtlas("socialqueuing-icon-group")
-		SCForgeMainFrame.LoadSpellFrame.profileButton.disabled = SCForgeMainFrame.LoadSpellFrame.profileButton:GetDisabledTexture()
-		SCForgeMainFrame.LoadSpellFrame.profileButton.disabled:SetDesaturated(true)
-	SCForgeMainFrame.LoadSpellFrame.profileButton:SetHighlightTexture("Interface/Buttons/UI-Common-MouseHilight", "ADD")
+	_button:SetNormalAtlas("socialqueuing-icon-group")
+	_button.normal = _button:GetNormalTexture()
+	_button.normal:SetDesaturated(true)
+	_button.normal:SetVertexColor(1,0.8,0)
+	_button:SetPushedAtlas("socialqueuing-icon-group")
+		_button.pushed = _button:GetPushedTexture()
+		_button.pushed:SetVertexColor(1,0.8,0)
+		_button.pushed:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+		_button.pushed:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+		_button.pushed:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+		_button.pushed:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+	_button:SetDisabledAtlas("socialqueuing-icon-group")
+		_button.disabled = _button:GetDisabledTexture()
+		_button.disabled:SetDesaturated(true)
+	_button:SetHighlightTexture("Interface/Buttons/UI-Common-MouseHilight", "ADD")
 
-	SCForgeMainFrame.LoadSpellFrame.profileButton:SetScript("OnClick", function(self, button)
-		-- change profile dropdown menu...
+	_button:SetScript("OnClick", function(self, button)
+		if button == "LeftButton" then
+			EasyMenu(genProfileSelectDropDown(), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
+		elseif button == "RightButton" then
+			EasyMenu(genProfileSelectDropDown(true), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
+		end
 	end)
+	_button:RegisterForClicks("LeftButtonUp","RightButtonUp")
 
-	SCForgeMainFrame.LoadSpellFrame.profileButton:SetScript("OnEnter", function(self)
+	_button:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
 			GameTooltip:SetText("Change Profile", nil, nil, nil, nil, true)
-			GameTooltip:AddLine("Switch to another profile to view that profiles vault.",1,1,1,true)
+			GameTooltip:AddLine("Switch to another profile to view that profiles vault.\n\rRight-Click to change your default selected profile.",1,1,1,true)
 			GameTooltip:Show()
 		end)
 	end)
-	SCForgeMainFrame.LoadSpellFrame.profileButton:SetScript("OnLeave", function(self)
+	_button:SetScript("OnLeave", function(self)
 		GameTooltip_Hide()
 		self.Timer:Cancel()
 	end)
@@ -3764,6 +3841,7 @@ end
 
 local function receiveSpellData(msg, charName)
 	msg = serialDecompressForAddonMsg(msg)
+	msg.profile = "From: "..charName
 	dprint("Received Arcanum Spell '"..msg.commID.."' from "..charName)
 	if msg.commID then
 		if SpellCreatorSavedSpells[msg.commID] then
@@ -4859,6 +4937,7 @@ end
 
 SLASH_SCFORGEAPI1 = '/arc'; -- 3.
 function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
+	local tag, command1, command2, var1, var2
 	local command, rest = msg:match("^(%S*)%s*(.-)$")
 	if not command or command == "" then
 		cprint("Commands & API")
@@ -4888,7 +4967,6 @@ function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
 		ARC:TOG(rest)
 	elseif command == "if" then
 		--print(rest)
-		local tag, command1, command2, var1, var2
 		tag, rest = rest:match("^(%S*)%s*(.-)$")
 		command1, rest = rest:match("^(%S*)%s*(.-)$")
 		command2, rest = rest:match("^(%S*)%s*(.-)$")
