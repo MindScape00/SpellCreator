@@ -2579,8 +2579,8 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 		-- Profiles Menu
 		item = {text = "Profile", notCheckable=true, hasArrow=true, keepShownOnClick=true, 
 			menuList = {
-				{ text = "Account", checked = (_profile=="Account"), disabled = (_profile=="Account"), disablecolor = ((_profile=="Account") and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, "Account", 1, callback); CloseDropDownMenus(); end },
-				{ text = playerName, checked = (_profile==playerName), disabled = (_profile==playerName), disablecolor = ((_profile==playerName) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, playerName, 1, callback); CloseDropDownMenus(); end },
+				{ text = "Account", isNotRadio = (_profile=="Account"), checked = (_profile=="Account"), disabled = (_profile=="Account"), disablecolor = ((_profile=="Account") and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, "Account", 1, callback); CloseDropDownMenus(); end },
+				{ text = playerName, isNotRadio = (_profile==playerName), checked = (_profile==playerName), disabled = (_profile==playerName), disablecolor = ((_profile==playerName) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, playerName, 1, callback); CloseDropDownMenus(); end },
 			},
 		}
 
@@ -2591,7 +2591,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 				end
 				for k,v in orderedPairs(interTagTable) do
 					if k ~= "Account" and k ~= playerName then
-						tinsert(item.menuList, { text = k, checked = (_profile==k), disabled = (_profile==k), disablecolor = ((_profile==k) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, k, 1, callback); CloseDropDownMenus(); end })
+						tinsert(item.menuList, { text = k, isNotRadio = (_profile==k), checked = (_profile==k), disabled = (_profile==k), disablecolor = ((_profile==k) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, k, 1, callback); CloseDropDownMenus(); end })
 					end
 				end
 				tinsert(item.menuList, { text = " ", notCheckable = true, disabled=true})
