@@ -4543,6 +4543,8 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		C_Epsilon.IsDM = false
 		updateSpellLoadRows();
 
+		getSpellForgePhaseVault();
+
 		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then
 			SCForgeMainFrame.ExecuteSpellButton:Disable()
 		else
