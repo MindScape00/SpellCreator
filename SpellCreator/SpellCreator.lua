@@ -231,6 +231,25 @@ local isSavingOrLoadingPhaseAddonData = false
 -------------------------------------------------------------------------------
 -- Saved Variable Initialization
 -------------------------------------------------------------------------------
+local function enableAllProfilesFilter()
+	local playerName = GetUnitName("player")
+	local _profiles = {}
+
+	selectedProfileFilter.showAll = true
+	
+	-- gen dynamic list of available characters / profiles
+	for k,v in pairs(SpellCreatorSavedSpells) do
+		if v.profile then
+			_profiles[v.profile] = true
+		end
+	end
+
+	for k,v in pairs(_profiles) do
+		selectedProfileFilter[k] = true
+	end
+	selectedProfileFilter["Account"] = true
+	selectedProfileFilter[playerName] = true
+end
 
 local function isNotDefined(s)
 	return s == nil or s == '';
@@ -259,7 +278,7 @@ local function SC_loadMasterTable()
 	elseif SpellCreatorMasterTable.Options["defaultProfile"] == "Account" then
 		selectedProfileFilter["Account"] = true
 	elseif SpellCreatorMasterTable.Options["defaultProfile"] == "All" then
-		selectedProfileFilter.showAll = true
+		enableAllProfilesFilter()
 	else -- default filter
 		--selectedProfileFilter[GetUnitName("player")] = true
 		selectedProfileFilter.showAll = true
@@ -2489,7 +2508,7 @@ local function setSpellProfile(spellCommID, profileName, vaultType, callback)
 			enterClicksFirstButton = true,
 			editBoxInstructions = "New Profile Name",
 			--editBoxWidth = 310,
-			maxLetters = 255,
+			maxLetters = 50,
 			OnButton1 = function(self, data)
 				local text = self.editBox:GetText();
 				setSpellProfile(data.comm, text, data.vault, data.callback )
@@ -2531,12 +2550,13 @@ local function setSpellProfile(spellCommID, profileName, vaultType, callback)
 end
 
 local contextDropDownMenu = CreateFrame("BUTTON", "ARCLoadRowContextMenu", UIParent, "UIDropDownMenuTemplate")
-local profileDropDownMenu = CreateFrame("BUTTON", "ARCLoadRowContextMenu", UIParent, "UIDropDownMenuTemplate")
+local profileDropDownMenu = CreateFrame("BUTTON", "ARCProfileContextMenu", UIParent, "UIDropDownMenuTemplate")
 
 local function genDropDownContextOptions(vault, spellCommID, callback)
 	local menuList = {}
 	local item
 	local playerName = GetUnitName("player")
+	local _profile = SpellCreatorSavedSpells[spellCommID].profile
 	if vault == "PHASE" then 
 		menuList = {
 			{text = SCForge_PhaseVaultSpells[spellCommID].fullName, notCheckable = true, isTitle=true},
@@ -2559,8 +2579,8 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 		-- Profiles Menu
 		item = {text = "Profile", notCheckable=true, hasArrow=true, keepShownOnClick=true, 
 			menuList = {
-				{ text = "Account", notCheckable=true, disabled = (SpellCreatorSavedSpells[spellCommID].profile=="Account"), disablecolor = ((SpellCreatorSavedSpells[spellCommID].profile=="Account") and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, "Account", 1, callback); CloseDropDownMenus(); end },
-				{ text = playerName, notCheckable=true, disabled = (SpellCreatorSavedSpells[spellCommID].profile==playerName), disablecolor = ((SpellCreatorSavedSpells[spellCommID].profile==playerName) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, playerName, 1, callback); CloseDropDownMenus(); end },
+				{ text = "Account", checked = (_profile=="Account"), disabled = (_profile=="Account"), disablecolor = ((_profile=="Account") and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, "Account", 1, callback); CloseDropDownMenus(); end },
+				{ text = playerName, checked = (_profile==playerName), disabled = (_profile==playerName), disablecolor = ((_profile==playerName) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, playerName, 1, callback); CloseDropDownMenus(); end },
 			},
 		}
 
@@ -2570,10 +2590,11 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 					end
 				end
 				for k,v in orderedPairs(interTagTable) do
-					if k ~= "Account" and k ~= playerName then 
-						tinsert(item.menuList, { text = k, notCheckable = true, disabled = (SpellCreatorSavedSpells[spellCommID].profile==k), disablecolor = ((SpellCreatorSavedSpells[spellCommID].profile==k) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, k, 1, callback); CloseDropDownMenus(); end })
+					if k ~= "Account" and k ~= playerName then
+						tinsert(item.menuList, { text = k, checked = (_profile==k), disabled = (_profile==k), disablecolor = ((_profile==k) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, k, 1, callback); CloseDropDownMenus(); end })
 					end
 				end
+				tinsert(item.menuList, { text = " ", notCheckable = true, disabled=true})
 				tinsert(item.menuList, { text = "Add New", fontObject=GameFontNormalSmallLeft, notCheckable = true, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end })
 
 		tinsert(menuList, item)
@@ -2658,7 +2679,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.20,0.40,0.50,0.5)
 		if fromPhaseDataLoaded then
-			-- called from getSpellForgePhaseVault() - that means our saved spell from Vault is ready
+			-- called from getSpellForgePhaseVault() - that means our saved spell from Vault is ready -- you can call with true also to skip loading the vault, if you know it's already loaded.
 			savedSpellFromVault = SCForge_PhaseVaultSpells
 			dprint("Phase Spell Vault Loaded.")
 			SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Enable()
@@ -2684,7 +2705,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		rowNum = realRowNum-numSkippedRows
 		--]]
 		rowNum = rowNum+1
-		if currentVault == "PERSONAL" and not v.profile then savedSpellFromVault[k].profile = "Unassigned"; dprint("Spell '"..k.."' didn't have a profile. Set to Unassigned.") end
+		if currentVault == "PERSONAL" and not v.profile then savedSpellFromVault[k].profile = "Account"; dprint("Spell '"..k.."' didn't have a profile. Set to 'Account'.") end
 		if currentVault == "PERSONAL" and ((not selectedProfileFilter.showAll) and (not selectedProfileFilter[v.profile])) then 
 			dprint("Load Row Filtered from Personal Vault Profiles (skipped): "..k)
 			rowNum = rowNum-1
@@ -3138,12 +3159,13 @@ end
 
 local function selectProfile(self,arg1,arg2,checked)
 	local profileName
+	print(checked)
 	if self.value then 
 		profileName = self.value
 	else
 		profileName = self
 	end
-	if checked then
+	if checked or checked == false then
 		selectedProfileFilter[profileName] = checked
 	else
 		selectedProfileFilter[profileName] = not selectedProfileFilter[profileName]
@@ -3167,16 +3189,16 @@ local function genProfileSelectDropDown(changeDefault)
 		local currentDefault = SpellCreatorMasterTable.Options.defaultProfile
 		menuList = {
 			{text = "Change Default Profile", notCheckable = true, isTitle=true},
-			{text = "Account", notCheckable = true, disabled = (currentDefault == "Account"), disablecolor = ((currentDefault == "Account") and "|cFFCE2EFF" or nil), arg1="Account", func = setDefaultProfile},
-			{text = "Character (Default)", notCheckable = true, disabled = (currentDefault == "Character"), disablecolor = ((currentDefault == "Character") and "|cFFCE2EFF" or nil), arg1="Character", func = setDefaultProfile },
-			{text = "All", notCheckable = true, disabled = (currentDefault == "All"), arg1="All", disablecolor = ((currentDefault == "All") and "|cFFCE2EFF" or nil), func = setDefaultProfile },
+			{text = "Account", isNotRadio = (currentDefault == "Account"), checked = (currentDefault == "Account"), disabled = (currentDefault == "Account"), disablecolor = ((currentDefault == "Account") and "|cFFCE2EFF" or nil), arg1="Account", func = setDefaultProfile},
+			{text = "Character (Default)", isNotRadio = (currentDefault == "Character"), checked = (currentDefault == "Character"), disabled = (currentDefault == "Character"), disablecolor = ((currentDefault == "Character") and "|cFFCE2EFF" or nil), arg1="Character", func = setDefaultProfile },
+			{text = "All", isNotRadio = (currentDefault == "All"), checked = (currentDefault == "All"), disabled = (currentDefault == "All"), arg1="All", disablecolor = ((currentDefault == "All") and "|cFFCE2EFF" or nil), func = setDefaultProfile },
 		}
 		return menuList;
 	end
 	menuList = {
-		{text = "Select a Profile", notCheckable = true, isTitle=true},
-		{text = "Account", checked = selectedProfileFilter["Account"], keepShownOnClick=true, func = selectProfile},
-		{text = playerName, checked = selectedProfileFilter[playerName], keepShownOnClick=true, func = selectProfile},
+		{text = "Select Profiles to Show", notCheckable = true, isTitle=true},
+		{text = "Account", isNotRadio=true, checked = (selectedProfileFilter["Account"] or selectedProfileFilter.showAll), keepShownOnClick=true, func = selectProfile},
+		{text = playerName, isNotRadio=true, checked = (selectedProfileFilter[playerName] or selectedProfileFilter.showAll), keepShownOnClick=true, func = selectProfile},
 	}
 
 	local interTagTable = {}
@@ -3189,15 +3211,14 @@ local function genProfileSelectDropDown(changeDefault)
 	for k,v in orderedPairs(interTagTable) do
 		if k ~= "Account" and k ~= playerName then
 			if not selectedProfileFilter[k] then isNotAllChecked = true; end
-			tinsert(menuList, { text = k, checked = selectedProfileFilter[k], keepShownOnClick=true, func = selectProfile })
+			tinsert(menuList, { text = k, isNotRadio=true, checked = (selectedProfileFilter[k] or selectedProfileFilter.showAll), keepShownOnClick=true, func = selectProfile })
 		end
 	end
 	item = { text = "----", notCheckable=true, disabled=true, justifyH = "CENTER",}
 	menuList[#menuList+1] = item
-	if isNotAllChecked then
-		item = {text = "      Show All", arg1 = interTagTable, notCheckable = true, func = function(self,arg1)
+	if isNotAllChecked and (not selectedProfileFilter.showAll) then
+		item = {text = "Show All", arg1 = interTagTable, func = function(self,arg1)
 			for k,v in pairs(arg1) do
-				print(k)
 				selectedProfileFilter[k] = true
 			end
 			selectedProfileFilter["Account"] = true
@@ -3207,14 +3228,16 @@ local function genProfileSelectDropDown(changeDefault)
 		end}
 		tinsert(menuList, item)
 	else
-		item = {text = "      Reset", arg1 = interTagTable, notCheckable = true, func = function(self,arg1)
-			for k,v in pairs(arg1) do
-				print(k)
+		item = {text = "Reset", arg1 = interTagTable, func = function(self,arg1)
+			for k,v in pairs(selectedProfileFilter) do
 				selectedProfileFilter[k] = nil
 			end
-			selectedProfileFilter["Account"] = nil
-			selectedProfileFilter[playerName] = true
-			selectedProfileFilter.showAll = nil
+
+			if SpellCreatorMasterTable.defaultProfile and SpellCreatorMasterTable.defaultProfile ~= "All" then
+				selectedProfileFilter[SpellCreatorMasterTable.defaultProfile] = true
+			else
+				selectedProfileFilter[playerName] = true
+			end
 			updateSpellLoadRows();
 		end}
 		tinsert(menuList, item)
