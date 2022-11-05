@@ -3680,7 +3680,7 @@ SCForgeMainFrame.LoadSpellFrame:Hide()
 SCForgeMainFrame.LoadSpellFrame.Rows = {}
 SCForgeMainFrame.LoadSpellFrame:HookScript("OnShow", function()
 	dprint("Updating Spell Load Rows")
-	updateSpellLoadRows()
+	updateSpellLoadRows(isPhaseVaultLoaded)
 end)
 
 -- Spell Vault Scroll Frame
