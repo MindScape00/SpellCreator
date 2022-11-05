@@ -672,7 +672,7 @@ actionTypeData = {
 		["command"] = function(commID) executeSpell(SpellCreatorSavedSpells[commID].actions) end,
 		["description"] = "Cast another Arcanum Spell from your Personal Vault.",
 		["dataName"] = "Spell Command",
-		["inputDescription"] = "The Command key used to cast the ArcSpell\n\rExample: '/sf MySpell', where MySpell is the command key to input here.",
+		["inputDescription"] = "The command ID (commID) used to cast the ArcSpell\n\rExample: '/sf MySpell', where MySpell is the command ID to input here.",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},
@@ -1186,7 +1186,7 @@ local function AddSpellRow(rowToAdd)
 			newRow.AddSpellRowButton:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Add a blank row above this one.", nil, nil, nil, nil, true)
+					GameTooltip:SetText("Add a blank row above this one", nil, nil, nil, nil, true)
 					GameTooltip:Show()
 				end)
 			end)
@@ -1232,7 +1232,7 @@ local function AddSpellRow(rowToAdd)
 			newRow.RemoveSpellRowButton:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Delete this row.", nil, nil, nil, nil, true)
+					GameTooltip:SetText("Delete this row", nil, nil, nil, nil, true)
 					GameTooltip:Show()
 				end)
 			end)
@@ -1508,9 +1508,9 @@ SCForgeMainFrame.SpellInfoCommandBox = CreateFrame("EditBox", nil, SCForgeMainFr
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
 			GameTooltip:SetText(localization.SPELLCOMM, nil, nil, nil, nil, true)
-			GameTooltip:AddLine("The slash command trigger you want to use to call this spell.\n\rCast it using '/arcanum $command'.",1,1,1,true)
+			GameTooltip:AddLine("The slash command trigger (commID) you want to use to call this spell.\n\rCast it using '/arcanum $command' after using Create.",1,1,1,true)
 			GameTooltip:AddLine(" ",1,1,1,true)
-			GameTooltip:AddLine("This must be unique. Saving a spell with the same command name as another will over-write the old spell.",1,1,1,true)
+			GameTooltip:AddLine("This must be unique. Saving a spell with the same command ID as another will over-write the old spell.",1,1,1,true)
 			GameTooltip:Show()
 		end)
 	end)
@@ -1726,7 +1726,7 @@ local _frame = SCForgeMainFrame.AddRowRow
 		_frame.AddRowButton:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			self.Timer = C_Timer.NewTimer(0.7,function()
-				GameTooltip:SetText("Add another Action row.", nil, nil, nil, nil, true)
+				GameTooltip:SetText("Add another Action row", nil, nil, nil, nil, true)
 				GameTooltip:AddLine("Max number of Rows: "..maxNumberOfSpellRows,1,1,1,true)
 				GameTooltip:Show()
 			end)
@@ -1813,7 +1813,7 @@ SCForgeMainFrame.AddSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame
 	SCForgeMainFrame.AddSpellRowButton:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText("Add another Action row.", nil, nil, nil, nil, true)
+			GameTooltip:SetText("Add another Action row", nil, nil, nil, nil, true)
 			GameTooltip:AddLine("Max number of Rows: "..maxNumberOfSpellRows,1,1,1,true)
 			GameTooltip:Show()
 		end)
@@ -1858,7 +1858,7 @@ SCForgeMainFrame.RemoveSpellRowButton:SetMotionScriptsWhileDisabled(true)
 SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Remove the last Action row.", nil, nil, nil, nil, true)
+		GameTooltip:SetText("Remove the last Action row", nil, nil, nil, nil, true)
 		GameTooltip:Show()
 	end)
 end)
@@ -1900,7 +1900,7 @@ button:SetMotionScriptsWhileDisabled(true)
 button:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Clear & Reset the Spell Forge UI.", nil, nil, nil, nil, true)
+		GameTooltip:SetText("Clear & Reset the Spell Forge UI", nil, nil, nil, nil, true)
 		GameTooltip:AddLine("Use this to clear the action rows & spell info, and start fresh.",1,1,1,true)
 		GameTooltip:AddLine("\nWARNING: You'll lose any data that hasn't been saved yet using 'Create'!",1,1,1,true)
 		GameTooltip:Show()
@@ -1946,7 +1946,7 @@ end)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Cast the above Actions.", nil, nil, nil, nil, true)
+		GameTooltip:SetText("Cast the above Actions", nil, nil, nil, nil, true)
 		if self:IsEnabled() then
 			GameTooltip:AddLine("Useful to test your spell before saving.",1,1,1,true)
 		else
@@ -2106,10 +2106,10 @@ local function getSpellForgePhaseVault(callback)
 					tinsert(SCForge_PhaseVaultSpells, interAction)
 					--print("phaseVaultLoadingCount: ",phaseVaultLoadingCount," | phaseVaultLoadingExpected: ",phaseVaultLoadingExpected)
 					if phaseVaultLoadingCount == phaseVaultLoadingExpected then
-						callback(true);
 						phaseAddonDataListener2:UnregisterEvent("CHAT_MSG_ADDON")
 						isSavingOrLoadingPhaseAddonData = false
 						isPhaseVaultLoaded = true
+						if callback then callback(true); end
 					end
 				end
 			end)
@@ -2234,6 +2234,7 @@ local function saveSpellToPhaseVault(commID, overwrite)
 				cprint("Spell '"..commID.."' saved to the Phase Vault.")
 				isSavingOrLoadingPhaseAddonData = false
 				sendPhaseVaultIOLock(false)
+				getSpellForgePhaseVault()
 			end
 		end)
 	else
@@ -2294,7 +2295,7 @@ gossipAddMenuInsert.hideButton = CreateFrame("CHECKBUTTON", nil, gossipAddMenuIn
 	gossipAddMenuInsert.hideButton:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText("Hide the Gossip menu after Casting/Saving.", nil, nil, nil, nil, true)
+			GameTooltip:SetText("Hide the Gossip menu after Casting/Saving", nil, nil, nil, nil, true)
 			GameTooltip:AddLine("\n\rFor On Click: The Gossip menu will close after you click, and then the spell will be casted or saved.",1,1,1,true)
 			GameTooltip:AddLine("\nFor On Open: The Gossip menu will close immediately after opening, usually before it can be seen, and the spell will be casted or saved.",1,1,1,true)
 			GameTooltip:Show()
@@ -2857,7 +2858,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					button:SetScript("OnEnter", function(self)
 						GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 						self.Timer = C_Timer.NewTimer(0.7,function()
-							GameTooltip:SetText("Load ArcSpell '"..savedSpellFromVault[self.commID].commID.."' into the forge, where you can edit it.", nil, nil, nil, nil, true)
+							GameTooltip:SetText("Load '"..savedSpellFromVault[self.commID].commID.."'", nil, nil, nil, nil, true)
+							GameTooltip:AddLine("Load the spell into the Forge UI so you can edit it.", 1,1,1,1)
 							GameTooltip:AddLine("\nRight-click to load the ArcSpell, and re-sort it's actions into chronological order by delay.", 1,1,1,1)
 							GameTooltip:Show()
 						end)
@@ -2999,9 +3001,9 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 						GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 						self.Timer = C_Timer.NewTimer(0.7,function()
 							if self:IsEnabled() then
-								GameTooltip:SetText("'"..savedSpellFromVault[self.commID].fullName.."' is visible to everyone.", nil, nil, nil, nil, true)
+								GameTooltip:SetText("'"..savedSpellFromVault[self.commID].fullName.."' is visible to everyone", nil, nil, nil, nil, true)
 							else
-								GameTooltip:SetText("'"..savedSpellFromVault[self.commID].fullName.."' is visible only to Officers+.", nil, nil, nil, nil, true)
+								GameTooltip:SetText("'"..savedSpellFromVault[self.commID].fullName.."' is visible only to Officers+", nil, nil, nil, nil, true)
 							end
 							GameTooltip:AddLine("\nTo change this spells privacy, please re-upload it with the privacy desired.", 1,1,1,1)
 							GameTooltip:Show()
@@ -3083,7 +3085,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 						thisRow.loadButton:ClearAllPoints()
 						thisRow.loadButton:SetPoint("CENTER", thisRow.deleteButton, "CENTER", 0, 0)
 						thisRow.gossipButton:Hide()
-						thisRow.privateIconButton:Hide()
+						if SpellCreatorMasterTable.Options["debug"] then thisRow.privateIconButton:Show() else thisRow.privateIconButton:Hide() end
 					end
 				end
 
@@ -3502,7 +3504,7 @@ SCForgeMainFrame.LoadSpellFrame.ImportSpellButton = CreateFrame("BUTTON", nil, S
 	button:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText("Import an ArcSpell.", nil, nil, nil, nil, true)
+			GameTooltip:SetText("Import an ArcSpell", nil, nil, nil, nil, true)
 			GameTooltip:AddLine("Paste an ArcSpell export code into the UI to save it to your Personal Vault.",1,1,1,true)
 			GameTooltip:Show()
 		end)
@@ -3541,11 +3543,11 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton = CreateFrame("BUTTON", nil,
 	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText("Transfer to Phase Vault.", nil, nil, nil, nil, true)
+			GameTooltip:SetText("Transfer to Phase Vault", nil, nil, nil, nil, true)
 			if self:IsEnabled() then
 				GameTooltip:AddLine("Transfer the spell to the Phase Vault.\n\rShift-Click to automatically over-write any spell with the same command ID in the Phase Vault.",1,1,1,true)
 			else
-				if selectedVaultRow then
+				if (not C_Epsilon.IsOfficer()) then
 					GameTooltip:AddLine("You do not currently have permissions to upload to this phase's vault.\n\rIf you were just given officer, rejoin the phase.",1,1,1,true)
 				else
 					GameTooltip:AddLine("Select a spell above to transfer it.",1,1,1,true)
@@ -3652,15 +3654,11 @@ end)
 SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Transfer to Personal Vault.", nil, nil, nil, nil, true)
+		GameTooltip:SetText("Transfer to Personal Vault", nil, nil, nil, nil, true)
 		if self:IsEnabled() then
 			GameTooltip:AddLine("Transfer the spell to your Personal Vault.",1,1,1,true)
 		else
-			if selectedVaultRow then
-				GameTooltip:AddLine("Idk how you are seeing this text but report it as a bug lol..",1,1,1,true)
-			else
-				GameTooltip:AddLine("Select a spell above to transfer it.",1,1,1,true)
-			end
+			GameTooltip:AddLine("Select a spell above to transfer it.",1,1,1,true)
 		end
 		GameTooltip:Show()
 	end)
@@ -4412,6 +4410,7 @@ end
 -------------------------------------------------------------------------------
 local lockTimer
 local function onCommReceived(prefix, message, channel, sender)
+	if sender == GetUnitName("player") then dprint("onCommReceived bypassed because we're talking to ourselves."); return; end
 	if prefix == addonMsgPrefix.."REQ" then
 		sendSpellToPlayer(sender, message)
 	elseif prefix == addonMsgPrefix.."SPELL" then
@@ -4429,6 +4428,7 @@ local function onCommReceived(prefix, message, channel, sender)
 			isSavingOrLoadingPhaseAddonData = false
 			dprint("Phase Vault IO for Phase "..phaseID.." was unlocked by Addon Message")
 			lockTimer:Cancel()
+			if isPhaseVaultLoaded then getSpellForgePhaseVault((SCForgeLoadFrame:IsShown() and updateSpellLoadRows or nil)) end
 		end
 	end
 end
