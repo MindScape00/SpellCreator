@@ -2487,13 +2487,13 @@ local baseVaultFilterTags = {
 }
 
 local function editVaultTags( tag, spellCommID, vaultType ) -- 
-	print(spellCommID, tag)
+	--print(spellCommID, tag)
 	if not tag and not spellComm then return; end
 	if not vaultType then vaultType = 1 end
 	if vaultType == 1 then
 		if not SpellCreatorSavedSpells[spellCommID].tags then SpellCreatorSavedSpells[spellCommID].tags = {} end
 		if SpellCreatorSavedSpells[spellCommID].tags[tag] then SpellCreatorSavedSpells[spellCommID].tags[tag] = nil else SpellCreatorSavedSpells[spellCommID].tags[tag] = true end
-		print(SpellCreatorSavedSpells[spellCommID].tags[tag])
+		--print(SpellCreatorSavedSpells[spellCommID].tags[tag])
 	end
 end
 
@@ -3159,7 +3159,6 @@ end
 
 local function selectProfile(self,arg1,arg2,checked)
 	local profileName
-	print(checked)
 	if self.value then 
 		profileName = self.value
 	else
