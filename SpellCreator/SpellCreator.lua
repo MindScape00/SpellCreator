@@ -80,6 +80,21 @@ local GetNumGossipOptions = GetNumGossipOptions or C_GossipInfo.GetNumOptions;
 local SelectGossipOption = SelectGossipOption or C_GossipInfo.SelectOption;
 local GetGossipText = GetGossipText or C_GossipInfo.GetText;
 
+-- Simplified Epsilon Permission Checks
+local C_Epsilon = C_Epsilon
+
+local function isDMEnabled()
+	if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then return true; else return false; end
+end
+
+local function isOfficerPlus()
+	if C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then return true; else return false; end
+end
+
+local function isMemberPlus()
+	if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then return true; else return false; end
+end
+
 -------------------------------------------------------------------------------
 -- Simple Chat & Helper Functions
 -------------------------------------------------------------------------------
@@ -473,7 +488,7 @@ end
 
 local function executeSpell(actionsToCommit, byPassCheck)
 	if not byPassCheck then
-		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than Dranosh Valley.") return; end
+		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than Dranosh Valley.") return; end
 	end
 	for _,spell in pairs(actionsToCommit) do
 		--dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
@@ -1959,8 +1974,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
-if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" then
-	if C_Epsilon.IsOfficer() then return; end
+if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then
 	SCForgeMainFrame.ExecuteSpellButton:Disable()
 else
 	SCForgeMainFrame.ExecuteSpellButton:Enable()
@@ -2061,7 +2075,7 @@ local function noSpellsToLoad(fake)
 	dprint("Phase Has No Spells to load.");
 	phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" );
 	if not fake then
-		if C_Epsilon.IsOfficer() then
+		if isOfficerPlus() then
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty\n\n\rSelect a spell in\ryour personal vault\rand click the Transfer\rbutton below!\n\n\rGo on, add\rsomething fun!");
 		else
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty");
@@ -2175,7 +2189,7 @@ local function saveSpellToPhaseVault(commID, overwrite)
 		return;
 	end
 	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
-	if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
+	if isMemberPlus() then
 		dprint("Trying to save spell to phase vault.")
 
 		local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
@@ -2247,7 +2261,7 @@ local selectedVaultRow
 local function setSelectedVaultRow(rowID)
 	if rowID then
 		selectedVaultRow = rowID
-		if C_Epsilon.IsOfficer() then
+		if isOfficerPlus() then
 			SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Enable()
 		else
 			SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
@@ -3051,7 +3065,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
 
 					--[[	-- Replaced with the <-> Phase Vault button
-					if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
+					if isMemberPlus() then
 						thisRow.saveToPhaseButton:Show()
 					else
 						thisRow.saveToPhaseButton:Hide()
@@ -3065,7 +3079,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					--thisRow.Background:SetTexCoord(0,1,0,1)
 					--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Epic")
 
-					if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then
+					if isMemberPlus() then
 						thisRow.deleteButton:Show()
 						thisRow.deleteButton:ClearAllPoints()
 						thisRow.deleteButton:SetPoint("TOPRIGHT")
@@ -3143,7 +3157,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				end
 			end
 
-			if currentVault=="PHASE" and v.private and not (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() or SpellCreatorMasterTable.Options["debug"]) then
+			if currentVault=="PHASE" and v.private and not (isOfficerPlus() or SpellCreatorMasterTable.Options["debug"]) then
 				thisRow:Hide()
 				numSkippedRows = numSkippedRows+1
 			end
@@ -3546,7 +3560,7 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton = CreateFrame("BUTTON", nil,
 			if self:IsEnabled() then
 				GameTooltip:AddLine("Transfer the spell to the Phase Vault.\n\rShift-Click to automatically over-write any spell with the same command ID in the Phase Vault.",1,1,1,true)
 			else
-				if (not C_Epsilon.IsOfficer()) then
+				if (not isOfficerPlus()) then
 					GameTooltip:AddLine("You do not currently have permissions to upload to this phase's vault.\n\rIf you were just given officer, rejoin the phase.",1,1,1,true)
 				else
 					GameTooltip:AddLine("Select a spell above to transfer it.",1,1,1,true)
@@ -4450,6 +4464,7 @@ local gossipOptionPayload
 local gossipGreetPayload
 local lastGossipText
 local currGossipText
+local origImmersionSetText = nil
 
 local gossipScript = {
 	show = function()
@@ -4478,7 +4493,7 @@ local gossipScript = {
 		end
 	end,
 	cmd = function(payLoad)
-		cmd(payLoad)
+		cmdWithDotCheck(payLoad)
 	end,
 	hide_check = function(button)
 		if button then -- came from an OnClick, so we need to close now, instead of toggling AutoHide which already past.
@@ -4492,7 +4507,7 @@ local gossipScript = {
 local gossipTags = {
 	default = "<arc[anum]-_.->",
 	capture = "<arc[anum]-_(.-)>",
-	dm = "<arcanum::DM::_",
+	dm = "<arc-DM :: ",
 	body = { -- tag is pointless, I changed it to tags are the table key, but kept for readability
 		show = {tag = "show", script = gossipScript.show},
 		cast = {tag = "cast", script = gossipScript.auto_cast},
@@ -4544,7 +4559,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 		getSpellForgePhaseVault();
 
-		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then
+		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then
 			SCForgeMainFrame.ExecuteSpellButton:Disable()
 		else
 			SCForgeMainFrame.ExecuteSpellButton:Enable()
@@ -4590,7 +4605,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		AddSpellRow()
 		AddSpellRow()
 
-		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not C_Epsilon.IsOfficer() then
+		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then
 			SCForgeMainFrame.ExecuteSpellButton:Disable()
 		else
 			SCForgeMainFrame.ExecuteSpellButton:Enable()
@@ -4624,50 +4639,73 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		gossipGreetPayload = nil
 		currGossipText = GetGossipText();
 
-		-- add GossipGreetingText support
 		local gossipGreetingText = GossipGreetingText:GetText()
-		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText; useImmersion = true; dprint("Immersion detected, using it"); end
+		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then 
+			gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText; 
+			tagSearchText = gossipGreetingText
+			useImmersion = true; 
+			dprint("Immersion detected, using it"); 
 
-		while gossipGreetingText and gossipGreetingText:match(gossipTags.default) do -- while gossipGreetingText has an arcTag - this allows multiple tags
-			shouldLoadSpellVault = true
-			gossipGreetPayload = gossipGreetingText:match(gossipTags.capture) -- capture the tag
-			local strTag, strArg = strsplit(":", gossipGreetPayload, 2) -- split the tag from the data
-			local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
-			
-			if gossipReloadCheck() then
-				dprint("Gossip Reload of the Same Page detected. Skipping Auto Functions.")
-			else
-				if gossipTags.body[mainTag] then -- Checking Main Tags & Running their code if present
-					gossipTags.body[mainTag].script(strArg)
-				end
-				if extTags then
-					for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
-						if extTags:match(v.ext) then v.script() end
+			while tagSearchText and tagSearchText:match(gossipTags.default) do -- while tagSearchText has an arcTag - this allows multiple tags - For Immersion, we need to split our filters between the whole text, and the displayed text
+				shouldLoadSpellVault = true
+				gossipGreetPayload = tagSearchText:match(gossipTags.capture) -- capture the tag
+				local strTag, strArg = strsplit(":", gossipGreetPayload, 2) -- split the tag from the data
+				local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
+				
+				if gossipReloadCheck() then
+					dprint("Gossip Reload of the Same Page detected. Skipping Auto Functions.")
+				else
+					if isDMEnabled() then cprint("DM Enabled - Skipping Auto Function ("..gossipGreetPayload..")") else
+						if gossipTags.body[mainTag] then -- Checking Main Tags & Running their code if present
+							gossipTags.body[mainTag].script(strArg)
+						end
+						if extTags then
+							for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
+								if extTags:match(v.ext) then v.script() end
+							end
+						end
 					end
 				end
+				tagSearchText = tagSearchText:gsub(gossipTags.default, "", 1)
+				dprint("Saw a gossip greeting | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
 			end
+			ImmersionFrame.TalkBox.TextFrame.Text.storedText = tagSearchText
+			tagSearchText = nil
+			
+			ImmersionFrame.TalkBox.TextFrame.Text:RepeatTexts() -- this triggers Immersion to restart the text, pulling from it's storedText, which we already cleaned.
 
-			if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then -- Updating GossipGreetingText
-				if useImmersion then
-					ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">", 1)
-					ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">", 1))
-					gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text:GetText()
+		else
+
+			while gossipGreetingText and gossipGreetingText:match(gossipTags.default) do -- while gossipGreetingText has an arcTag - this allows multiple tags
+				shouldLoadSpellVault = true
+				gossipGreetPayload = gossipGreetingText:match(gossipTags.capture) -- capture the tag
+				local strTag, strArg = strsplit(":", gossipGreetPayload, 2) -- split the tag from the data
+				local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
+				
+				if gossipReloadCheck() then
+					dprint("Gossip Reload of the Same Page detected. Skipping Auto Functions.")
 				else
+					if isDMEnabled() then cprint("DM Enabled - Skipping Auto Function ("..gossipGreetPayload..")") else
+						if gossipTags.body[mainTag] then -- Checking Main Tags & Running their code if present
+							gossipTags.body[mainTag].script(strArg)
+						end
+						if extTags then
+							for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
+								if extTags:match(v.ext) then v.script() end
+							end
+						end
+					end
+				end
+
+				if isDMEnabled() then -- Updating GossipGreetingText
 					GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">", 1))
 					gossipGreetingText = GossipGreetingText:GetText()
-				end
-			else
-				if useImmersion then
-					ImmersionFrame.TalkBox.TextFrame.Text.storedText = gossipGreetingText:gsub(gossipTags.default, "", 1)
-					ImmersionFrame.TalkBox.TextFrame.Text:SetText(ImmersionFrame.TalkBox.TextFrame.Text:GetText():gsub(gossipTags.default, "", 1))
-					gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text:GetText()
 				else
 					GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, "", 1))
 					gossipGreetingText = GossipGreetingText:GetText()
 				end
+				dprint("Saw a gossip greeting | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
 			end
-
-			dprint("Saw a gossip greeting | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
 		end
 
 		for i = 1, GetNumGossipOptions() do
@@ -4695,7 +4733,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 					if extTags then
 						if extTags:match("auto") then -- legacy auto support - hard coded to avoid breaking gossipText
-							if (C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then
+							if isDMEnabled() then
 								cprint("Legacy Auto Gossip Option skipped due to DM Mode On.")
 							else
 								if mainTag == "cast" then
@@ -4718,8 +4756,8 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				end
 
 
-				if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then -- Update the text
-					-- Is DM and IsOfficer+
+				if isDMEnabled() then -- Update the text
+					-- Is DM and Officer+
 					titleButton:SetText(titleButtonText:gsub(gossipTags.default, gossipTags.dm..gossipOptionPayload..">", 1));
 				else
 					-- Is not DM or Officer+
@@ -4759,7 +4797,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		lastGossipText = currGossipText
 		updateGossipVaultButtons(true)
 
-		if shouldAutoHide and not(C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner())) then CloseGossip(); end -- Final check if we toggled shouldAutoHide and close gossip if so.
+		if shouldAutoHide and not(isDMEnabled()) then CloseGossip(); end -- Final check if we toggled shouldAutoHide and close gossip if so.
 
 	elseif event == "GOSSIP_CLOSED" then
 
