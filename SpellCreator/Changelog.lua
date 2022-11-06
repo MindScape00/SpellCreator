@@ -9,12 +9,23 @@ addonTable.ChangelogText = [[
 {h2:c} __________________________________________________________ {/h2}
 ##v1.1.0 (October 31st, 2022)
 
+### - Spell Forge UI Updates
+      - The |cff59cdea+|r / |cffED4245—|r buttons to add/remove rows have been moved into the UI!
+            - You can now delete any row directly, and add a row above any other row, by
+              mousing over the row and using it's contextual |cff59cdea+|r / |cffED4245—|r buttons.
+      - A new "Clear & Reset UI" button has been added! If the animation is too slow for
+           you, you can toggle 'Fast Reset' in the Arcanum options menu.
+      - The Revert Checkbox was killed. Now it's just Revert Delay - Simpler to use, and
+           allowing more room for the input box, which is now bigger! If no revert delay,
+           then no revert. Why need a checkbox?
+              (BONUS: Toggle the input box EVEN BIGGER in the Arcanum Options!)
+
 ### - NEW: Add to Gossip Menu Button & UI
       - Phase Vault now has direct integration for adding an ArcSpell to a Gossip Menu!
             With a Gossip Menu open, click on the 'head with a speech bubble' icon!
             Gossip editing requires Officer+.
 
-### - NEW: Private ArcSpells in Phase Vault!
+### - NEW / UPDATED: Private ArcSpells in Phase Vault!
       - ArcSpells uploaded to the Phase Vault can now be marked as private.
         Private spells will only show in the vault for Officers+. Players
         will still be able to use private spells from Integrations (i.e., Gossip).

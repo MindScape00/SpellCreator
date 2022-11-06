@@ -386,6 +386,31 @@ end
 local actionTypeData = {} -- Defined here, but actually set below. Weird hack to bypass that they technically rely on each other..
 local actionTypeDataList = {}
 
+local function executeAction(varTable, actionData, selfOnly, isRevert)
+	local comTarget = actionData.comTarget
+	for i = 1, #varTable do
+		local v = varTable[i]
+		if string.byte(v,1) == 32 then v = strtrim(v, " ") end
+		if comTarget == "func" then 
+			actionData.command(v)
+		else
+			if isRevert then 
+				local finalCommand = tostring(actionData.revert)
+				finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
+				if selfOnly then finalCommand = finalCommand.." self" end
+				cmd(finalCommand)
+				print(finalCommand)
+			else
+				local finalCommand = tostring(actionData.command)
+				finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
+				if selfOnly then finalCommand = finalCommand.." self" end
+				cmd(finalCommand)
+				print(finalCommand)
+			end
+		end
+	end
+end
+
 local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	if not actionType then return; end
 	local actionData = actionTypeData[actionType]
@@ -400,6 +425,20 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 		end
 	end
 
+	if delay == 0 then
+		executeAction(varTable, actionData, selfOnly, nil)
+		if revertDelay and revertDelay > 0 then
+			C_Timer.After(revertDelay, function() executeAction(varTable, actionData, selfOnly, true) end)
+		end
+	else
+		C_Timer.After(delay, function() 
+			executeAction(varTable, actionData, selfOnly, nil)
+			if revertDelay and revertDelay > 0 then
+				C_Timer.After(revertDelay, function() executeAction(varTable, actionData, selfOnly, true) end)
+			end
+		end)
+	end
+	--[[
 	if actionData.comTarget == "func" then
 		if delay == 0 then
 			local varTable = varTable
@@ -470,6 +509,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 									cmd(actionData.revert.." "..v.." self")
 								else
 									cmd(actionData.revert.." "..v)
+									dprint(actionData.revert.." "..v)
 								end
 							end
 						end)
@@ -484,6 +524,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 			end
 		end
 	end
+	--]]
 end
 
 local function executeSpell(actionsToCommit, byPassCheck)
@@ -522,31 +563,31 @@ actionTypeData = {
 	["SpellCast"] = {
 		["name"] = "Cast Spell",							-- The Displayed Name in the UI
 		["command"] = "cast @N@", 								-- The chat command, or Lua function to process
-		["description"] = "Cast a spell using a Spell ID, to selected target, or self if no target.\n\rEnable the Self checkbox to cast always on yourself.\n\rRevert: Unaura", 	-- Description for on-mouse-over
+		["description"] = "Cast a spell using a Spell ID, to selected target, or self if no target.\n\rEnable the 'Self' checkbox to cast always on yourself.\n\rRevert: Unaura", 	-- Description for on-mouse-over
 		["dataName"] = "Spell ID(s)", 							-- Label for the ID Box, nil to disable the ID box
 		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\r'.look spell' for IDs.",							-- Description of the input for GameTooltip
 		["comTarget"] = "server", 							-- Server for commands, func for custom Lua function in 'command'
-		["revert"] = "unaura", 									-- The command that reverts it, i.e, 'unaura' for 'aura'
+		["revert"] = "unaura @N@", 									-- The command that reverts it, i.e, 'unaura' for 'aura'
 		["selfAble"] = true,								-- True/False - if able to use the self-toggle checkbox
 		},
 	["SpellTrig"] = {
 		["name"] = "Cast Spell (Trig)",
 		["command"] = "cast @N@ trig",
-		["description"] = "Cast a spell using a Spell ID, to selected target, or self if no target, using the triggered flag.\n\rEnable the Self checkbox to cast always on yourself.\n\rRevert: Unaura",
+		["description"] = "Cast a spell using a Spell ID, to selected target, or self if no target, using the triggered flag.\n\rEnable the 'Self' checkbox to cast always on yourself.\n\rRevert: Unaura",
 		["dataName"] = "Spell ID(s)",
 		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\r'.look spell' for IDs.",
 		["comTarget"] = "server",
-		["revert"] = "unaura",
+		["revert"] = "unaura @N@",
 		["selfAble"] = true,
 		},
 	["SpellAura"] = {
 		["name"] = "Apply Aura",
 		["command"] = "aura @N@",
-		["description"] = "Applies an Aura from a Spell ID on your target, or yourself if no target selected.\n\rEnable the 'self' checkbox to always aura yourself.\n\rRevert: Unaura",
+		["description"] = "Applies an Aura from a Spell ID on your target, or yourself if no target selected.\n\rEnable the 'Self' checkbox to always aura yourself.\n\rRevert: Unaura",
 		["dataName"] = "Spell ID(s)",
 		["inputDescription"] = "Accepts multiple IDs, separated by commas, to apply multiple auras at once.\n\r'.look spell' for IDs.",
 		["comTarget"] = "server",
-		["revert"] = "unaura",
+		["revert"] = "unaura @N@",
 		["selfAble"] = true,
 		},
 	["Anim"] = {
@@ -586,13 +627,13 @@ actionTypeData = {
 		["dataName"] = "Standstate ID",
 		["inputDescription"] = "Accepts multiple IDs, separated by commas, to set multiple standstates at once.. but you can't have two, so probably don't try it.\n\r'.look emote' for IDs.",
 		["comTarget"] = "server",
-		["revert"] = "",
+		["revert"] = "mod stand 0",
 		["selfAble"] = true,
 		},
 	["Equip"] = {
 		["name"] = "Equip Item",
 		["command"] = function(vars) EquipItemByName(vars) end,
-		["description"] = "Equip an Item by name or ID. Item must be in your inventory. Cannot be reverted directly.\n\rName is a search in your inventory by keyword - using ID is recommended.\n\ri.e., You want to equip 'Violet Guardian's Helm', ID: 141357, but have 'Guardian's Leather Belt', ID: 35156 in your inventory also, using 'Guardian' as the text will equip the belt, so you'll want to use the full name, or better off just use the actual item ID.",
+		["description"] = "Equip an Item by name or ID. Item must be in your inventory. Cannot be reverted directly use a separate unequip item action.\n\rName is a search in your inventory by keyword - using ID is recommended.\n\ri.e., You want to equip 'Violet Guardian's Helm', ID: 141357, but have 'Guardian's Leather Belt', ID: 35156 in your inventory also, using 'Guardian' as the text will equip the belt, so you'll want to use the full name, or better off just use the actual item ID.",
 		["dataName"] = "Item ID or Name(s)",
 		["inputDescription"] = "Accepts multiple IDs/Names, separated by commas, to equip multiple items at once.\n\r'.look item', or mouse-over an item in your inventory for IDs.",
 		["comTarget"] = "func",
@@ -645,7 +686,7 @@ actionTypeData = {
 		["revert"] = nil,
 		},
 	["MacroText"] = {
-		["name"] = "Slash /Command",
+		["name"] = "Macro Script",
 		["command"] = function(command) RunMacroText(command); end,
 		["description"] = "Any line that can be processed in a macro (any slash commands & macro flags).\n\rYou can use this for pretty much ANYTHING, technically, including custom short Lua scripts.",
 		["dataName"] = "/command",
@@ -2609,8 +2650,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 						item.menuList[#item.menuList+1] = { text = k, isNotRadio = (_profile==k), checked = (_profile==k), disabled = (_profile==k), disablecolor = ((_profile==k) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, k, 1, callback); CloseDropDownMenus(); end }
 					end
 				end
-				item.menuList[#item.menuList+1] = { text = " ", notCheckable = true, disabled=true}
-				item.menuList[#item.menuList+1] = { text = "Add New", fontObject=GameFontNormalSmallLeft, notCheckable = true, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end }
+				item.menuList[#item.menuList+1] = { text = "Add New", fontObject=GameFontNormalSmallLeft, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end }
 
 		tinsert(menuList, item)
 
@@ -4716,7 +4756,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			--]]
 			local titleButton = _G["GossipTitleButton" .. i]
 			local titleButtonText = titleButton:GetText();
-			if not titleButtonText then
+			if ImmersionFrame then
 				local immersionButton = _G["ImmersionTitleButton"..i]
 				if immersionButton then titleButton = immersionButton; titleButtonText = immersionButton:GetText() end
 			end
@@ -4728,8 +4768,14 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
 
 				if gossipTags.option[mainTag] then -- Checking Main Tags & Running their code if present
-					titleButton:HookScript("OnClick", function() gossipTags.option[mainTag].script(strArg) end)
+					--[[
+					if not titleButton.isHookedByArc then
+						titleButton:HookScript("OnClick", function() gossipTags.option[mainTag].script(strArg) end)
+						titleButton.isHookedByArc = true
+					end
 					modifiedGossips[i] = titleButton
+					--]]
+					local function _newOnClickHook() gossipTags.option[mainTag].script(strArg) end
 
 					if extTags then
 						if extTags:match("auto") then -- legacy auto support - hard coded to avoid breaking gossipText
@@ -4748,11 +4794,19 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 						if extTags == "auto_hide" then shouldAutoHide = true end
 						for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
 							if extTags:match(v.ext) then
-								titleButton:HookScript("OnClick", function(self,button) v.script(strArg or button) end)
+								local _origNewOnClickHook = _newOnClickHook
+								function _newOnClickHook(self, button)
+									_origNewOnClickHook()
+									v.script(strArg or button)
+								end
 							end
 						end
 					end
-
+					if not titleButton.isHookedByArc then
+						titleButton:HookScript("OnClick", _newOnClickHook)
+						titleButton.isHookedByArc = true
+					end
+					modifiedGossips[i] = titleButton
 				end
 
 
@@ -4805,6 +4859,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			v:SetScript("OnClick", function()
 				SelectGossipOption(k)
 			end)
+			v.isHookedByArc = nil
 			modifiedGossips[k] = nil
 		end
 
