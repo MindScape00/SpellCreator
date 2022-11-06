@@ -12,28 +12,40 @@ addonTable.ChangelogText = [[
 ### - Spell Forge UI Updates
     - The |cff59cdea+|r / |cffED4245—|r buttons to add/remove rows have been moved into the UI!
           - You can now delete any row directly, and add a row above any other row, by
-            mousing over the row and using it's contextual |cff59cdea+|r / |cffED4245—|r buttons.
+              mousing over the row and using it's contextual |cff59cdea+|r / |cffED4245—|r buttons.
     - A new "Clear & Reset UI" button has been added! If the animation is too slow for
-         you, you can toggle 'Fast Reset' in the Arcanum options menu.
+        you, you can toggle 'Fast Reset' in the Arcanum options menu.
     - The Revert Checkbox was killed. Now it's just Revert Delay - Simpler to use, and
-         allowing more room for the input box, which is now bigger! If no revert delay,
-         then no revert. Why need a checkbox?
-            (BONUS: Toggle the input box EVEN BIGGER in the Arcanum Options!)
+        allowing more room for the input box, which is now bigger! If no revert delay,
+        then no revert. Why need a checkbox?
+           (BONUS: Toggle the input box EVEN BIGGER in the Arcanum Options!)
 
 ### - Vault Overhaul!
     - All Vaults:
         - You can now right-click an ArcSpell in the vault to get a context menu
-              to access some frequent actions, and some of the new features!
+            to access some frequent actions, and some of the new features!
+
     - Personal Vault:
         - You can now assign ArcSpells to a profile, and filter to only show specific
-              profiles. New ArcSpells are assigned to your character's profile.
+            profiles. New ArcSpells are assigned to your character's profile.
+            This should help make it easier if you have lots of ArcSpells in your vault!
+
+            - Assign a Profile: Right-Click the ArcSpell in the Vault!
+            - Change Profile Filter: Left-Click the double-head icon in the top right. 
+            - Change Default Filter: Right-Click the double-head icon in the top right.
+
         - You can now Import & Export ArcSpells from the game, to share externally.
             - To Export: Right-Click the ArcSpell and click Export, then copy the code.
             - To Import: Click the yellow up-arrow in the bottom left of the Vault.
+
     - Phase Vault:
         - You can now upload ArcSpells to the Phase Vault as 'Private'.
             - Private spells will only show in the vault for Officers+. Players
               will still be able to use private spells linked from Gossip menus.
+        - Spell visibility (Private vs Public) is represented by the eye-con on 
+            each spell row in the Phase Vault. Spells must be re-uploaded to change
+            their visibility.
+        - Transfer to Personal Vault button added. No more 'Edit -> Create' needed!
 
 ### - Gossip Integration Overhaul!
     - All Gossip Integrations have been completely rewriten / reintegrated.
@@ -41,58 +53,34 @@ addonTable.ChangelogText = [[
     - Phase Vault now has direct integration for adding an ArcSpell to a Gossip Menu!
         - With a Gossip Menu open, click on the 'head with a speech bubble' icon, or
             right-click an ArcSpell! Gossip editing requires Officer+.
-        - Spell visibility (Private vs Public) is represented by the eye-con on 
-            each spell row in the Phase Vault. Spells must be re-uploaded to change
-            their visibility.
 
+### - IMPORTANT: Gossip Integration Changes
+    - NEW: Add to Gossip button/UI for ArcSpells in the Phase Vault, noted above!
+        - Just use that instead of learning this stuff!
+    - NEW/CHANGED: You can now add Gossip tags to Gossip Text to run those actions
+          automatically. This replaces '_auto' tags in gossip options.
+    - CHANGED: Gossip tags can be shortened to <arc_ for text limit purposes. 
+          Both "<arc_ ... >" and "<arcanum_ ... >" will work.
+    - CHANGED: <arcanum_auto> & <arcanum_toggle> are now just <arcanum_show>.
+          Auto vs On Click now depend on if you use it in Text or Option.
+    - CHANGED: Auto tag removed as a tag extension. See above 'NEW' also.
+        - Old tags will still function for legacy, but you should be
+          using <arcanum_cast_(hide):spell> in '.ph fo np go text add' 
+          instead now. I cannot gaurantee new tags with _auto will work..
 
-### - NEW: Right-Clicking ArcSpells in the Vault will show a context menu with quick actions, 
-           including Casting, Chatting and...
+    - VALID TAGS:
+            <arc_show> -- Opens the Spell Forge UI
+            <arc_cast: ..commID > -- Casts the (commID) from the Phase Vault
+            <arc_save: ..commID > -- Saves the (commID) from Phase -> Personal Vault
+            <arc_cmd: ..server command > -- Executes the server command given
+            <arc_macro: ..slash command > -- Executes the macro-script given
+                Macro Script can be used in combination with ARC:API as well.
 
-### - NEW: ArcSpell Import & Export! ArcSpells can now be Imported & Exported
-             - Export: Right-Click an ArcSpell in your Vault, click Export, and copy the code.
-             - Import: Click the little Up Arrow in the bottom left of your Personal Vault,
-                       the code, and click Import!
-
-### - UPDATED: Transfer to Personal Vault Button added.
-      - This should make it easier and more intuitive to transfer spells to
-        your personal vault
-
-### - UPDATED: Forge UI
-      - The |cff59cdea+|r / |cffED4245—|r buttons to add/remove rows have been moved into the UI!
-            - Individual Rows can now be deleted, not just the last row.
-            - NOTE: You cannot restore a deleted row once deleted, unless you
-              manually re-create it, or reload the spell from your vault.
-      - A new "Clear & Reset UI" button has been added! If the animation is too slow,
-        you can toggle 'Fast Reset' in the options menu.
-      - The Revert Checkbox was killed. Now it's just Revert Delay - Simpler to use!
-
-
-
-### - RE-WORKED: Gossip Integration has been re-implemented.
-      - The new implementation was needed for supporting...
-        - NEW: Add to Gossip button/UI for ArcSpells in the Phase Vault, noted above!
-        - NEW: You can now add Gossip tags to Gossip Text to run those actions
-              automatically. This replaces '_auto' tags in gossip options.
-        - NEW: 
-        - CHANGED: Gossip tags can be shortened to <arc_ for text limit purposes. 
-              Both "<arc_ ... >" and "<arcanum_ ... >" will work.
-        - CHANGED: <arcanum_auto> & <arcanum_toggle> are now just <arcanum_show>.
-              Auto vs On Click now depend on if you use it in Text or Option.
-        - CHANGED: Auto tag removed as a tag extension. See above 'NEW' also.
-            - Old tags will still function for legacy, but you should be
-              using <arcanum_cast_(hide):spell> in '.ph fo np go text add' 
-              instead now.
-
-        - VALID TAGS:
-                <arc_show> -- Opens the Spell Forge UI
-                <arc_cast: ..commID > -- Casts the (commID) from the Phase Vault
-                <arc_save: ..commID > -- Saves the (commID) from Phase -> Personal Vault
-                <arc_cmd: ..server command > -- Executes the server command given
-                <arc_macro: ..slash command > -- Executes the macro-script given
-           - Tag Extensions: ( added to the end of a tag, before the :command )
-                _hide -- Hides the Gossip UI after executing the tag.
-                        Example: <arc_cast_hide:teleportToStormwindSpell>
+       - Tag Extensions: ( added to the end of a tag, before the :command )
+            _hide -- Hides the Gossip UI after executing the tag's function.
+                    Example: <arc_cast_hide:teleportToStormwindSpell>
+                NOTE: You should ALWAYS use _hide for teleporting spells
+                      to avoid a bug in the gossip menus if you tele before closing.
 
 ### - NEW: ARC.API - A pseudo API to make scripting in ArcSpells easier.
       Functions:
@@ -130,12 +118,14 @@ addonTable.ChangelogText = [[
                   - ex: /arc if ToggleTorch aura unaura 1234 all
                   - Casts aura 1234 if ToggleTorch is true, or unaura all if false.
                   - You can leave off $falseVar and $trueVar will be used for both true & false.
+                /arc ifs $ArcVar $value $trueCommand $falseCommand $trueVar $flaseVar -- (no spaces)
+
 
       NOTE: ArcVars exist in a global table, "ARC.VAR". You can access them directly if you
             understand Lua & know what you're doing. 
 
             ArcVars are |cffED4245NOT SAVED|r between sessions. Persistent Vars may come in the
-            future if  the need is there, but they won't be secure. If you think of a good use
+            future if the need is there, but they won't be secure. If you think of a good use
             for them, let me know and I can push it up higher on the to-do list.
 
 ### - NEW: Changelogs are now documented in-game in the Settings panel.

@@ -399,13 +399,11 @@ local function executeAction(varTable, actionData, selfOnly, isRevert)
 				finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
 				if selfOnly then finalCommand = finalCommand.." self" end
 				cmd(finalCommand)
-				print(finalCommand)
 			else
 				local finalCommand = tostring(actionData.command)
 				finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
 				if selfOnly then finalCommand = finalCommand.." self" end
 				cmd(finalCommand)
-				print(finalCommand)
 			end
 		end
 	end
