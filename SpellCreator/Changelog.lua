@@ -20,6 +20,9 @@ addonTable.ChangelogText = [[
            then no revert. Why need a checkbox?
               (BONUS: Toggle the input box EVEN BIGGER in the Arcanum Options!)
 
+### - Vault Overhaul!
+
+
 ### - NEW: Add to Gossip Menu Button & UI
       - Phase Vault now has direct integration for adding an ArcSpell to a Gossip Menu!
             With a Gossip Menu open, click on the 'head with a speech bubble' icon!

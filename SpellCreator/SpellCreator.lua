@@ -633,7 +633,7 @@ actionTypeData = {
 	["Equip"] = {
 		["name"] = "Equip Item",
 		["command"] = function(vars) EquipItemByName(vars) end,
-		["description"] = "Equip an Item by name or ID. Item must be in your inventory. Cannot be reverted directly use a separate unequip item action.\n\rName is a search in your inventory by keyword - using ID is recommended.\n\ri.e., You want to equip 'Violet Guardian's Helm', ID: 141357, but have 'Guardian's Leather Belt', ID: 35156 in your inventory also, using 'Guardian' as the text will equip the belt, so you'll want to use the full name, or better off just use the actual item ID.",
+		["description"] = "Equip an Item by name or ID. Item must be in your inventory. Cannot be reverted directly, use a separate unequip item action.\n\rName is a search in your inventory by keyword - using ID is recommended.\n\ri.e., You want to equip 'Violet Guardian's Helm', ID: 141357, but have 'Guardian's Leather Belt', ID: 35156 in your inventory also, using 'Guardian' as the text will equip the belt, so you'll want to use the full name, or better off just use the actual item ID.",
 		["dataName"] = "Item ID or Name(s)",
 		["inputDescription"] = "Accepts multiple IDs/Names, separated by commas, to equip multiple items at once.\n\r'.look item', or mouse-over an item in your inventory for IDs.",
 		["comTarget"] = "func",
@@ -4802,7 +4802,12 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 							end
 						end
 					end
-					if not titleButton.isHookedByArc then
+					if ImmersionFrame then
+						if not titleButton.isHookedByArc then
+							titleButton:HookScript("OnClick", _newOnClickHook)
+							titleButton.isHookedByArc = true
+						end
+					else
 						titleButton:HookScript("OnClick", _newOnClickHook)
 						titleButton.isHookedByArc = true
 					end
@@ -4973,7 +4978,7 @@ function ARC:IF(tag, command1, command2, var1, var2)
 	end
 end
 
--- SYNTAX: ARC:IF(tag, Command if True, Command if False, [Variables for True], [Variables for False])
+-- SYNTAX: ARC:IFS(tag, value to equal, Command if True, Command if False, [Variables for True], [Variables for False])
 function ARC:IFS(tag, toEqual, command1, command2, var1, var2)
 	if tag and toEqual then 
 		if (command1 and command2) and (command1 ~= "" and command2 ~= "") then
@@ -4986,8 +4991,8 @@ function ARC:IFS(tag, toEqual, command1, command2, var1, var2)
 			if ARC.VAR[tag] == toEqual then return true; else return false; end
 		end
 	else
-		cprint('ARC:API SYNTAX - IFS - Checks if "tag" is equal to "toEqual", and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands, the same as ARC:IF.')
-		print(addonColor..'Function: |cffFFAAAAARC:IFS("tag", "toEqual", "CommandTrue", "CommandFalse", "Var1")|r')
+		cprint('ARC:API SYNTAX - IFS - Checks if "tag" is equal to "valueToEqual", and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands, the same as ARC:IF.')
+		print(addonColor..'Function: |cffFFAAAAARC:IFS("tag", "valueToEqual", "CommandTrue", "CommandFalse", "Var1")|r')
 		print(addonColor..'Example 1: |cffFFAAAAARC:IFS("WhatFruit", "apple", "aura 243893", "unau 243893")|r')
 		print(addonColor..'This example will check if WhatFruit is "apple" and will apply the aura if so.|r')
 	end
@@ -5067,22 +5072,32 @@ function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
 		print(addonColor.."/arcanum [$commID] - Cast an ArcSpell by it's command ID you gave it (aka CommID), or open the Spell Forge UI if left blank.")
 		print(addonColor.."/sf [$commID] - Shorter Alternative to /arcanum.")
 		print(" ")
-		print(addonColor.."API Commands:")
+		print(addonColor.."ARC:API Commands:")
 		print(addonColor.."/arc ..")
-		print(addonColor.."     .. cast $commID - The same as /arcanum or /sf")
-		print(addonColor.."     .. cmd $command - Runs the server $command specified (i.e., 'cheat fly').")
-		print("               Direct Function: |cffFFAAAA/run ARC:C()|r".." - Run this for a better description.")
+		print(addonColor.."     .. cast $commID|r - Cast from your personal vault, same as /arcanum or /sf")
+		print(addonColor.."     .. castp $commID|r - Cast a spell from the Phase Vault if it exists.")
+		print("               Direct Function: |cffFFAAAA/run ARC:CASTP()|r")
+		print(addonColor.."     .. cmd $command|r - Runs the server $command specified (i.e., 'cheat fly').")
+		print("               Direct Function: |cffFFAAAA/run ARC:COMM()|r")
 		print(addonColor..'     .. if $tag $commandTrue $commandFalse [$varTrue] [$varFalse]')
-		print(addonColor.."          Checks if the $tag is true and runs the $commandTrue (with $var1 added if given), or $commandFalse if not true (with $varTrue/$varFalse added if given).")
-		print("               Direct Function: |cffFFAAAA/run ARC:IF()|r".." - Run this for a better description.")
-		print(addonColor.."     .. tog $tag - Toggles the $tag between true & false, used with ARC:IF (/arc if).")
-		print("             Direct Function: |cffFFAAAA/run ARC:TOG()|r".." - Run this for a better description.")
-		print(addonColor..'     .. set $tag $value - Sets the $tag to a specific "$value". You will need to query with ARC:GET and compare directly.')
-		print("               Direct Function: |cffFFAAAA/run ARC:SET()|r".." - Run this for a better description.")
-		print(addonColor.."/sfdebug - List all the Debug Commands. WARNING: These are for DEBUG, not to play with and complain something broke.")
+		print("          Checks if the $tag is true and runs the $commandTrue (with $var1 added if given),")
+		print("          or $commandFalse if not true (with $varTrue/$varFalse added if given).")
+		print("               Direct Function: |cffFFAAAA/run ARC:IF()|r")
+		print(addonColor..'     .. ifs $tag $check $commandTrue $commandFalse [$varTrue] [$varFalse]')
+		print("          Same as ARC:IF but checks if the $tag is equal to $check instead of just testing if it's true.")
+		print("               Direct Function: |cffFFAAAA/run ARC:IF()|r")
+		print(addonColor.."     .. tog $tag|r - Toggles the $tag between true & false, used with ARC:IF (/arc if).")
+		print("               Direct Function: |cffFFAAAA/run ARC:TOG()|r")
+		print(addonColor..'     .. set $tag $value|r - Sets the $tag to a specific "$value". Use with GET or IFS.')
+		print("               Direct Function: |cffFFAAAA/run ARC:SET()|r")
+		print(addonColor..'     .. copy $URL/Text|r - Shows a pop-up box to copy the URL / Text given.')
+		print("               Direct Function: |cffFFAAAA/run ARC:COPY()|r")
+		print(addonColor..'     .. getname|r - Gets the name of the target - if it is a MogIt name, it will give you the MogIt Link.')
+		print("               Direct Function: |cffFFAAAA/run ARC:GETNAME()|r")
+		print(addonColor.."/sfdebug|r - List all the Debug Commands. WARNING: These are for DEBUG, not to play with and complain something broke.")
 		return;
 	elseif command == "cast" then
-		SlashCmdList.SCFORGEMAIN(rest)
+		ARC:CAST(rest)
 	elseif command == "castp" then
 		ARC:CASTP(rest)
 	elseif command == "tog" then
@@ -5095,6 +5110,15 @@ function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
 		var1, rest = rest:match("^(%S*)%s*(.-)$")
 		var2, rest = rest:match("^(%S*)%s*(.-)$")
 		ARC:IF(tag, command1,command2,var1,var2)
+	elseif command == "ifs" then
+		--print(rest)
+		tag, rest = rest:match("^(%S*)%s*(.-)$")
+		toEqual, rest = rest:match("^(%S*)%s*(.-)$")
+		command1, rest = rest:match("^(%S*)%s*(.-)$")
+		command2, rest = rest:match("^(%S*)%s*(.-)$")
+		var1, rest = rest:match("^(%S*)%s*(.-)$")
+		var2, rest = rest:match("^(%S*)%s*(.-)$")
+		ARC:IFS(tag, toEqual, command1, command2, var1, var2)
 	elseif command == "cmd" then
 		cmdWithDotCheck(rest)
 	elseif command == "set" then
