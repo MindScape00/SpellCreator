@@ -140,6 +140,7 @@ addonTable.ChangelogText = [[
 ### - BUG FIXES:
         - Reduced the number of phase-vault hard-refreshes. Vault refreshes if needed, but
                 but you can forcefully trigger a refresh as well still.
+        - Revert now properly executes the intended revert command without extra junk.
         - Slash /Command & Server .Command actions no longer break when a comma is present.
                 - That said, Slash & Server actions no longer support comma multi-actions.
 
