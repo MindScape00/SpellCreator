@@ -2612,7 +2612,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 	local menuList = {}
 	local item
 	local playerName = GetUnitName("player")
-	local _profile = SpellCreatorSavedSpells[spellCommID].profile
+	local _profile
 	if vault == "PHASE" then 
 		menuList = {
 			{text = SCForge_PhaseVaultSpells[spellCommID].fullName, notCheckable = true, isTitle=true},
@@ -2624,6 +2624,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 		if not isGossipLoaded then item.disabled = true; item.text = "(Open a Gossip Menu)"; end
 		tinsert(menuList, item)
 	else
+		_profile = SpellCreatorSavedSpells[spellCommID].profile
 		menuList = {
 			{text = SpellCreatorSavedSpells[spellCommID].fullName, notCheckable = true, isTitle=true},
 			{text = "Cast", notCheckable = true, func = function() ARC:CAST(spellCommID) end},

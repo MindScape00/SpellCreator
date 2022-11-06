@@ -10,32 +10,41 @@ addonTable.ChangelogText = [[
 ##v1.1.0 (October 31st, 2022)
 
 ### - Spell Forge UI Updates
-      - The |cff59cdea+|r / |cffED4245—|r buttons to add/remove rows have been moved into the UI!
-            - You can now delete any row directly, and add a row above any other row, by
-              mousing over the row and using it's contextual |cff59cdea+|r / |cffED4245—|r buttons.
-      - A new "Clear & Reset UI" button has been added! If the animation is too slow for
-           you, you can toggle 'Fast Reset' in the Arcanum options menu.
-      - The Revert Checkbox was killed. Now it's just Revert Delay - Simpler to use, and
-           allowing more room for the input box, which is now bigger! If no revert delay,
-           then no revert. Why need a checkbox?
-              (BONUS: Toggle the input box EVEN BIGGER in the Arcanum Options!)
+    - The |cff59cdea+|r / |cffED4245—|r buttons to add/remove rows have been moved into the UI!
+          - You can now delete any row directly, and add a row above any other row, by
+            mousing over the row and using it's contextual |cff59cdea+|r / |cffED4245—|r buttons.
+    - A new "Clear & Reset UI" button has been added! If the animation is too slow for
+         you, you can toggle 'Fast Reset' in the Arcanum options menu.
+    - The Revert Checkbox was killed. Now it's just Revert Delay - Simpler to use, and
+         allowing more room for the input box, which is now bigger! If no revert delay,
+         then no revert. Why need a checkbox?
+            (BONUS: Toggle the input box EVEN BIGGER in the Arcanum Options!)
 
 ### - Vault Overhaul!
+    - All Vaults:
+        - You can now right-click an ArcSpell in the vault to get a context menu
+              to access some frequent actions, and some of the new features!
+    - Personal Vault:
+        - You can now assign ArcSpells to a profile, and filter to only show specific
+              profiles. New ArcSpells are assigned to your character's profile.
+        - You can now Import & Export ArcSpells from the game, to share externally.
+            - To Export: Right-Click the ArcSpell and click Export, then copy the code.
+            - To Import: Click the yellow up-arrow in the bottom left of the Vault.
+    - Phase Vault:
+        - You can now upload ArcSpells to the Phase Vault as 'Private'.
+            - Private spells will only show in the vault for Officers+. Players
+              will still be able to use private spells linked from Gossip menus.
 
+### - Gossip Integration Overhaul!
+    - All Gossip Integrations have been completely rewriten / reintegrated.
+          Please see below for a list of all major changes.
+    - Phase Vault now has direct integration for adding an ArcSpell to a Gossip Menu!
+        - With a Gossip Menu open, click on the 'head with a speech bubble' icon, or
+            right-click an ArcSpell! Gossip editing requires Officer+.
+        - Spell visibility (Private vs Public) is represented by the eye-con on 
+            each spell row in the Phase Vault. Spells must be re-uploaded to change
+            their visibility.
 
-### - NEW: Add to Gossip Menu Button & UI
-      - Phase Vault now has direct integration for adding an ArcSpell to a Gossip Menu!
-            With a Gossip Menu open, click on the 'head with a speech bubble' icon!
-            Gossip editing requires Officer+.
-
-### - NEW / UPDATED: Private ArcSpells in Phase Vault!
-      - ArcSpells uploaded to the Phase Vault can now be marked as private.
-        Private spells will only show in the vault for Officers+. Players
-        will still be able to use private spells from Integrations (i.e., Gossip).
-
-           - Spell visibility (Private vs Public) is represented by the eye-con on 
-             each spell row in the Phase Vault. Spells must be re-uploaded to change
-             their visibility.
 
 ### - NEW: Right-Clicking ArcSpells in the Vault will show a context menu with quick actions, 
            including Casting, Chatting and...
