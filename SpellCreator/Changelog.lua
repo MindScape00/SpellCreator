@@ -7,18 +7,20 @@ addonTable.ChangelogText = [[
 
 {h1:c} Changelog {/h1}
 {h2:c} __________________________________________________________ {/h2}
-##v1.1.0 (October 31st, 2022)
+##v1.1.0 (November 7th, 2022)
 
 ### - Spell Forge UI Updates
     - The |cff59cdea+|r / |cffED4245—|r buttons to add/remove rows have been moved into the UI!
           - You can now delete any row directly, and add a row above any other row, by
               mousing over the row and using it's contextual |cff59cdea+|r / |cffED4245—|r buttons.
+
     - A new "Clear & Reset UI" button has been added! If the animation is too slow for
         you, you can toggle 'Fast Reset' in the Arcanum options menu.
+
     - The Revert Checkbox was killed. Now it's just Revert Delay - Simpler to use, and
-        allowing more room for the input box, which is now bigger! If no revert delay,
-        then no revert. Why need a checkbox?
-           (BONUS: Toggle the input box EVEN BIGGER in the Arcanum Options!)
+        allows more room for the input box, which is also now bigger! If there is no
+        revert delay, then it will not revert. Why need a checkbox?
+           (BONUS: Toggle the input box EVEN BIGGER in the Arcanum Options Menu!)
 
 ### - Vault Overhaul!
     - All Vaults:
@@ -42,14 +44,17 @@ addonTable.ChangelogText = [[
         - You can now upload ArcSpells to the Phase Vault as 'Private'.
             - Private spells will only show in the vault for Officers+. Players
               will still be able to use private spells linked from Gossip menus.
+
         - Spell visibility (Private vs Public) is represented by the eye-con on 
             each spell row in the Phase Vault. Spells must be re-uploaded to change
             their visibility.
+
         - Transfer to Personal Vault button added. No more 'Edit -> Create' needed!
 
 ### - Gossip Integration Overhaul!
     - All Gossip Integrations have been completely rewriten / reintegrated.
           Please see below for a list of all major changes.
+
     - Phase Vault now has direct integration for adding an ArcSpell to a Gossip Menu!
         - With a Gossip Menu open, click on the 'head with a speech bubble' icon, or
             right-click an ArcSpell! Gossip editing requires Officer+.
@@ -69,56 +74,57 @@ addonTable.ChangelogText = [[
           instead now. I cannot gaurantee new tags with _auto will work..
 
     - VALID TAGS:
-            <arc_show> -- Opens the Spell Forge UI
-            <arc_cast: ..commID > -- Casts the (commID) from the Phase Vault
-            <arc_save: ..commID > -- Saves the (commID) from Phase -> Personal Vault
-            <arc_cmd: ..server command > -- Executes the server command given
-            <arc_macro: ..slash command > -- Executes the macro-script given
+            |cffFFA500<arc_show>|r -- Opens the Spell Forge UI
+            |cffFFA500<arc_cast: ..commID >|r -- Casts the (commID) from the Phase Vault
+            |cffFFA500<arc_save: ..commID >|r -- Saves the (commID) from Phase -> Personal Vault
+            |cffFFA500<arc_cmd: ..server command >|r -- Executes the server command given
+            |cffFFA500<arc_macro: ..slash command >|r -- Executes the macro-script given
                 Macro Script can be used in combination with ARC:API as well.
 
        - Tag Extensions: ( added to the end of a tag, before the :command )
-            _hide -- Hides the Gossip UI after executing the tag's function.
+            |cffFFA500_hide|r -- Hides the Gossip UI after executing the tag's function.
                     Example: <arc_cast_hide:teleportToStormwindSpell>
                 NOTE: You should ALWAYS use _hide for teleporting spells
                       to avoid a bug in the gossip menus if you tele before closing.
 
 ### - NEW: ARC.API - A pseudo API to make scripting in ArcSpells easier.
       Functions:
-            ARC:COMM("command")    -- Sends a server command.
-            ARC:COPY("text / link")      -- Open a Dialog box to Copy the text/link
-            ARC:GETNAME()       -- Returns the Target's into chat. Try it on a MogIt NPC.
-            ARC:CAST("commID")         -- Casts an ArcSpell from your Personal Vault
-            ARC:CASTP("commID")       -- Casts an ArcSpell from the Phase Vault
+            |cffFFA500ARC:COMM("command")|r    -- Sends a server command.
+            |cffFFA500ARC:COPY("text / link")|r      -- Open a Dialog box to Copy the text/link
+            |cffFFA500ARC:GETNAME()|r       -- Returns the Target's into chat. Try it on a MogIt NPC.
+            |cffFFA500ARC:CAST("commID")|r         -- Casts an ArcSpell from your Personal Vault
+            |cffFFA500ARC:CASTP("commID")|r       -- Casts an ArcSpell from the Phase Vault
 
-            ARC:IF("ArcVar", [trueCommand, falseCommand], [var1])
+            |cffFFA500ARC:IF("ArcVar", [trueCommand, falseCommand], [var1])|r
                 -- Checks if the ArcVar is true. If true & false command provided, runs the
                     command depending the ArcVar. If no commands provided, returns true if
                     the ArcVar is true, or false if not. If Var1 provided, it will append the
                     var to the true & false command, allowing shorter writen functions.
 
-            ARC:IFS("ArcVar", "value", [trueCommand, falseCommand], [var1])
+            |cffFFA500ARC:IFS("ArcVar", "value", [trueCommand, falseCommand], [var1])|r
                 -- Works similar to ARC:IF but checks if the ArcVar matches the "value".
                     i.e., ARC:IFS("WhatFruit","Apple") checks if WhatFruit = Apple.
 
-            ARC:TOG("ArcVar")             -- Toggles an ArcVar between True & False.
-            ARC:SET("ArcVar", "value")  -- Sets an ArcVar to the specificed "value".
-            ARC:GET("ArcVar")           -- Returns the value of an ArcVar. Needs embeded.
+            |cffFFA500ARC:TOG("ArcVar")|r             -- Toggles an ArcVar between True & False.
+            |cffFFA500ARC:SET("ArcVar", "value")|r  -- Sets an ArcVar to the specificed "value".
+            |cffFFA500ARC:GET("ArcVar")|r           -- Returns the value of an ArcVar. Needs embeded.
 
             Please see the User Guide for more information on the ARC.API, or use `/arc`.
             Frequent ARC.API functions can also be ran using a more friendly slash command,
             but are limited in that you cannot use spaces in the vars or commands.
-                /arc cast $commID -- Cast Personal ArcSpell (accepts spaces)
-                /arc castp $commID -- Cast Phase ArcSpell (accepts spaces)
-                /arc cmd $serverCommand (i.e, /arc cmd cheat fly) (accepts spaces)
-                /arc getname -- Prints your taget's name in your chatbox (Try on a MogIt NPC!)
-                /arc copy $text/link -- Open a box to copy the text/link (accepts spaces)
-                /arc tog $ArcVar -- (no spaces)
-                /arc set $ArcVar $value -- (no spaces)
-                /arc if $ArcVar $trueCommand $falseCommand $trueVar $flaseVar -- (no spaces)
+                |cffFFA500/arc cast $commID|r -- Cast Personal ArcSpell (accepts spaces)
+                |cffFFA500/arc castp $commID|r -- Cast Phase ArcSpell (accepts spaces)
+                |cffFFA500/arc cmd $serverCommand|r -- (i.e, /arc cmd cheat fly) (accepts spaces)
+                |cffFFA500/arc getname|r -- Prints your taget's name in your chatbox (Try on a MogIt NPC!)
+                |cffFFA500/arc copy $text/link|r -- Open a box to copy the text/link (accepts spaces)
+                |cffFFA500/arc tog $ArcVar|r -- (no spaces)
+                |cffFFA500/arc set $ArcVar $value|r -- (no spaces)
+                |cffFFA500/arc if $ArcVar $trueCommand $falseCommand $trueVar $flaseVar|r -- (no spaces)
                   - ex: /arc if ToggleTorch aura unaura 1234 all
                   - Casts aura 1234 if ToggleTorch is true, or unaura all if false.
                   - You can leave off $falseVar and $trueVar will be used for both true & false.
-                /arc ifs $ArcVar $value $trueCommand $falseCommand $trueVar $flaseVar -- (no spaces)
+                |cffFFA500/arc ifs $ArcVar $value $trueCommand $falseCommand $trueVar $flaseVar|r
+                  - Same as '/arc if' but tests if $ArcVar == $value instead of just true.
 
 
       NOTE: ArcVars exist in a global table, "ARC.VAR". You can access them directly if you
@@ -132,6 +138,8 @@ addonTable.ChangelogText = [[
            Along with Links to the User Guide on Discord & the forums!
 
 ### - BUG FIXES:
+        - Reduced the number of phase-vault hard-refreshes. Vault refreshes if needed, but
+                but you can forcefully trigger a refresh as well still.
         - Slash /Command & Server .Command actions no longer break when a comma is present.
                 - That said, Slash & Server actions no longer support comma multi-actions.
 
@@ -144,6 +152,7 @@ addonTable.ChangelogText = [[
 {h1:c} Credits {/h1}
 Artwork by T ( |cff5865F2AJT#0715|r )
 Code by MindScape ( |cff5865F2MindScape#0332|r )
+Code Support by Iyadriel ( |cff5865F2Haleth#0001|r )
 
 Thank you to Azarchius & Razmatas for Epsilon Core, Executable, and Server support
 
