@@ -32,7 +32,7 @@ if LibStub then
 	LibDeflate = LibStub:GetLibrary("LibDeflate")
 	AceSerializer = LibStub:GetLibrary("AceSerializer-3.0")
 	AceComm = LibStub:GetLibrary("AceComm-3.0")
-	AceConsole:Embed(addonTable)
+	AceConsole = LibStub:GetLibrary("AceConsole-3.0")
 end
 
 local function serialCompressForAddonMsg(str)
