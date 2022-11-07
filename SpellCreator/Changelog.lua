@@ -91,15 +91,15 @@ addonTable.ChangelogText = [[
       Functions:
             |cffFFA500ARC:COMM("command")|r    -- Sends a server command.
             |cffFFA500ARC:COPY("text / link")|r      -- Open a Dialog box to Copy the text/link
-            |cffFFA500ARC:GETNAME()|r       -- Returns the Target's into chat. Try it on a MogIt NPC.
+            |cffFFA500ARC:GETNAME()|r       -- Returns the Target's name into chat. Try it on a MogIt NPC.
             |cffFFA500ARC:CAST("commID")|r         -- Casts an ArcSpell from your Personal Vault
             |cffFFA500ARC:CASTP("commID")|r       -- Casts an ArcSpell from the Phase Vault
 
             |cffFFA500ARC:IF("ArcVar", [trueCommand, falseCommand], [var1])|r
                 -- Checks if the ArcVar is true. If true & false command provided, runs the
-                    command depending the ArcVar. If no commands provided, returns true if
+                    command depending on the ArcVar. If no commands provided, returns true if
                     the ArcVar is true, or false if not. If Var1 provided, it will append the
-                    var to the true & false command, allowing shorter writen functions.
+                    var to the true & false command, allowing shorter written functions.
 
             |cffFFA500ARC:IFS("ArcVar", "value", [trueCommand, falseCommand], [var1])|r
                 -- Works similar to ARC:IF but checks if the ArcVar matches the "value".
@@ -134,7 +134,7 @@ addonTable.ChangelogText = [[
             future if the need is there, but they won't be secure. If you think of a good use
             for them, let me know and I can push it up higher on the to-do list.
 
-### - NEW: Changelogs are now documented in-game in the Settings panel.
+### - NEW: Changelogs are now documented in-game in the Addon Settings panel.
            Along with Links to the User Guide on Discord & the forums!
 
 ### - BUG FIXES:

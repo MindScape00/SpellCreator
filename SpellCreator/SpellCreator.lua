@@ -526,7 +526,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 end
 
 local function executeSpell(actionsToCommit, byPassCheck)
-	if not byPassCheck then
+	if ((not byPassCheck) and (not SpellCreatorMasterTable.Options["debug"])) then
 		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than Dranosh Valley.") return; end
 	end
 	for _,spell in pairs(actionsToCommit) do
@@ -3364,7 +3364,7 @@ local function saveSpell(mousebutton, fromPhaseVaultID, manualData)
 			end
 		end
 
-	if not fromPhaseVaultID then
+	if not fromPhaseVaultID and not manualData then
 		for i = 1, numberOfSpellRows do
 
 			local actionData = {}
