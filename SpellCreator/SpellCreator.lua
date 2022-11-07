@@ -32,6 +32,7 @@ if LibStub then
 	LibDeflate = LibStub:GetLibrary("LibDeflate")
 	AceSerializer = LibStub:GetLibrary("AceSerializer-3.0")
 	AceComm = LibStub:GetLibrary("AceComm-3.0")
+	AceConsole:Embed(addonTable)
 end
 
 local function serialCompressForAddonMsg(str)
@@ -1328,9 +1329,12 @@ local function AddSpellRow(rowToAdd)
 		newRow.RevertDelayBox.previousEditBox = newRow.InputEntryBox	-- Revert <- Input
 
 	if numberOfSpellRows > 1 then
-		newRow.mainDelayBox.previousEditBox = _G["spellRow"..numberOfSpellRows-1].RevertDelayBox 	-- Main Delay <- LAST Revert
+		local prevRow = _G["spellRow"..numberOfSpellRows-1]
+		newRow.mainDelayBox.previousEditBox = prevRow.RevertDelayBox 	-- Main Delay <- LAST Revert
 		newRow.RevertDelayBox.nextEditBox = spellRow1.mainDelayBox			-- Revert -> Spell Row 1 Main Delay
 		_G["spellRow"..numberOfSpellRows-1].RevertDelayBox.nextEditBox = newRow.mainDelayBox		-- LAST Revert -> THIS Main Delay
+
+		newRow.mainDelayBox:SetText(prevRow.mainDelayBox:GetText())
 	end
 
 	updateFrameChildScales(SCForgeMainFrame)
@@ -1361,11 +1365,16 @@ local function AddSpellRow(rowToAdd)
 			theRowToSet.RevertDelayBox:SetText(theRowToGrab.RevertDelayBox:GetText())
 		end
 		local theRowToSet = _G["spellRow"..rowToAdd]
+		local prevRow = _G["spellRow"..rowToAdd-1]
 		UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, 0)
 		theRowToSet.actionSelectButton.Dropdown.Text:SetText("Action")
 		updateSpellRowOptions(rowToAdd)
 		
+		if prevRow then
+			theRowToSet.mainDelayBox:SetText(prevRow.mainDelayBox:GetText())
+		else
 		theRowToSet.mainDelayBox:SetText("")
+		end
 		theRowToSet.SelfCheckbox:SetChecked(false)
 		theRowToSet.InputEntryBox:SetText("")
 		theRowToSet.RevertDelayBox:SetText("")
