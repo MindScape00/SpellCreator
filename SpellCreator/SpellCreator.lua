@@ -4971,12 +4971,14 @@ end
 -- SYNTAX: ARC:IF(tag, Command if True, Command if False, [Variables for True], [Variables for False])
 function ARC:IF(tag, command1, command2, var1, var2)
 	if tag then
-		if (tag and command1 and command2) and (tag ~= "" and command1 ~= "" and command2 ~= "") then
+		if (command1 and command2) and (tag ~= "" and command1 ~= "" and command2 ~= "") then
 			if var1 == "" then var1 = nil end
 			if var2 == "" then var2 = nil end
 			command1 = command1..(var1 and " "..var1 or "")
 			command2 = command2..((var2 and " "..var2) or (var1 and " "..var1) or "")
 			if ARC.VAR[tag] then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
+		elseif (command1) and (tag ~= "" and command1 ~= "") then
+			if ARC.VAR[tag] then cmdWithDotCheck(command1) end
 		else
 			if ARC.VAR[tag] then return true; else return false; end
 		end
@@ -4998,6 +5000,8 @@ function ARC:IFS(tag, toEqual, command1, command2, var1, var2)
 			command1 = command1..(var1 and " "..var1 or "")
 			command2 = command2..(var2 and " "..var2 or var1 and " "..var1 or "")
 			if ARC.VAR[tag] == toEqual then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
+		elseif (command1) and (tag ~= "" and command1 ~= "") then
+			if ARC.VAR[tag] then cmdWithDotCheck(command1) end
 		else
 			if ARC.VAR[tag] == toEqual then return true; else return false; end
 		end
