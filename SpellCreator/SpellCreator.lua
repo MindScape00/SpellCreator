@@ -21,6 +21,8 @@ local isGossipLoaded
 local C_Timer = C_Timer
 local print = print
 local SendChatMessage = SendChatMessage
+local _G = _G
+local pairs, ipairs = pairs, ipairs
 --local tContains = tContains
 --
 -- local curDate = date("*t") -- Current Date for surprise launch - disabled since it's over anyways
@@ -28,6 +30,7 @@ local SendChatMessage = SendChatMessage
 local LibDeflate
 local AceSerializer
 local AceComm
+local AceConsole
 if LibStub then
 	LibDeflate = LibStub:GetLibrary("LibDeflate")
 	AceSerializer = LibStub:GetLibrary("AceSerializer-3.0")
@@ -5066,17 +5069,12 @@ function SlashCmdList.SCFORGEMAIN(msg, editbox) -- 4.
 	end
 end
 
-function CastARC(commID)
-	SlashCmdList.SCFORGEMAIN(commID)
-end
-
-SLASH_SCFORGEAPI1 = '/arc'; -- 3.
-function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
-	local tag, command1, command2, var1, var2
-	local command, rest = msg:match("^(%S*)%s*(.-)$")
-	if not command or command == "" then
+local function arcSlashCommandHandler(msg)
+	local command, arg1, arg2, arg3, arg4, arg5, arg6 = AceConsole:GetArgs(msg, 7)
+	if not command or command == "" then 
 		cprint("Commands & API")
 		print(addonColor.."Main Commands:")
+		print(addonColor..'NOTE: If you want to use a space, wrap your $variable in quotes (i.e., "command with spaces").')
 		print(addonColor.."/arcanum [$commID] - Cast an ArcSpell by it's command ID you gave it (aka CommID), or open the Spell Forge UI if left blank.")
 		print(addonColor.."/sf [$commID] - Shorter Alternative to /arcanum.")
 		print(" ")
@@ -5105,39 +5103,28 @@ function SlashCmdList.SCFORGEAPI(msg, editbox) -- 4.
 		print(addonColor.."/sfdebug|r - List all the Debug Commands. WARNING: These are for DEBUG, not to play with and complain something broke.")
 		return;
 	elseif command == "cast" then
-		ARC:CAST(rest)
+		ARC:CAST(arg1)
 	elseif command == "castp" then
-		ARC:CASTP(rest)
+		ARC:CASTP(arg1)
 	elseif command == "tog" then
-		ARC:TOG(rest)
+		ARC:TOG(arg1)
 	elseif command == "if" then
-		--print(rest)
-		tag, rest = rest:match("^(%S*)%s*(.-)$")
-		command1, rest = rest:match("^(%S*)%s*(.-)$")
-		command2, rest = rest:match("^(%S*)%s*(.-)$")
-		var1, rest = rest:match("^(%S*)%s*(.-)$")
-		var2, rest = rest:match("^(%S*)%s*(.-)$")
-		ARC:IF(tag, command1,command2,var1,var2)
+		ARC:IF(arg1,arg2,arg3,arg4,arg5)
 	elseif command == "ifs" then
-		--print(rest)
-		tag, rest = rest:match("^(%S*)%s*(.-)$")
-		toEqual, rest = rest:match("^(%S*)%s*(.-)$")
-		command1, rest = rest:match("^(%S*)%s*(.-)$")
-		command2, rest = rest:match("^(%S*)%s*(.-)$")
-		var1, rest = rest:match("^(%S*)%s*(.-)$")
-		var2, rest = rest:match("^(%S*)%s*(.-)$")
-		ARC:IFS(tag, toEqual, command1, command2, var1, var2)
+		ARC:IFS(arg1, arg2, arg3, arg4, arg5, arg6)
 	elseif command == "cmd" then
-		cmdWithDotCheck(rest)
+		cmdWithDotCheck(arg1)
 	elseif command == "set" then
 		tag, rest = rest:match("^(%S*)%s*(.-)$")
-		ARC:SET(tag, rest)
+		ARC:SET(arg1, arg2)
 	elseif command == "copy" then
-		ARC:COPY(rest)
+		ARC:COPY(arg1)
 	elseif command == "getname" then
 		ARC:GETNAME()
 	end
 end
+
+AceConsole:RegisterChatCommand("arc", arcSlashCommandHandler)
 
 local _phaseSpellDebugDataTable = {}
 SLASH_SCFORGEDEBUG1 = '/sfdebug';
