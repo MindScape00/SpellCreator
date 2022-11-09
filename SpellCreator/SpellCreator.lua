@@ -172,7 +172,11 @@ local function dump(o)
 	if not DevTools_Dump then
 		UIParentLoadAddOn("Blizzard_DebugTools");
 	end
-	DevTools_Dump(o);
+	if type(o) == "table" then
+		DisplayTableInspectorWindow(o)
+	else
+		DevTools_Dump(o);
+	end
 
 --[[ -- Old Table String-i-zer.. Replaced with Blizzard_DebugTools nice dump :)
    if type(o) == 'table' then
@@ -238,6 +242,15 @@ local function hsvToRgb(h, s, v)
   end
 
   return r * 255, g * 255, b * 255
+end
+
+local checkForAuraIDPredicate = function(wantedID, _, _, ...)
+	local spellID = select(10, ...)
+	return spellID == wantedID
+end
+
+local function checkForAuraID(wantedID)
+	return AuraUtil.FindAura(checkForAuraIDPredicate, "player", nil, wantedID)
 end
 
 -- Frame Listeners
@@ -559,6 +572,7 @@ actionTypeDataList = { -- formatted for easier sorting - whatever order they are
 "MacroText",
 "Command",
 "ArcSpell",
+"ToggleAura",
 }
 
 actionTypeData = {
@@ -734,6 +748,15 @@ actionTypeData = {
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},
+	["ToggleAura"] = {
+		["name"] = "Toggle Aura",
+		["command"] = function(spellID) if checkForAuraID(tonumber(spellID)) then cmd("unaura "..spellID) else cmd("aura "..spellID) end; end,
+		["description"] = "Toggles an Aura on / off.",
+		["dataName"] = "Spell ID",
+		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\r'.look spell' for IDs.",
+		["comTarget"] = "func",
+		["revert"] = nil,
+		},
 }
 
 -------------------------------------------------------------------------------
@@ -773,8 +796,8 @@ local function genStaticDropdownChild( parent, dropdownName, menuList, title, wi
 	parent.Dropdown = newDropdown
 	newDropdown:SetPoint("CENTER")
 
-	local function newDropdown_Initialize( dropdownName, level )
-		--for index,value in ipairs(menuList) do
+	local function newDropdown_Initialize( dropdownName, level, subMenu )
+		if subMenu then menuList = subMenu end
 		for index = 1, #menuList do
 			local value = menuList[index]
 			if (value.text) then
@@ -1093,16 +1116,26 @@ local function AddSpellRow(rowToAdd)
 			menuItem.tooltipTitle = actionTypeData[v].name
 			menuItem.tooltipText = actionTypeData[v].description
 			menuItem.tooltipOnButton = true
-			menuItem.value = v
-			menuItem.arg1 = numberOfSpellRows
-			menuItem.func = function(self, arg1)
-				for k,v in pairs( newRow.menuList ) do
-					v.checked = false
+			if actionTypeData[v].comTarget == "menu" then
+				menuItem.hasArrow = true
+				menuItem.keepShownOnClick = true
+				menuItem.menuList = actionTypeData[v].menuList
+				menuItem.value = v
+				menuItem.func = function(self)
+					--self:SetChecked(false)
 				end
-				UIDropDownMenu_SetSelectedID(_G["spellRow"..arg1.."ActionSelectButton"], self:GetID())
-				--_G["spellRow"..arg1.."ActionSelectButtonText"]:SetText(menuItem.text)
-				ddump(self)
-				updateSpellRowOptions(arg1, menuItem.value)
+			else
+				menuItem.value = v
+				menuItem.arg1 = numberOfSpellRows
+				menuItem.func = function(self, arg1)
+					for k,v in pairs( newRow.menuList ) do
+						v.checked = false
+					end
+					UIDropDownMenu_SetSelectedID(_G["spellRow"..arg1.."ActionSelectButton"], self:GetID())
+					--_G["spellRow"..arg1.."ActionSelectButtonText"]:SetText(menuItem.text)
+					ddump(self)
+					updateSpellRowOptions(arg1, menuItem.value)
+				end
 			end
 			table.insert( newRow.menuList , menuItem )
 		end
