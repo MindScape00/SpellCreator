@@ -1,16 +1,17 @@
 <Ui xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd" xmlns="http://www.blizzard.com/wow/ui/">
-	
+
 	<Script file="HTMLUtils.lua"/>
 	<Script file="Changelog.lua"/>
 	<Script file="LibDeflate\LibStub\LibStub.lua"/>
-	
+
 	<!-- LibDeflate https://github.com/SafeteeWoW/LibDeflate -->
 	<Include file="LibDeflate\lib.xml" />
-	
+
 	<Include file="AceSerializer-3.0\AceSerializer-3.0.xml" />
 	<Include file="AceComm-3.0\AceComm-3.0.xml" />
+
 	<Include file="AceConsole-3.0\AceConsole-3.0.xml" />
-	
+
 	<Frame name="SCForgeFrameTemplate" inherits="PortraitFrameTemplate" virtual="true">
 		<Frames>
 			<Frame name="$parentInset" parentKey="Inset" useParentLevel="true" inherits="InsetFrameTemplate">
@@ -63,6 +64,17 @@
 		</Layers>
 	</Frame>
 
+	<Script file="constants.lua"/>
+	<Script file="logging.lua"/>
+	<Script file="permissions.lua"/>
+	<Script file="utils/Utils.lua"/>
+	<Script file="utils/Aura.lua"/>
+	<Script file="cmd.lua"/>
+	<Script file="actions/actions.lua"/>
+	<Script file="actions/execute.lua"/>
+	<Script file="serializer.lua"/>
+	<Script file="vault.lua"/>
 	<Script file="SpellCreator.lua"/>
+	<Script file="api.lua"/>
 
 </Ui>

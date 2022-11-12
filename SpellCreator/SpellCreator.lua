@@ -1,10 +1,20 @@
-local addonName, addonTable = ...
-local addonVersion, addonAuthor, addonTitle = GetAddOnMetadata(addonName, "Version"), GetAddOnMetadata(addonName, "Author"), GetAddOnMetadata(addonName, "Title")
+local addonName, ns = ...
+
+local actionTypeData, actionTypeDataList = ns.actions.actionTypeData, ns.actions.actionTypeDataList
+local executeSpell = ns.actions.executeSpell
+local cmd, cmdWithDotCheck = ns.cmd.cmd, ns.cmd.cmdWithDotCheck
+local runMacroText = ns.cmd.runMacroText
+local ADDON_COLOR, ADDON_TITLE = ns.constants.ADDON_COLOR, ns.constants.ADDON_TITLE
+local cprint, dprint, eprint = ns.logging.cprint, ns.logging.dprint, ns.logging.eprint
+local isDMEnabled, isOfficerPlus, isMemberPlus = ns.permissions.isDMEnabled, ns.permissions.isOfficerPlus, ns.permissions.isMemberPlus
+local serializer = ns.serializer
+local phaseVault = ns.vault.phase
+
+local addonVersion, addonAuthor = GetAddOnMetadata(addonName, "Version"), GetAddOnMetadata(addonName, "Author")
 local addonPath = "Interface/AddOns/"..tostring(addonName)
 local lastAddonVersion
 local addonUpdated
 
-local addonColor = "|cff".."ce2eff" -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
 local addonMsgPrefix = "SCFORGE"
 
 local localization = {}
@@ -27,46 +37,11 @@ local pairs, ipairs = pairs, ipairs
 --
 -- local curDate = date("*t") -- Current Date for surprise launch - disabled since it's over anyways
 
-local LibDeflate
-local AceSerializer
 local AceComm
 local AceConsole
 if LibStub then
-	LibDeflate = LibStub:GetLibrary("LibDeflate")
-	AceSerializer = LibStub:GetLibrary("AceSerializer-3.0")
 	AceComm = LibStub:GetLibrary("AceComm-3.0")
 	AceConsole = LibStub:GetLibrary("AceConsole-3.0")
-end
-
-local function serialCompressForAddonMsg(str)
-	str = AceSerializer:Serialize(str)
-	str = LibDeflate:CompressDeflate(str, {level = 9})
-	--str = LibDeflate:EncodeForWoWAddonChannel(str)
-	str = LibDeflate:EncodeForWoWChatChannel(str)
-	return str;
-end
-
-local function serialDecompressForAddonMsg(str)
-	--str = LibDeflate:DecodeForWoWAddonChannel(str)
-	str = LibDeflate:DecodeForWoWChatChannel(str)
-	str = LibDeflate:DecompressDeflate(str)
-	_, str = AceSerializer:Deserialize(str)
-	return str;
-end
-
-local function serialCompressForExport(str)
-	str = AceSerializer:Serialize(str)
-	str = LibDeflate:CompressDeflate(str, {level = 9})
-	--str = LibDeflate:EncodeForWoWChatChannel(str)
-	str = LibDeflate:EncodeForPrint(str)
-	return str;
-end
-
-local function serialDecompressForImport(str)
-	str = LibDeflate:DecodeForPrint(str)
-	str = LibDeflate:DecompressDeflate(str)
-	_, str = AceSerializer:Deserialize(str)
-	return str;
 end
 
 local sfCmd_ReplacerChar = "@N@"
@@ -84,87 +59,14 @@ local GetNumGossipOptions = GetNumGossipOptions or C_GossipInfo.GetNumOptions;
 local SelectGossipOption = SelectGossipOption or C_GossipInfo.SelectOption;
 local GetGossipText = GetGossipText or C_GossipInfo.GetText;
 
--- Simplified Epsilon Permission Checks
 local C_Epsilon = C_Epsilon
-
-local function isDMEnabled()
-	if C_Epsilon.IsDM and (C_Epsilon.IsOfficer() or C_Epsilon.IsOwner()) then return true; else return false; end
-end
-
-local function isOfficerPlus()
-	if C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then return true; else return false; end
-end
-
-local function isMemberPlus()
-	if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then return true; else return false; end
-end
 
 -------------------------------------------------------------------------------
 -- Simple Chat & Helper Functions
 -------------------------------------------------------------------------------
 
-local function cmd(text)
-	SendChatMessage("."..text, "GUILD");
-end
-
-local function cmdNoDot(text)
-	SendChatMessage(text, "GUILD");
-end
-
-local function cmdWithDotCheck(text)
-	if text:sub(1, 1) == "." then cmdNoDot(text) else cmd(text) end
-end
-
 local function sendChat(text)
   SendChatMessage(text, "SAY");
-end
-
--- Macro & /Slash Command Processing
-local MacroEditBox = MacroEditBox
-local dummy = function() end
-local function RunMacroText(command)
-	MacroEditBox:SetText(command)
-	local ran = xpcall(ChatEdit_SendText, dummy, MacroEditBox)
-	if not ran then
-		eprint("This command failed: "..command)
-	end
-end
-
-local function cprint(text)
-	print(addonColor..addonTitle..": "..(text and text or "ERROR").."|r")
-end
-
-local function dprint(force, text, ...)
-	if text then
-		if force == true or SpellCreatorMasterTable.Options["debug"] then
-			local rest = ... or ""
-			local line = strmatch(debugstack(2),":(%d+):")
-			if line then
-				print(addonColor..addonTitle.." DEBUG "..line..": "..text, rest, " |r")
-			else
-				print(addonColor..addonTitle.." DEBUG: "..text, rest, " |r")
-				print(debugstack(2))
-			end
-		end
-	elseif SpellCreatorMasterTable.Options["debug"] then
-		local line = strmatch(debugstack(2),":(%d+):")
-		if line then
-			print(addonColor..addonTitle.." DEBUG "..line..": "..force.." |r")
-		else
-			print(addonColor..addonTitle.." DEBUG: "..force.." |r")
-			print(debugstack(2))
-		end
-	end
-end
-
-local function eprint(text,rest)
-	local line = strmatch(debugstack(2),":(%d+):")
-	if line then
-		print(addonColor..addonTitle.." Error @ "..line..": "..text..""..(rest and " | "..rest or "").." |r")
-	else
-		print(addonColor..addonTitle.." @ ERROR: "..text.." | "..rest.." |r")
-		print(debugstack(2))
-	end
 end
 
 --local dump = DevTools_Dump
@@ -195,7 +97,7 @@ end
 local function ddump(o)
 	if SpellCreatorMasterTable.Options["debug"] then
 		local line = strmatch(debugstack(2),":(%d+):")
-		print(addonColor..addonTitle.." DEBUG-DUMP "..line..":|r")
+		print(ADDON_COLOR..ADDON_TITLE.." DEBUG-DUMP "..line..":|r")
 		dump(o)
 	end
 end
@@ -256,8 +158,6 @@ end
 -- Frame Listeners
 local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
-local isSavingOrLoadingPhaseAddonData = false
-local isPhaseVaultLoaded = false
 
 -------------------------------------------------------------------------------
 -- Saved Variable Initialization
@@ -267,7 +167,7 @@ local function enableAllProfilesFilter()
 	local _profiles = {}
 
 	selectedProfileFilter.showAll = true
-	
+
 	-- gen dynamic list of available characters / profiles
 	for k,v in pairs(SpellCreatorSavedSpells) do
 		if v.profile then
@@ -386,379 +286,6 @@ end
 
 local load_row_background = addonPath.."/assets/SpellForgeVaultPanelRow"
 
-local function get_Table_Position(str, tab)
-	for i = 1, #tab do
-		local v = tab[i] --cheaper ipairs as i,v
-		if v == str then return i; end
-		return nil;
-	end
-end
-
--------------------------------------------------------------------------------
--- Core Functions & Data
--------------------------------------------------------------------------------
-
--- the functions to actually process & cast the spells
-
-local actionTypeData = {} -- Defined here, but actually set below. Weird hack to bypass that they technically rely on each other..
-local actionTypeDataList = {}
-
-local function executeAction(varTable, actionData, selfOnly, isRevert)
-	local comTarget = actionData.comTarget
-	for i = 1, #varTable do
-		local v = varTable[i]
-		if string.byte(v,1) == 32 then v = strtrim(v, " ") end
-		if comTarget == "func" then 
-			actionData.command(v)
-		else
-			if isRevert then 
-				local finalCommand = tostring(actionData.revert)
-				finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
-				if selfOnly then finalCommand = finalCommand.." self" end
-				cmd(finalCommand)
-			else
-				local finalCommand = tostring(actionData.command)
-				finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
-				if selfOnly then finalCommand = finalCommand.." self" end
-				cmd(finalCommand)
-			end
-		end
-	end
-end
-
-local function processAction(delay, actionType, revertDelay, selfOnly, vars)
-	if not actionType then return; end
-	local actionData = actionTypeData[actionType]
-	if revertDelay then revertDelay = tonumber(revertDelay) end
-	local varTable
-
-	if vars then
-		if actionData.doNotDelimit then
-			varTable = { vars }
-		else
-			varTable = { strsplit(",", vars) }
-		end
-	end
-
-	if delay == 0 then
-		executeAction(varTable, actionData, selfOnly, nil)
-		if revertDelay and revertDelay > 0 then
-			C_Timer.After(revertDelay, function() executeAction(varTable, actionData, selfOnly, true) end)
-		end
-	else
-		C_Timer.After(delay, function() 
-			executeAction(varTable, actionData, selfOnly, nil)
-			if revertDelay and revertDelay > 0 then
-				C_Timer.After(revertDelay, function() executeAction(varTable, actionData, selfOnly, true) end)
-			end
-		end)
-	end
-	--[[
-	if actionData.comTarget == "func" then
-		if delay == 0 then
-			local varTable = varTable
-			for i = 1, #varTable do
-				local v = varTable[i] -- v = the ID or input string.
-				if string.byte(v,1) == 32 then v = strtrim(v, " ") end
-				actionData.command(v)
-			end
-		else
-			C_Timer.After(delay, function()
-				local varTable = varTable
-				for i = 1, #varTable do
-					local v = varTable[i]
-					if string.byte(v,1) == 32 then v = strtrim(v, " ") end
-					actionData.command(v)
-				end
-			end)
-		end
-	else
-		if actionData.dataName then
-			if delay == 0 then
-				local varTable = varTable
-				for i = 1, #varTable do
-					local v = varTable[i] -- v = the ID or input.
-					if string.byte(v,1) == 32 then v = strtrim(v, " ") end
-					--print(actionData.command)
-					local finalCommand = tostring(actionData.command)
-					finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
-					if selfOnly then finalCommand = finalCommand.." self" end
-					--dprint(false, finalCommand)
-					cmd(finalCommand)
-
-				end
-				if revertDelay and revertDelay > 0 then
-					C_Timer.After(revertDelay, function()
-						local varTable = varTable
-						for i = 1, #varTable do
-							local v = varTable[i]
-							if string.byte(v,1) == 32 then v = strtrim(v, " ") end
-							if selfOnly then
-								cmd(actionData.revert.." "..v.." self")
-							else
-								cmd(actionData.revert.." "..v)
-							end
-						end
-					end)
-				end
-			else
-				C_Timer.After(delay, function()
-					local varTable = varTable
-					for i = 1, #varTable do
-						local v = varTable[i] -- v = the ID or input.
-						if string.byte(v,1) == 32 then v = strtrim(v, " ") end
-						local finalCommand = tostring(actionData.command)
-						finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
-						if selfOnly then finalCommand = finalCommand.." self" end
-						--dprint(false, finalCommand)
-						cmd(finalCommand)
-
-					end
-					if revertDelay and revertDelay > 0 then
-						C_Timer.After(revertDelay, function()
-							local varTable = varTable
-							for i = 1, #varTable do
-								local v = varTable[i]
-								if string.byte(v,1) == 32 then v = strtrim(v, " ") end
-								if selfOnly then
-									cmd(actionData.revert.." "..v.." self")
-								else
-									cmd(actionData.revert.." "..v)
-									dprint(actionData.revert.." "..v)
-								end
-							end
-						end)
-					end
-				end)
-			end
-		else
-			if selfOnly then
-				C_Timer.After(delay, function() cmd(actionData.command.." self") end)
-			else
-				C_Timer.After(delay, function() cmd(actionData.command) end)
-			end
-		end
-	end
-	--]]
-end
-
-local function executeSpell(actionsToCommit, byPassCheck)
-	if ((not byPassCheck) and (not SpellCreatorMasterTable.Options["debug"])) then
-		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than Dranosh Valley.") return; end
-	end
-	for _,spell in pairs(actionsToCommit) do
-		--dprint(false,"Delay: "..spell.delay.." | ActionType: "..spell.actionType.." | RevertDelay: "..tostring(spell.revertDelay).." | Self: "..tostring(spell.selfOnly).." | Vars: "..tostring(spell.vars))
-		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
-	end
-end
-
--- Action Types & Data Info
-
-actionTypeDataList = { -- formatted for easier sorting - whatever order they are here is the order they show up in dropdown as.
-"SpellCast",
-"SpellTrig",
-"SpellAura",
-"Anim",
-"Standstate",
-"Morph",
-"Native",
-"Equip",
-"EquipSet",
-"MogitEquip",
-"RemoveAura",
-"RemoveAllAuras",
-"Unmorph",
-"Unequip",
-"MacroText",
-"Command",
-"ArcSpell",
-"ToggleAura",
-}
-
-actionTypeData = {
-	["SpellCast"] = {
-		["name"] = "Cast Spell",							-- The Displayed Name in the UI
-		["command"] = "cast @N@", 								-- The chat command, or Lua function to process
-		["description"] = "Cast a spell using a Spell ID, to selected target, or self if no target.\n\rEnable the 'Self' checkbox to cast always on yourself.\n\rRevert: Unaura", 	-- Description for on-mouse-over
-		["dataName"] = "Spell ID(s)", 							-- Label for the ID Box, nil to disable the ID box
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\r'.look spell' for IDs.",							-- Description of the input for GameTooltip
-		["comTarget"] = "server", 							-- Server for commands, func for custom Lua function in 'command'
-		["revert"] = "unaura @N@", 									-- The command that reverts it, i.e, 'unaura' for 'aura'
-		["selfAble"] = true,								-- True/False - if able to use the self-toggle checkbox
-		},
-	["SpellTrig"] = {
-		["name"] = "Cast Spell (Trig)",
-		["command"] = "cast @N@ trig",
-		["description"] = "Cast a spell using a Spell ID, to selected target, or self if no target, using the triggered flag.\n\rEnable the 'Self' checkbox to cast always on yourself.\n\rRevert: Unaura",
-		["dataName"] = "Spell ID(s)",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\r'.look spell' for IDs.",
-		["comTarget"] = "server",
-		["revert"] = "unaura @N@",
-		["selfAble"] = true,
-		},
-	["SpellAura"] = {
-		["name"] = "Apply Aura",
-		["command"] = "aura @N@",
-		["description"] = "Applies an Aura from a Spell ID on your target, or yourself if no target selected.\n\rEnable the 'Self' checkbox to always aura yourself.\n\rRevert: Unaura",
-		["dataName"] = "Spell ID(s)",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to apply multiple auras at once.\n\r'.look spell' for IDs.",
-		["comTarget"] = "server",
-		["revert"] = "unaura @N@",
-		["selfAble"] = true,
-		},
-	["Anim"] = {
-		["name"] = "Emote/Anim",
-		["command"] = "mod anim @N@",
-		["description"] = "Modifies target's current animation using 'mod anim'.\n\rUse .lookup emote to find IDs.\n\rRevert: Reset to Anim 0 (none)",
-		["dataName"] = "Emote ID",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to do multiple anims at once -- but the second usually over-rides the first anyways.\n\r'.look emote' for IDs.",
-		["comTarget"] = "server",
-		["revert"] = "mod anim 0",
-		["selfAble"] = false,
-		},
-	["Morph"] = {
-		["name"] = "Morph",
-		["command"] = "morph @N@",
-		["description"] = "Morph into a Display ID.\n\rRevert: Demorph",
-		["dataName"] = "Display ID",
-		["inputDescription"] = "No, you can't put multiple to become a hybrid monster..\n\r'.look displayid' for IDs.",
-		["comTarget"] = "server",
-		["revert"] = "demorph",
-		["selfAble"] = false,
-		},
-	["Native"] = {
-		["name"] = "Native",
-		["command"] = "mod native @N@",
-		["description"] = "Modifies your Native to specified Display ID.\n\rRevert: Demorph",
-		["dataName"] = "Display ID",
-		["inputDescription"] = ".look displayid' for IDs.",
-		["comTarget"] = "server",
-		["revert"] = "demorph",
-		["selfAble"] = false,
-		},
-	["Standstate"] = {
-		["name"] = "Standstate",
-		["command"] = "mod standstate @N@",
-		["description"] = "Change the emote of your character while standing to an Emote ID.\n\rRevert: Standstate to 0 (none)",
-		["dataName"] = "Standstate ID",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to set multiple standstates at once.. but you can't have two, so probably don't try it.\n\r'.look emote' for IDs.",
-		["comTarget"] = "server",
-		["revert"] = "mod stand 0",
-		["selfAble"] = true,
-		},
-	["Equip"] = {
-		["name"] = "Equip Item",
-		["command"] = function(vars) EquipItemByName(vars) end,
-		["description"] = "Equip an Item by name or ID. Item must be in your inventory. Cannot be reverted directly, use a separate unequip item action.\n\rName is a search in your inventory by keyword - using ID is recommended.\n\ri.e., You want to equip 'Violet Guardian's Helm', ID: 141357, but have 'Guardian's Leather Belt', ID: 35156 in your inventory also, using 'Guardian' as the text will equip the belt, so you'll want to use the full name, or better off just use the actual item ID.",
-		["dataName"] = "Item ID or Name(s)",
-		["inputDescription"] = "Accepts multiple IDs/Names, separated by commas, to equip multiple items at once.\n\r'.look item', or mouse-over an item in your inventory for IDs.",
-		["comTarget"] = "func",
-		["revert"] = nil,
-		["selfAble"] = false,
-		},
-	["RemoveAura"] = {
-		["name"] = "Remove Aura",
-		["command"] = "unaura @N@",
-		["description"] = "Remove an Aura by Spell ID.\n\rRevert: Re-applies the same aura after the delay.",
-		["dataName"] = "Spell ID(s)",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to remove multiple auras at once.",
-		["comTarget"] = "server",
-		["revert"] = "aura",
-		["selfAble"] = true,
-		},
-	["RemoveAllAuras"] = {
-		["name"] = "Remove All Auras",
-		["command"] = "unaura all",
-		["description"] = "Remove all Auras.\n\rCannot be reverted directly, use another aura/cast action.",
-		["dataName"] = nil,
-		["comTarget"] = "server",
-		["revert"] = nil,
-		["selfAble"] = true,
-		},
-	["Unmorph"] = {
-		["name"] = "Remove Morph",
-		["command"] = "demorph",
-		["description"] = "Remove all morphs, including natives.\n\rCannot be reverted directly, use another morph/native action.",
-		["dataName"] = nil,
-		["comTarget"] = "server",
-		["revert"] = nil,
-		},
-	["Unequip"] = {
-		["name"] = "Unequip Item",
-		["command"] = function(slotID) PickupInventoryItem(slotID); PutItemInBackpack(); end,
-		["description"] = "Unequips an item by item slot.\n\rCommon IDs:\rHead: 1          Shoulders: 2\rShirt: 4          Chest: 5\rWaist: 6         Legs 6\rFeet: 8           Wrist: 9\rHands: 10       Back: 15\rRanged: 18      Tabard: 19\rMain-hand: 16\rOff-hand: 17\n\rCannot be reverted directly, use Equip.",
-		["dataName"] = "Item Slot ID(s)",
-		["inputDescription"] = "Common IDs:\rHead: 1          Shoulders: 2\rShirt: 4           Chest: 5\rWaist: 6         Legs 6\rFeet: 8            Wrist: 9\rHands: 10       Back: 15\rRanged: 18      Tabard: 19\rMain-hand: 16\rOff-hand: 17\n\rAccepts multiple slot ID's, separated by commas, to remove multiple slots at the same time.",
-		["comTarget"] = "func",
-		["revert"] = nil,
-		},
-	["DefaultEmote"] = {
-		["name"] = "Default Emote",
-		["command"] = function(emoteID) DoEmote(string.upper(emoteID)); end,
-		["description"] = "Any default emote.\n\rMust be a valid emote 'token', i.e., 'WAVE'\n\rGoogle 'WoWpedia DoEmote' for a full list - most match their /command, but some don't.",
-		["dataName"] = "Emote Token",
-		["inputDescription"] = "Usually just the text from the /command, i.e., /wave = wave.\n\rIf not working: Search Google for 'WoWpedia DoEmote', and go to the WoWpedia page, and find the table of tokens - some don't exactly match their command.",
-		["comTarget"] = "func",
-		["revert"] = nil,
-		},
-	["MacroText"] = {
-		["name"] = "Macro Script",
-		["command"] = function(command) RunMacroText(command); end,
-		["description"] = "Any line that can be processed in a macro (any slash commands & macro flags).\n\rYou can use this for pretty much ANYTHING, technically, including custom short Lua scripts.",
-		["dataName"] = "/command",
-		["inputDescription"] = "Any /commands that can be processed in a macro-script, including emotes, addon commands, Lua run scripts, etc.\n\rI.e., '/emote begins to conjur up a fireball in their hand.'\n\rYou can use any part of the ARC:API here as well. Use /arc for more info.",
-		["comTarget"] = "func",
-		["revert"] = nil,
-		["doNotDelimit"] = true,
-		},
-	["Command"] = {
-		["name"] = "Server .Command",
-		["command"] = cmdWithDotCheck,
-		["description"] = "Any other server command.\n\rType the full command you want, without the dot, in the input box.\n\ri.e., 'mod drunk 100'.",
-		["dataName"] = "Full Command",
-		["inputDescription"] = "You can use any server command here, without the '.', and it will run after the delay.\n\rDoes NOT accept comma separated multi-actions.\n\rExample: 'mod drunk 100'.",
-		["comTarget"] = "func",
-		["revert"] = nil,
-		["doNotDelimit"] = true,
-		},
-	["MogitEquip"] = {
-		["name"] = "Equip Mogit Set",
-		["command"] = function(vars) SlashCmdList["MOGITE"](vars); end,
-		["description"] = "Equip a saved Mogit Wishlist set.\n\rMust specify the character name (profile) it's saved under first, then the set name.",
-		["dataName"] = "Profile & Set",
-		["inputDescription"] = "The Mogit Profile, and set name, just as if using the /moge chat command.\n\rExample: "..GetUnitName("player", false).." Cool Armor Set 1",
-		["comTarget"] = "func",
-		["revert"] = nil,
-		},
-	["EquipSet"] = {
-		["name"] = "Equip Set",
-		["command"] = function(vars) C_EquipmentSet.UseEquipmentSet(C_EquipmentSet.GetEquipmentSetID(vars)) end,
-		["description"] = "Equip a saved set from Blizzard's Equipment Manager, by name.",
-		["dataName"] = "Set Name",
-		["inputDescription"] = "Set name from Equipment Manager (Blizzard's built in set manager).",
-		["comTarget"] = "func",
-		["revert"] = nil,
-		},
-	["ArcSpell"] = {
-		["name"] = "Arcanum Spell",
-		["command"] = function(commID) executeSpell(SpellCreatorSavedSpells[commID].actions) end,
-		["description"] = "Cast another Arcanum Spell from your Personal Vault.",
-		["dataName"] = "Spell Command",
-		["inputDescription"] = "The command ID (commID) used to cast the ArcSpell\n\rExample: '/sf MySpell', where MySpell is the command ID to input here.",
-		["comTarget"] = "func",
-		["revert"] = nil,
-		},
-	["ToggleAura"] = {
-		["name"] = "Toggle Aura",
-		["command"] = function(spellID) if checkForAuraID(tonumber(spellID)) then cmd("unaura "..spellID) else cmd("aura "..spellID) end; end,
-		["description"] = "Toggles an Aura on / off.",
-		["dataName"] = "Spell ID",
-		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\r'.look spell' for IDs.",
-		["comTarget"] = "func",
-		["revert"] = nil,
-		},
-}
-
 -------------------------------------------------------------------------------
 -- UI Helper & Definitions
 -------------------------------------------------------------------------------
@@ -788,7 +315,6 @@ local revertDelayColumnWidth = 80
 
 -- Drop Down Generator
 local function genStaticDropdownChild( parent, dropdownName, menuList, title, width )
-
 	if not parent or not dropdownName or not menuList then return end;
 	if not title then title = "Select" end
 	if not width then width = 55 end
@@ -797,9 +323,10 @@ local function genStaticDropdownChild( parent, dropdownName, menuList, title, wi
 	newDropdown:SetPoint("CENTER")
 
 	local function newDropdown_Initialize( dropdownName, level, subMenu )
-		if subMenu then menuList = subMenu end
-		for index = 1, #menuList do
-			local value = menuList[index]
+		local list = menuList
+		if subMenu then list = subMenu end
+		for index = 1, #list do
+			local value = list[index]
 			if (value.text) then
 				value.index = index;
 				UIDropDownMenu_AddButton( value, level );
@@ -897,7 +424,7 @@ local function generateSpellChatLink(commID, vaultType)
 		charOrPhase = GetUnitName("player",false)
 	end
 	local numActions = #savedSpellFromVault[commID].actions
-	local chatLink = addonColor.."|HarcSpell:"..spellComm..":"..charOrPhase..":"..numActions..":"..spellDesc.."|h["..spellName.."]|h|r"
+	local chatLink = ADDON_COLOR.."|HarcSpell:"..spellComm..":"..charOrPhase..":"..numActions..":"..spellDesc.."|h["..spellName.."]|h|r"
 	return chatLink;
 end
 
@@ -949,7 +476,7 @@ local function updateSpellRowOptions(row, selectedAction)
 end
 
 local function RemoveSpellRow(rowToRemove)
-	if numberOfSpellRows <= 1 then 
+	if numberOfSpellRows <= 1 then
 		local theSpellRow = _G["spellRow"..numberOfSpellRows]
 		theSpellRow.mainDelayBox:SetText("")
 		for k,v in pairs(theSpellRow.menuList) do
@@ -980,7 +507,7 @@ local function RemoveSpellRow(rowToRemove)
 			theRowToSet.actionSelectButton.Dropdown.Text:SetText(theRowToGrab.actionSelectButton.Dropdown.Text:GetText())
 			theRowToSet.SelectedAction = theRowToGrab.SelectedAction
 			updateSpellRowOptions(i, theRowToGrab.SelectedAction)
-			
+
 			theRowToSet.mainDelayBox:SetText(theRowToGrab.mainDelayBox:GetText())
 			theRowToSet.SelfCheckbox:SetChecked(theRowToGrab.SelfCheckbox:GetChecked())
 			theRowToSet.InputEntryBox:SetText(theRowToGrab.InputEntryBox:GetText())
@@ -1014,7 +541,7 @@ local function RemoveSpellRow(rowToRemove)
 
 	--if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Enable() end
 	if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddRowRow.AddRowButton:Enable() end
-	
+
 	--if numberOfSpellRows <= 1 then SCForgeMainFrame.RemoveSpellRowButton:Disable() end
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
 
@@ -1046,6 +573,69 @@ local function genSpellRowTextures(newRow)
 	newRow.RowGem:SetTexture(addonPath.."/assets/DragonGem")
 	--newRow.RowGem:SetTexCoord(0.208,1-0.209,0,1)
 	--newRow.RowGem:SetPoint("RIGHT",-9,0)
+end
+
+local function initActionDropdownItems(dataList, flatMenuList, menuList, parentMenuList, parentItem)
+	for i = 1, #dataList do
+		local key = dataList[i]
+		local data = actionTypeData[key]
+
+		local menuItem = UIDropDownMenu_CreateInfo()
+		menuItem.text = data.name
+
+		if data.type == "header" then
+			menuItem.isTitle = true
+			menuItem.text = data.name
+			menuItem.notCheckable = true
+		elseif data.type == "spacer" then
+			menuItem.text = ""
+			menuItem.notCheckable = true
+			menuItem.disabled = true
+		elseif data.type == "submenu" then
+			menuItem.text = data.name
+			menuItem.hasArrow = true
+			menuItem.keepShownOnClick = true
+			menuItem.value = nil
+
+			menuItem.menuList = {}
+
+			initActionDropdownItems(data.menuDataList, flatMenuList, menuItem.menuList, menuList, menuItem)
+		else
+			menuItem.text = data.name
+			menuItem.tooltipTitle = data.name
+			menuItem.tooltipText = data.description
+			menuItem.tooltipOnButton = true
+			menuItem.value = key
+			menuItem.arg1 = numberOfSpellRows
+			menuItem.func = function(self, arg1)
+				for _, v in pairs(flatMenuList) do
+					v.checked = false
+				end
+
+				menuItem.checked = true
+				if (parentItem) then
+					parentItem.checked = true
+				end
+
+				UIDropDownMenu_SetText(_G["spellRow"..arg1.."ActionSelectButton"], menuItem.text)
+				ddump(self)
+				updateSpellRowOptions(arg1, menuItem.value)
+
+				if (parentItem) then
+					CloseDropDownMenus()
+				end
+			end
+
+			if (parentItem) then
+				parentItem.func = function(self)
+					_G[self:GetName().."Check"]:Hide()
+				end
+			end
+		end
+
+		table.insert(menuList, menuItem)
+		table.insert(flatMenuList, menuItem)
+	end
 end
 
 local function AddSpellRow(rowToAdd)
@@ -1105,40 +695,11 @@ local function AddSpellRow(rowToAdd)
 			end)
 
 		-- Action Dropdown Menu
-		newRow.menuList = {}
+		newRow.menuList = {} -- tree structure
+		newRow.flatMenuList = {} -- flat structure for bulk operations
 		local menuList = newRow.menuList
 
-		for i = 1, #actionTypeDataList do
-			local v = actionTypeDataList[i]
-			local menuItem = UIDropDownMenu_CreateInfo()
-			menuItem.text = actionTypeData[v].name
-			menuItem.checked = false
-			menuItem.tooltipTitle = actionTypeData[v].name
-			menuItem.tooltipText = actionTypeData[v].description
-			menuItem.tooltipOnButton = true
-			if actionTypeData[v].comTarget == "menu" then
-				menuItem.hasArrow = true
-				menuItem.keepShownOnClick = true
-				menuItem.menuList = actionTypeData[v].menuList
-				menuItem.value = v
-				menuItem.func = function(self)
-					--self:SetChecked(false)
-				end
-			else
-				menuItem.value = v
-				menuItem.arg1 = numberOfSpellRows
-				menuItem.func = function(self, arg1)
-					for k,v in pairs( newRow.menuList ) do
-						v.checked = false
-					end
-					UIDropDownMenu_SetSelectedID(_G["spellRow"..arg1.."ActionSelectButton"], self:GetID())
-					--_G["spellRow"..arg1.."ActionSelectButtonText"]:SetText(menuItem.text)
-					ddump(self)
-					updateSpellRowOptions(arg1, menuItem.value)
-				end
-			end
-			table.insert( newRow.menuList , menuItem )
-		end
+		initActionDropdownItems(actionTypeDataList, newRow.flatMenuList, menuList)
 
 		newRow.actionSelectButton = CreateFrame("Frame", "spellRow"..numberOfSpellRows.."ActionSelectAnchor", newRow)
 		newRow.actionSelectButton:SetPoint("LEFT", newRow.mainDelayBox, "RIGHT", 0, -2)
@@ -1394,7 +955,7 @@ local function AddSpellRow(rowToAdd)
 			theRowToSet.actionSelectButton.Dropdown.Text:SetText(theRowToGrab.actionSelectButton.Dropdown.Text:GetText())
 			theRowToSet.SelectedAction = theRowToGrab.SelectedAction
 			updateSpellRowOptions(i, theRowToGrab.SelectedAction)
-			
+
 			theRowToSet.mainDelayBox:SetText(theRowToGrab.mainDelayBox:GetText())
 			theRowToSet.SelfCheckbox:SetChecked(theRowToGrab.SelfCheckbox:GetChecked())
 			theRowToSet.InputEntryBox:SetText(theRowToGrab.InputEntryBox:GetText())
@@ -1405,11 +966,11 @@ local function AddSpellRow(rowToAdd)
 		UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, 0)
 		theRowToSet.actionSelectButton.Dropdown.Text:SetText("Action")
 		updateSpellRowOptions(rowToAdd)
-		
+
 		if prevRow then
 			theRowToSet.mainDelayBox:SetText(prevRow.mainDelayBox:GetText())
 		else
-		theRowToSet.mainDelayBox:SetText("")
+			theRowToSet.mainDelayBox:SetText("")
 		end
 		theRowToSet.SelfCheckbox:SetChecked(false)
 		theRowToSet.InputEntryBox:SetText("")
@@ -1455,8 +1016,8 @@ SCForgeMainFrame.SettingsButton.icon:SetTexture("interface/buttons/ui-optionsbut
 SCForgeMainFrame.SettingsButton.icon:SetSize(16,16)
 SCForgeMainFrame.SettingsButton.icon:SetPoint("CENTER")
 SCForgeMainFrame.SettingsButton:SetScript("OnClick", function(self)
-	InterfaceOptionsFrame_OpenToCategory(addonTitle);
-	InterfaceOptionsFrame_OpenToCategory(addonTitle);
+	InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
+	InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
 end)
 SCForgeMainFrame.SettingsButton:SetScript("OnMouseDown", function(self)
 	local point, relativeTo, relativePoint, xOfs, yOfs = self.icon:GetPoint(1)
@@ -1686,7 +1247,7 @@ local isDualBackgroundRequired = false
 local randomBackgroundID = fastrandom(#frameBackgroundOptions)
 if randomBackgroundID < 7 then isDualBackgroundRequired = true end
 
-if isDualBackgroundRequired then 
+if isDualBackgroundRequired then
 	background:SetTexCoord(0.05,1,0,0.96)
 	background:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 0,0) -- 12, -66
 	background:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.Inset, "BOTTOMRIGHT", -20,0)
@@ -1694,7 +1255,7 @@ else
 	background:SetAllPoints()
 end
 
-if isDualBackgroundRequired then 
+if isDualBackgroundRequired then
 	local background2 = SCForgeMainFrame.Inset:CreateTexture(nil,"BACKGROUND")
 	background2:SetTexture(frameBackgroundOptionsEdge[randomBackgroundID])
 	background2:SetPoint("TOPLEFT", background, "TOPRIGHT")
@@ -2064,6 +1625,22 @@ else
 	SCForgeMainFrame.ExecuteSpellButton:Enable()
 end
 
+local function updateActionDropdownCheckedStates(menuList, actionType, parentItem)
+	for _, menuItem in pairs(menuList) do
+		if menuItem.value == actionType then
+			menuItem.checked = true
+			if parentItem then
+				parentItem.checked = true
+			end
+		else
+			menuItem.checked = false
+			if menuItem.menuList then
+				updateActionDropdownCheckedStates(menuItem.menuList, actionType, menuItem)
+			end
+		end
+	end
+end
+
 local function loadSpell(spellToLoad)
 	--dprint("Loading spell.. "..spellToLoad.commID)
 
@@ -2098,10 +1675,7 @@ local function loadSpell(spellToLoad)
 			_spellRow.actionSelectButton.Dropdown.Text:SetText("Action")
 			updateSpellRowOptions(rowNum)
 		else
-			for k,v in pairs(_spellRow.menuList) do
-				v.checked = false
-			end
-			UIDropDownMenu_SetSelectedID(_spellRow.actionSelectButton.Dropdown, get_Table_Position(actionData.actionType, actionTypeDataList))
+			updateActionDropdownCheckedStates(_spellRow.menuList, actionData.actionType)
 			_spellRow.actionSelectButton.Dropdown.Text:SetText(actionTypeData[actionData.actionType].name)
 			updateSpellRowOptions(rowNum, actionData.actionType)
 		end
@@ -2148,7 +1722,6 @@ SCForgeMainFrame.ResetUIButton:SetScript("OnClick", function(self)
 end)
 
 local phaseVaultKeys
-local SCForge_PhaseVaultSpells = {}
 
 local function deleteSpellConf(spellKey, where)
 	local dialog = StaticPopup_Show("SCFORGE_CONFIRM_DELETE", savedSpellFromVault[spellKey].fullName, savedSpellFromVault[spellKey].commID)
@@ -2166,18 +1739,18 @@ local function noSpellsToLoad(fake)
 		end
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Enable();
 	end
-	isSavingOrLoadingPhaseAddonData = false;
-	isPhaseVaultLoaded = false;
+	phaseVault.isSavingOrLoadingAddonData = false;
+	phaseVault.isLoaded = false;
 end
 
 local function getSpellForgePhaseVault(callback)
-	SCForge_PhaseVaultSpells = {} -- reset the table
+	phaseVault.spells = {} -- reset the table
 	dprint("Phase Spell Vault Loading...")
 
-	--if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again shortly."); return; end
+	--if phaseVault.isSavingOrLoadingAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again shortly."); return; end
 	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
-	isSavingOrLoadingPhaseAddonData = true
-	isPhaseVaultLoaded = false
+	phaseVault.isSavingOrLoadingAddonData = true
+	phaseVault.isLoaded = false
 
 	phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
 	phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
@@ -2185,7 +1758,7 @@ local function getSpellForgePhaseVault(callback)
 			phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
 
 			if (#text < 1 or text == "") then noSpellsToLoad(); return; end
-			phaseVaultKeys = serialDecompressForAddonMsg(text)
+			phaseVaultKeys = serializer.decompressForAddonMsg(text)
 			if #phaseVaultKeys < 1 then noSpellsToLoad(); return; end
 			dprint("Phase spell keys: ")
 			ddump(phaseVaultKeys)
@@ -2199,14 +1772,14 @@ local function getSpellForgePhaseVault(callback)
 				if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
 					messageTicketQueue[prefix] = nil -- remove it from the queue.. We'll reset the table next time anyways but whatever.
 					phaseVaultLoadingCount = phaseVaultLoadingCount+1
-					local interAction = serialDecompressForAddonMsg(text)
+					local interAction = serializer.decompressForAddonMsg(text)
 					dprint("Spell found & adding to Phase Vault Table: "..interAction.commID)
-					tinsert(SCForge_PhaseVaultSpells, interAction)
+					tinsert(phaseVault.spells, interAction)
 					--print("phaseVaultLoadingCount: ",phaseVaultLoadingCount," | phaseVaultLoadingExpected: ",phaseVaultLoadingExpected)
 					if phaseVaultLoadingCount == phaseVaultLoadingExpected then
 						phaseAddonDataListener2:UnregisterEvent("CHAT_MSG_ADDON")
-						isSavingOrLoadingPhaseAddonData = false
-						isPhaseVaultLoaded = true
+						phaseVault.isSavingOrLoadingAddonData = false
+						phaseVault.isLoaded = true
 						if callback then callback(true); end
 					end
 				end
@@ -2238,9 +1811,9 @@ end
 local function deleteSpellFromPhaseVault(commID, callback)
 	-- get the phase spell keys, remove the one we want to delete, then re-save it, and then over-ride the PhaseAddonData for it's key with nothing..
 
-	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
+	if phaseVault.isSavingOrLoadingAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
 
-	isSavingOrLoadingPhaseAddonData = true
+	phaseVault.isSavingOrLoadingAddonData = true
 	sendPhaseVaultIOLock(true)
 	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 
@@ -2249,16 +1822,16 @@ local function deleteSpellFromPhaseVault(commID, callback)
 	phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 		if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 			phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
-			phaseVaultKeys = serialDecompressForAddonMsg(text)
+			phaseVaultKeys = serializer.decompressForAddonMsg(text)
 			table.remove(phaseVaultKeys, commID)
-			phaseVaultKeys = serialCompressForAddonMsg(phaseVaultKeys)
+			phaseVaultKeys = serializer.compressForAddonMsg(phaseVaultKeys)
 
 			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
 			local realCommID = savedSpellFromVault[commID].commID
 			dprint("Removing PhaseAddonData for SCFORGE_S_"..realCommID)
 			C_Epsilon.SetPhaseAddonData("SCFORGE_S_"..realCommID, "")
 
-			isSavingOrLoadingPhaseAddonData = false
+			phaseVault.isSavingOrLoadingAddonData = false
 			sendPhaseVaultIOLock(false)
 			if callback then callback(); end
 		end
@@ -2272,12 +1845,12 @@ local function saveSpellToPhaseVault(commID, overwrite)
 		eprint("Invalid CommID.")
 		return;
 	end
-	if isSavingOrLoadingPhaseAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
+	if phaseVault.isSavingOrLoadingAddonData then eprint("Arcaum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
 	if isMemberPlus() then
 		dprint("Trying to save spell to phase vault.")
 
 		local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
-		isSavingOrLoadingPhaseAddonData = true
+		phaseVault.isSavingOrLoadingAddonData = true
 		sendPhaseVaultIOLock(true)
 		phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
 		phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
@@ -2285,7 +1858,7 @@ local function saveSpellToPhaseVault(commID, overwrite)
 				phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" );
 
 				--print(text)
-				if (text ~= "" and #text > 0) then phaseVaultKeys = serialDecompressForAddonMsg(text) else phaseVaultKeys = {} end
+				if (text ~= "" and #text > 0) then phaseVaultKeys = serializer.decompressForAddonMsg(text) else phaseVaultKeys = {} end
 
 				dprint("Phase spell keys: ")
 				ddump(phaseVaultKeys)
@@ -2306,7 +1879,7 @@ local function saveSpellToPhaseVault(commID, overwrite)
 							}
 							StaticPopup_Show("SCFORGE_CONFIRM_POVERWRITE")
 
-							isSavingOrLoadingPhaseAddonData = false
+							phaseVault.isSavingOrLoadingAddonData = false
 							sendPhaseVaultIOLock(false)
 							return;
 						else
@@ -2318,19 +1891,19 @@ local function saveSpellToPhaseVault(commID, overwrite)
 				-- Passed checking for duplicates. NOW we can save it.
 				local _spellData = SpellCreatorSavedSpells[commID]
 				if uploadAsPrivateSpell then _spellData.private = true else _spellData.private = nil end
-				local str = serialCompressForAddonMsg(_spellData)
+				local str = serializer.compressForAddonMsg(_spellData)
 
 				local key = "SCFORGE_S_"..commID
 				C_Epsilon.SetPhaseAddonData(key, str)
 
 				if not needToOverwrite then
 					tinsert(phaseVaultKeys, commID)
-					phaseVaultKeys = serialCompressForAddonMsg(phaseVaultKeys)
+					phaseVaultKeys = serializer.compressForAddonMsg(phaseVaultKeys)
 					C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
 				end
 
 				cprint("Spell '"..commID.."' saved to the Phase Vault.")
-				isSavingOrLoadingPhaseAddonData = false
+				phaseVault.isSavingOrLoadingAddonData = false
 				sendPhaseVaultIOLock(false)
 				getSpellForgePhaseVault()
 			end
@@ -2584,7 +2157,7 @@ local baseVaultFilterTags = {
 	"Macro", "Utility", "Morph", "Animation", "Teleport", "Quest", "Fun", "Officer+", "Gossip", "Spell",
 }
 
-local function editVaultTags( tag, spellCommID, vaultType ) -- 
+local function editVaultTags( tag, spellCommID, vaultType ) --
 	--print(spellCommID, tag)
 	if not tag and not spellComm then return; end
 	if not vaultType then vaultType = 1 end
@@ -2598,7 +2171,7 @@ end
 local function setSpellProfile(spellCommID, profileName, vaultType, callback)
 	if not vaultType then vaultType = 1 end
 	if not spellCommID then return; end
-	if not profileName then 
+	if not profileName then
 		StaticPopupDialogs["SCFORGE_NEW_PROFILE"] = {
 			text = "Assign to new Profile",
 			subText = "Assigning ArcSpell: '"..savedSpellFromVault[spellCommID].fullName.."'",
@@ -2614,13 +2187,13 @@ local function setSpellProfile(spellCommID, profileName, vaultType, callback)
 			end,
 			EditBoxOnTextChanged = function (self)
 				local text = self:GetText();
-				if #text > 0 and text ~= "" then 
+				if #text > 0 and text ~= "" then
 					self:GetParent().button1:Enable()
 				else
 					self:GetParent().button1:Disable()
 				end
 			end,
-			
+
 			button1 = ADD,
 			button2 = CANCEL,
 			hideOnEscape = true,
@@ -2656,11 +2229,11 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 	local item
 	local playerName = GetUnitName("player")
 	local _profile
-	if vault == "PHASE" then 
+	if vault == "PHASE" then
 		menuList = {
-			{text = SCForge_PhaseVaultSpells[spellCommID].fullName, notCheckable = true, isTitle=true},
-			{text = "Cast", notCheckable = true, func = function() executeSpell(SCForge_PhaseVaultSpells[spellCommID].actions) end},
-			{text = "Edit", notCheckable = true, func = function() loadSpell(SCForge_PhaseVaultSpells[spellCommID]) end},
+			{text = phaseVault.spells[spellCommID].fullName, notCheckable = true, isTitle=true},
+			{text = "Cast", notCheckable = true, func = function() executeSpell(phaseVault.spells[spellCommID].actions) end},
+			{text = "Edit", notCheckable = true, func = function() loadSpell(phaseVault.spells[spellCommID]) end},
 			{text = "Transfer", tooltipTitle="Transfer to Personal Vault", tooltipOnButton=true, notCheckable = true, func = function() saveSpell(nil, spellCommID) end},
 		}
 		item = {text = "Add to Gossip", notCheckable = true, func = function() _G["scForgeLoadRow"..spellCommID].gossipButton:Click() end}
@@ -2677,13 +2250,13 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 
 		local interTagTable = {}
 		-- Profiles Menu
-		item = {text = "Profile", notCheckable=true, hasArrow=true, keepShownOnClick=true, 
+		item = {text = "Profile", notCheckable=true, hasArrow=true, keepShownOnClick=true,
 			menuList = {
 				{ text = "Account", isNotRadio = (_profile=="Account"), checked = (_profile=="Account"), disabled = (_profile=="Account"), disablecolor = ((_profile=="Account") and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, "Account", 1, callback); CloseDropDownMenus(); end },
 				{ text = playerName, isNotRadio = (_profile==playerName), checked = (_profile==playerName), disabled = (_profile==playerName), disablecolor = ((_profile==playerName) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, playerName, 1, callback); CloseDropDownMenus(); end },
 			},
 		}
-			
+
 				for k,v in pairs(SpellCreatorSavedSpells) do
 					if v.profile then
 						interTagTable[v.profile] = true
@@ -2726,7 +2299,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 	end}
 	menuList[#menuList+1] = {text = "Export", notCheckable = true, func = function()
 		local exportData = savedSpellFromVault[spellCommID]
-		showExportMenu(savedSpellFromVault[spellCommID].commID, savedSpellFromVault[spellCommID].commID..":"..serialCompressForExport(exportData))
+		showExportMenu(savedSpellFromVault[spellCommID].commID, savedSpellFromVault[spellCommID].commID..":"..serializer.compressForExport(exportData))
 	end}
 
 
@@ -2777,7 +2350,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.20,0.40,0.50,0.5)
 		if fromPhaseDataLoaded then
 			-- called from getSpellForgePhaseVault() - that means our saved spell from Vault is ready -- you can call with true also to skip loading the vault, if you know it's already loaded.
-			savedSpellFromVault = SCForge_PhaseVaultSpells
+			savedSpellFromVault = phaseVault.spells
 			dprint("Phase Spell Vault Loaded.")
 			SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Enable()
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("")
@@ -2803,7 +2376,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		--]]
 		rowNum = rowNum+1
 		if currentVault == "PERSONAL" and not v.profile then savedSpellFromVault[k].profile = "Account"; dprint("Spell '"..k.."' didn't have a profile. Set to 'Account'.") end
-		if currentVault == "PERSONAL" and ((not selectedProfileFilter.showAll) and (not selectedProfileFilter[v.profile])) then 
+		if currentVault == "PERSONAL" and ((not selectedProfileFilter.showAll) and (not selectedProfileFilter[v.profile])) then
 			dprint("Load Row Filtered from Personal Vault Profiles (skipped): "..k)
 			rowNum = rowNum-1
 		else
@@ -2833,7 +2406,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				thisRow:SetWidth(columnWidth-20)
 				thisRow:SetHeight(loadRowHeight)
 
-				-- A nice lil background to make them easier to tell apart			
+				-- A nice lil background to make them easier to tell apart
 				thisRow.Background = thisRow:CreateTexture(nil,"BACKGROUND",nil,5)
 				thisRow.Background:SetPoint("TOPLEFT",-3,0)
 				thisRow.Background:SetPoint("BOTTOMRIGHT",0,0)
@@ -3016,7 +2589,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 							maxLetters = 255-25-20-#savedSpellFromVault[self.commID].commID, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
 							EditBoxOnTextChanged = function (self, data)
 								local text = self:GetText();
-								if #text > 0 and text ~= "" then 
+								if #text > 0 and text ~= "" then
 									self:GetParent().button1:Enable()
 								else
 									self:GetParent().button1:Disable()
@@ -3208,7 +2781,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					self.Timer:Cancel()
 				end)
 				thisRow:SetScript("OnClick", function(self, button)
-					if button == "LeftButton" then 
+					if button == "LeftButton" then
 						if IsModifiedClick("CHATLINK") then
 							SELECTED_CHAT_FRAME.editBox:SetFocus()
 							ChatEdit_InsertLink(generateSpellChatLink(k, currentVault));
@@ -3257,7 +2830,7 @@ end
 
 local function selectProfile(self,arg1,arg2,checked)
 	local profileName
-	if self.value then 
+	if self.value then
 		profileName = self.value
 	else
 		profileName = self
@@ -3370,10 +2943,10 @@ local function saveSpell(mousebutton, fromPhaseVaultID, manualData)
 	local wasOverwritten = false
 	local newSpellData = {}
 	if fromPhaseVaultID then
-		newSpellData.commID = SCForge_PhaseVaultSpells[fromPhaseVaultID].commID
-		newSpellData.fullName = SCForge_PhaseVaultSpells[fromPhaseVaultID].fullName
-		newSpellData.description = SCForge_PhaseVaultSpells[fromPhaseVaultID].description or nil
-		newSpellData.actions = SCForge_PhaseVaultSpells[fromPhaseVaultID].actions
+		newSpellData.commID = phaseVault.spells[fromPhaseVaultID].commID
+		newSpellData.fullName = phaseVault.spells[fromPhaseVaultID].fullName
+		newSpellData.description = phaseVault.spells[fromPhaseVaultID].description or nil
+		newSpellData.actions = phaseVault.spells[fromPhaseVaultID].actions
 		dprint("Saving Spell from Phase Vault, fake commID: "..fromPhaseVaultID..", real commID: "..newSpellData.commID)
 	elseif manualData then
 		newSpellData = manualData
@@ -3482,10 +3055,10 @@ StaticPopupDialogs["SCFORGE_IMPORT_SPELL"] = {
 		if not text then return; end
 		local text, rest = strsplit(":", text, 2)
 		local spellData
-		if text and rest and rest ~= "" then 
-			spellData = serialDecompressForImport(rest)
+		if text and rest and rest ~= "" then
+			spellData = serializer.decompressForImport(rest)
 		elseif text ~= "" then
-			spellData = serialDecompressForImport(test)
+			spellData = serializer.decompressForImport(test)
 		else
 			dprint("Invalid ArcSpell data. Try again."); return;
 		end
@@ -3736,7 +3309,7 @@ SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetSize(24,24)
 SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnClick", function(self)
 	if selectedVaultRow then
 		local commID = spellLoadRows[selectedVaultRow].commID
-		ddump(SCForge_PhaseVaultSpells[commID]) -- Dump the table of the phase vault spell for debug
+		ddump(phaseVault.spells[commID]) -- Dump the table of the phase vault spell for debug
 		saveSpell(nil, commID)
 	end
 end)
@@ -3775,7 +3348,7 @@ SCForgeMainFrame.LoadSpellFrame:Hide()
 SCForgeMainFrame.LoadSpellFrame.Rows = {}
 SCForgeMainFrame.LoadSpellFrame:HookScript("OnShow", function()
 	dprint("Updating Spell Load Rows")
-	updateSpellLoadRows(isPhaseVaultLoaded)
+	updateSpellLoadRows(phaseVault.isLoaded)
 end)
 
 -- Spell Vault Scroll Frame
@@ -3831,7 +3404,7 @@ local button = SCForgeMainFrame.LoadSpellFrame.TabButton2
 	button.HighlightTexture:SetWidth(button:GetTextWidth()+31)
 	button:SetScript("OnClick", function(self)
 		PanelTemplates_SetTab(SCForgeMainFrame.LoadSpellFrame, 2)
-		updateSpellLoadRows(isPhaseVaultLoaded)
+		updateSpellLoadRows(phaseVault.isLoaded)
 	end)
 	button:SetScript("OnShow", function(self)
 		self.Text:SetText(self.text)
@@ -3943,7 +3516,7 @@ end
 local function sendSpellToPlayer(playerName, commID)
 	dprint("Sending Spell '"..commID.."' to "..playerName)
 	if SpellCreatorSavedSpells[commID] then
-		local message = serialCompressForAddonMsg(SpellCreatorSavedSpells[commID])
+		local message = serializer.compressForAddonMsg(SpellCreatorSavedSpells[commID])
 		AceComm:SendCommMessage(addonMsgPrefix.."SPELL", message, "WHISPER", playerName)
 	end
 end
@@ -3955,7 +3528,7 @@ local function savedReceivedSpell(msg, charName)
 end
 
 local function receiveSpellData(msg, charName)
-	msg = serialDecompressForAddonMsg(msg)
+	msg = serializer.decompressForAddonMsg(msg)
 	msg.profile = "From: "..charName
 	dprint("Received Arcanum Spell '"..msg.commID.."' from "..charName)
 	if msg.commID then
@@ -3988,8 +3561,8 @@ function ChatFrame_OnHyperlinkShow(...)
 		local spellIconPath = addonPath.."/assets/BookIcon"
 		local spellIconSize = 24
 		local spellIconSequence = "|T"..spellIconPath..":"..spellIconSize.."|t "
-		local tooltipTitle = spellIconSequence..addonColor..spellName
-		--local tooltipTitle = addonColor..spellName
+		local tooltipTitle = spellIconSequence..ADDON_COLOR..spellName
+		--local tooltipTitle = ADDON_COLOR..spellName
 		GameTooltip_SetTitle(ItemRefTooltip, tooltipTitle)
 		--ItemRefTooltip:AddTexture(spellIconPath, {width=spellIconSize, height=spellIconSize, anchor=ItemRefTooltip.LeftTop })
 		ItemRefTooltip:AddLine(spellDesc, nil, nil, nil, true)
@@ -4042,8 +3615,8 @@ end
 
 local function scforge_showhide(where)
 	if where == "options" then
-		InterfaceOptionsFrame_OpenToCategory(addonTitle);
-		InterfaceOptionsFrame_OpenToCategory(addonTitle);
+		InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
+		InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
 	else
 		if not SCForgeMainFrame:IsShown() then
 			SCForgeMainFrame:Show()
@@ -4175,7 +3748,7 @@ modelFrameSetModel(minimapButton.Model, fastrandom(#minimapModels), minimapModel
 
 --[[
 minimapButton.rune = minimapButton:CreateTexture(nil, "OVERLAY", nil, 7)
-if runeIconOverlay.atlas then 
+if runeIconOverlay.atlas then
 	minimapButton.rune:SetAtlas(runeIconOverlay.atlas)
 else
 	minimapButton.rune:SetTexture(runeIconOverlay.tex)
@@ -4246,9 +3819,9 @@ end)
 minimapButton:SetScript("OnEnter", function(self)
 	self.highlight.anim:Play()
 	SetCursor("Interface/CURSOR/voidstorage.blp");
-	-- interface/cursor/argusteleporter.blp , interface/cursor/trainer.blp , 
+	-- interface/cursor/argusteleporter.blp , interface/cursor/trainer.blp ,
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	GameTooltip:SetText(addonTitle)
+	GameTooltip:SetText(ADDON_TITLE)
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine("/arcanum - Toggle UI",1,1,1,true)
 	GameTooltip:AddLine("/sf - Shortcut Command!",1,1,1,true)
@@ -4257,7 +3830,7 @@ minimapButton:SetScript("OnEnter", function(self)
 	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options.",1,1,1,true)
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine("Mouse over most UI Elements to see tooltips for help! (Like this one!)",0.9,0.75,0.75,true)
-	GameTooltip:AddDoubleLine(" ", addonTitle.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
+	GameTooltip:AddDoubleLine(" ", ADDON_TITLE.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
 	GameTooltip:AddDoubleLine(" ", "by "..addonAuthor, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
 	GameTooltip:Show()
 
@@ -4289,11 +3862,11 @@ end
 function CreateSpellCreatorInterfaceOptions()
 	SpellCreatorInterfaceOptions = {};
 	SpellCreatorInterfaceOptions.panel = CreateFrame( "Frame", "SpellCreatorInterfaceOptionsPanel", UIParent );
-	SpellCreatorInterfaceOptions.panel.name = addonTitle;
+	SpellCreatorInterfaceOptions.panel.name = ADDON_TITLE;
 
 	local SpellCreatorInterfaceOptionsHeader = SpellCreatorInterfaceOptions.panel:CreateFontString("HeaderString", "OVERLAY", "GameFontNormalLarge")
 	SpellCreatorInterfaceOptionsHeader:SetPoint("TOPLEFT", 15, -15)
-	SpellCreatorInterfaceOptionsHeader:SetText(addonTitle.." v"..addonVersion.." by "..addonAuthor)
+	SpellCreatorInterfaceOptionsHeader:SetText(ADDON_TITLE.." v"..addonVersion.." by "..addonAuthor)
 
 
 	SpellCreatorInterfaceOptions.panel.scrollFrame = CreateFrame("ScrollFrame", nil, SpellCreatorInterfaceOptions.panel, "UIPanelScrollFrameTemplate")
@@ -4339,7 +3912,7 @@ function CreateSpellCreatorInterfaceOptions()
 	scrollChild:SetFontObject("h1", GameFontNormalHuge2);
 	scrollChild:SetFontObject("h2", GameFontNormalLarge);
 	scrollChild:SetFontObject("h3", GameFontNormalMed2);
-	scrollChild:SetText(stringtoHTML(addonTable.ChangelogText));
+	scrollChild:SetText(stringtoHTML(ns.ChangelogText));
 	-- Add widgets to the scrolling child frame as desired
 
 
@@ -4353,7 +3926,7 @@ function CreateSpellCreatorInterfaceOptions()
 
 		--[[
 		local buttonData = {
-		["anchor"] = {point = , relativeTo = , relativePoint = , x = , y = ,}, 
+		["anchor"] = {point = , relativeTo = , relativePoint = , x = , y = ,},
 		["title"] = ,
 		["tooltipTitle"] = ,
 		["tooltipText"] = ,
@@ -4515,17 +4088,17 @@ local function onCommReceived(prefix, message, channel, sender)
 	elseif prefix == addonMsgPrefix.."_PLOCK" then
 		local phaseID = C_Epsilon.GetPhaseId()
 		if message == phaseID then
-			isSavingOrLoadingPhaseAddonData = true
+			phaseVault.isSavingOrLoadingAddonData = true
 			dprint("Phase Vault IO for Phase "..phaseID.." was locked by Addon Message")
-			lockTimer = C_Timer.NewTicker(5, function() isSavingOrLoadingPhaseAddonData=false; eprint("Phase IO Lock on for longer than 10 seconds - disabled. If you get this after changing phases, ignore, otherwise please report it."); end)
+			lockTimer = C_Timer.NewTicker(5, function() phaseVault.isSavingOrLoadingAddonData=false; eprint("Phase IO Lock on for longer than 10 seconds - disabled. If you get this after changing phases, ignore, otherwise please report it."); end)
 		end
 	elseif prefix == addonMsgPrefix.."_PUNLOCK" then
 		local phaseID = C_Epsilon.GetPhaseId()
 		if message == phaseID then
-			isSavingOrLoadingPhaseAddonData = false
+			phaseVault.isSavingOrLoadingAddonData = false
 			dprint("Phase Vault IO for Phase "..phaseID.." was unlocked by Addon Message")
 			lockTimer:Cancel()
-			if isPhaseVaultLoaded then getSpellForgePhaseVault((SCForgeLoadFrame:IsShown() and updateSpellLoadRows or nil)) end
+			if phaseVault.isLoaded then getSpellForgePhaseVault((SCForgeLoadFrame:IsShown() and updateSpellLoadRows or nil)) end
 		end
 	end
 end
@@ -4559,20 +4132,20 @@ local gossipScript = {
 		dprint("Adding AutoCast from Gossip: '"..payLoad.."'.")
 	end,
 	click_cast = function(payLoad)
-		if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Casting when loaded..!"); table.insert(spellsToCast, payLoad) return; end
+		if phaseVault.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Casting when loaded..!"); table.insert(spellsToCast, payLoad) return; end
 		local spellRanSuccessfully
-		for k,v in pairs(SCForge_PhaseVaultSpells) do
+		for k,v in pairs(phaseVault.spells) do
 			if v.commID == payLoad then
-				executeSpell(SCForge_PhaseVaultSpells[k].actions, true);
+				executeSpell(phaseVault.spells[k].actions, true);
 				spellRanSuccessfully = true
 			end
 		end
 		if not spellRanSuccessfully then cprint("No spell with command "..payLoad.." found in the Phase Vault. Please let a phase officer know.") end
 	end,
 	save = function(payLoad)
-		if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Please try again in a moment."); return; end
+		if phaseVault.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Please try again in a moment."); return; end
 		dprint("Scanning Phase Vault for Spell to Save: "..payLoad)
-		for k,v in pairs(SCForge_PhaseVaultSpells) do
+		for k,v in pairs(phaseVault.spells) do
 			if v.commID == payLoad then dprint("Found & Saving Spell '"..payLoad.."' ("..k..") to your Personal Vault."); saveSpell(nil, k); end
 		end
 	end,
@@ -4597,7 +4170,7 @@ local gossipTags = {
 		cast = {tag = "cast", script = gossipScript.auto_cast},
 		save = {tag = "save", script = gossipScript.save},
 		cmd = {tag = "cmd", script = gossipScript.cmd},
-		macro = {tag = "macro", script = RunMacroText},
+		macro = {tag = "macro", script = runMacroText},
 	},
 	option = {
 		show = {tag = "show", script = gossipScript.show},
@@ -4605,7 +4178,7 @@ local gossipTags = {
 		cast = {tag = "cast", script = gossipScript.click_cast},
 		save = {tag = "save", script = gossipScript.save},
 		cmd = {tag = "cmd", script = gossipScript.cmd},
-		macro = {tag = "macro", script = RunMacroText},
+		macro = {tag = "macro", script = runMacroText},
 	},
 	extensions = {
 		{ ext = "hide", script = gossipScript.hide_check},
@@ -4635,9 +4208,9 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 	-- Phase Change Listener
 	if event == "SCENARIO_UPDATE" then -- SCENARIO_UPDATE fires whenever a phase change occurs. Lucky us.
 		--dprint("Caught Phase Change - Refreshing Load Rows & Checking for Main Phase / Start") -- Commented out for performance.
-		isSavingOrLoadingPhaseAddonData = false
-		isPhaseVaultLoaded = false
-		
+		phaseVault.isSavingOrLoadingAddonData = false
+		phaseVault.isLoaded = false
+
 		C_Epsilon.IsDM = false
 		updateSpellLoadRows();
 
@@ -4697,9 +4270,9 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 		if addonVersion ~= lastAddonVersion then
 			addonUpdated = true
-			RaidNotice_AddMessage(RaidWarningFrame, "\n\r"..addonColor.."Arcanum - Updated to v"..addonVersion.."\n\rCheck-out the Changelog by right-clicking the Mini-map Icon!|r", ChatTypeInfo["RAID_WARNING"])
---			InterfaceOptionsFrame_OpenToCategory(addonTitle);
---			InterfaceOptionsFrame_OpenToCategory(addonTitle);
+			RaidNotice_AddMessage(RaidWarningFrame, "\n\r"..ADDON_COLOR.."Arcanum - Updated to v"..addonVersion.."\n\rCheck-out the Changelog by right-clicking the Mini-map Icon!|r", ChatTypeInfo["RAID_WARNING"])
+--			InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
+--			InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
 			local titleText = SpellCreatorInterfaceOptions.panel.scrollFrame.Title
 			titleText:SetText("Spell Forge - |cff57F287UPDATED|r to v"..addonVersion)
 			titleText.Backdrop:SetSize(titleText:GetWidth()-4, titleText:GetHeight()/2)
@@ -4724,18 +4297,18 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		currGossipText = GetGossipText();
 
 		local gossipGreetingText = GossipGreetingText:GetText()
-		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then 
-			gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText; 
+		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then
+			gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText;
 			tagSearchText = gossipGreetingText
-			useImmersion = true; 
-			dprint("Immersion detected, using it"); 
+			useImmersion = true;
+			dprint("Immersion detected, using it");
 
 			while tagSearchText and tagSearchText:match(gossipTags.default) do -- while tagSearchText has an arcTag - this allows multiple tags - For Immersion, we need to split our filters between the whole text, and the displayed text
 				shouldLoadSpellVault = true
 				gossipGreetPayload = tagSearchText:match(gossipTags.capture) -- capture the tag
 				local strTag, strArg = strsplit(":", gossipGreetPayload, 2) -- split the tag from the data
 				local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
-				
+
 				if gossipReloadCheck() then
 					dprint("Gossip Reload of the Same Page detected. Skipping Auto Functions.")
 				else
@@ -4755,7 +4328,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 			end
 			ImmersionFrame.TalkBox.TextFrame.Text.storedText = tagSearchText
 			tagSearchText = nil
-			
+
 			ImmersionFrame.TalkBox.TextFrame.Text:RepeatTexts() -- this triggers Immersion to restart the text, pulling from it's storedText, which we already cleaned.
 
 		else
@@ -4765,7 +4338,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				gossipGreetPayload = gossipGreetingText:match(gossipTags.capture) -- capture the tag
 				local strTag, strArg = strsplit(":", gossipGreetPayload, 2) -- split the tag from the data
 				local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
-				
+
 				if gossipReloadCheck() then
 					dprint("Gossip Reload of the Same Page detected. Skipping Auto Functions.")
 				else
@@ -4879,9 +4452,9 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				if next(spellsToCast) == nil then dprint("No Auto Cast Spells in Gossip"); return; end
 				local spellRanSuccessfully
 				for i,j in pairs(spellsToCast) do
-					for k,v in pairs(SCForge_PhaseVaultSpells) do
+					for k,v in pairs(phaseVault.spells) do
 						if v.commID == j then
-							executeSpell(SCForge_PhaseVaultSpells[k].actions, true);
+							executeSpell(phaseVault.spells[k].actions, true);
 							spellRanSuccessfully = true
 						end
 					end
@@ -4889,7 +4462,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				if not spellRanSuccessfully then cprint("No spell found in the Phase Vault. Please let a phase officer know.") end
 				spellsToCast = {} -- empty the table.
 			end
-			if isPhaseVaultLoaded then
+			if phaseVault.isLoaded then
 				castTheSpells()
 			else
 				getSpellForgePhaseVault(castTheSpells)
@@ -4921,172 +4494,6 @@ end);
 
 
 -------------------------------------------------------------------------------
--- Pseudo Scripting/API Helpers
--------------------------------------------------------------------------------
-
-ARC = {}
-ARC.VAR = {}
-
--- SYNTAX: ARC:COMM("command here") - i.e., ARC:COMM("cheat fly")
-function ARC:COMM(text)
-	if text and text ~= "" then
-		cmdWithDotCheck(text)
-	else
-		cprint('ARC:API SYNTAX - COMM - Sends a Command to the Server.')
-		print(addonColor..'Function: |cffFFAAAAARC:COMM("command here")|r')
-		print(addonColor..'Example: |cffFFAAAAARC:COMM("cheat fly")')
-	end
-end
-
--- SYNTAX: ARC:COPY("text to copy, like a URL") - i.e., ARC:COPY("https://discord.gg/C8DZ7AxxcG")
-function ARC:COPY(text)
-	if text and text ~= "" then
-		HTML_HyperlinkClick_Copy(nil, text)
-	else
-		cprint('ARC:API SYNTAX - COPY - Opens a Dialog to copy the given text.')
-		print(addonColor..'Function: |cffFFAAAAARC:COPY("text to copy, like a URL")|r')
-		print(addonColor..'Example: |cffFFAAAAARC:COPY("https://discord.gg/C8DZ7AxxcG")')
-	end
-end
-
--- SYNTAX: ARC:GETNAME() - Gets the Name of the Target and prints it to chat, with MogIt Link Filtering. This allows MogIt links to be copied easily.
-function ARC:GETNAME() 
-	local unitName = GetUnitName("target")
-	if unitName:match("MogIt") then
-		if unitName:match("%[(MogItNPC[^%]]+)%]") then
-			unitName = unitName:gsub("%[(MogIt[^%]]+)%]","|cff00ccff|H%1|h[MogIt NPC]|h|r");
-		else
-			unitName = unitName:gsub("%[(MogIt[^%]]+)%]","|cffcc99ff|H%1|h[MogIt]|h|r");
-		end
-		print("MogIt Link: "..unitName)
-	else
-		print("Unit Name: "..unitName)
-	end
-	--SendChatMessage(GetUnitName("target", false), "WHISPER", nil, UnitName("player"))
-end
-
--- SYNTAX: ARC:CAST("commID") - i.e., ARC:CAST("teleportEffectsSpell") -- Casts an ArcSpell from Personal Vault
-function ARC:CAST(text)
-	if text and text ~= "" then
-		if SpellCreatorSavedSpells[text] then
-			executeSpell(SpellCreatorSavedSpells[text].actions)
-		else
-			cprint("No spell found with commID '"..text.."' in your Personal Vault.")
-		end
-	else
-		cprint('ARC:API SYNTAX - CAST - Casts a Spell from your Personal Vault.')
-		print(addonColor..'Function: |cffFFAAAAARC:CAST("commID")|r')
-		print(addonColor..'Example: |cffFFAAAAARC:CAST("teleportEffectsSpell")')
-		print(addonColor..'Silently Fails if there is no spell by that commID in your personal vault.')
-	end
-end
-
--- SYNTAX: ARC:CASTP("commID") - i.e., ARC:CASTP("teleportEffectsSpell") -- Casts an ArcSpell from Phase Vault
-function ARC:CASTP(text)
-	if text and text ~= "" then
-		local spellRanSuccessfully
-		if isSavingOrLoadingPhaseAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
-		for k,v in pairs(SCForge_PhaseVaultSpells) do
-			if v.commID == text then
-				executeSpell(SCForge_PhaseVaultSpells[k].actions, true);
-				spellRanSuccessfully = true
-			end
-		end
-		if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault (or vault was not loaded). Please let a phase officer know.") end
-	else
-		cprint('ARC:API SYNTAX - CASTP - Casts a Spell from the Phase Vault.')
-		print(addonColor..'Function: |cffFFAAAAARC:CASTP("commID")|r')
-		print(addonColor..'Example: |cffFFAAAAARC:CASTP("teleportEffectsSpell")')
-		print(addonColor..'Silently Fails if there is no spell by that commID in the vault.')
-	end
-end
-
--- SYNTAX: ARC:IF(tag, Command if True, Command if False, [Variables for True], [Variables for False])
-function ARC:IF(tag, command1, command2, var1, var2)
-	if tag then
-		if (command1 and command2) and (tag ~= "" and command1 ~= "" and command2 ~= "") then
-			if var1 == "" then var1 = nil end
-			if var2 == "" then var2 = nil end
-			command1 = command1..(var1 and " "..var1 or "")
-			command2 = command2..((var2 and " "..var2) or (var1 and " "..var1) or "")
-			if ARC.VAR[tag] then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
-		elseif (command1) and (tag ~= "" and command1 ~= "") then
-			if ARC.VAR[tag] then cmdWithDotCheck(command1) end
-		else
-			if ARC.VAR[tag] then return true; else return false; end
-		end
-	else
-		cprint('ARC:API SYNTAX - IF - Checks if "tag" is true, and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands.')
-		print(addonColor..'Function: |cffFFAAAAARC:IF("tag", "CommandTrue", "CommandFalse", "Var1")|r')
-		print(addonColor..'Example 1: |cffFFAAAAARC:IF("ToggleLight","aura 243893", "unau 243893")|r')
-		print(addonColor..'Example 2: |cffFFAAAAARC:IF("ToggleLight","aura", "unau", "243893")|r')
-		print(addonColor.."Both of these will result in the same outcome - If ToggleLight is true, then apply the aura, else unaura.|r")
-	end
-end
-
--- SYNTAX: ARC:IFS(tag, value to equal, Command if True, Command if False, [Variables for True], [Variables for False])
-function ARC:IFS(tag, toEqual, command1, command2, var1, var2)
-	if tag and toEqual then 
-		if (command1 and command2) and (command1 ~= "" and command2 ~= "") then
-			if var1 == "" then var1 = nil end
-			if var2 == "" then var2 = nil end
-			command1 = command1..(var1 and " "..var1 or "")
-			command2 = command2..(var2 and " "..var2 or var1 and " "..var1 or "")
-			if ARC.VAR[tag] == toEqual then cmdWithDotCheck(command1) else cmdWithDotCheck(command2) end
-		elseif (command1) and (tag ~= "" and command1 ~= "") then
-			if ARC.VAR[tag] then cmdWithDotCheck(command1) end
-		else
-			if ARC.VAR[tag] == toEqual then return true; else return false; end
-		end
-	else
-		cprint('ARC:API SYNTAX - IFS - Checks if "tag" is equal to "valueToEqual", and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands, the same as ARC:IF.')
-		print(addonColor..'Function: |cffFFAAAAARC:IFS("tag", "valueToEqual", "CommandTrue", "CommandFalse", "Var1")|r')
-		print(addonColor..'Example 1: |cffFFAAAAARC:IFS("WhatFruit", "apple", "aura 243893", "unau 243893")|r')
-		print(addonColor..'This example will check if WhatFruit is "apple" and will apply the aura if so.|r')
-	end
-end
-
--- SYNTAX: ARC:TOG(tag) -- Flips the ArcVar between true and false.
-function ARC:TOG(tag)
-	if tag and tag ~= "" then
-		if ARC.VAR[tag] then ARC.VAR[tag] = false else ARC.VAR[tag] = true end
-		dprint(tostring(ARC.VAR[tag]))
-	else
-		cprint('ARC:API SYNTAX - TOG - Toggles an ArcTag (ARC.VAR) between true and false.')
-		print(addonColor..'Function: |cffFFAAAAARC:TOG("tag")|r')
-		print(addonColor..'Example: |cffFFAAAAARC:TOG("ToggleLight")|r')
-		print(addonColor.."Use alongside ARC:IF to make toggle spells.|r")
-	end
-end
-
--- SYNTAX: ARC:TOG(tag) -- Sets the ArcVar to the specified string.
-function ARC:SET(tag, str)
-	if tag == "" then tag = nil end
-	if str == "" then str = nil end
-	if tag and str then
-		ARC.VAR[tag] = str
-	else
-		cprint('ARC:API SYNTAX - SET - Set an ArcTag (ARC.VAR) to a specific value.')
-		print(addonColor..'Function: |cffFFAAAAARC:SET("tag", "value")|r')
-		print(addonColor..'Example 1: |cffFFAAAAARC:SET("ToggleLight","2")|r')
-		print(addonColor..'Example 2: |cffFFAAAAARC:SET("ToggleLight","3")|r')
-		print(addonColor.."This is likely only useful for power-users and super specific spells.|r")
-	end
-end
-
-function ARC:GET(tag)
-	if tag and tag ~= nil then
-		return ARC.VAR[tag];
-	else
-		cprint("ARC:API SYNTAX - GET - Get the value of an ArcTag (ARC.VAR).")
-		print(addonColor..'Function: |cffFFAAAAARC:GET("tag")|r')
-		print(addonColor..'Example 1: |cffFFAAAAARC:GET("ToggleLight")|r')
-	end
-end
-
-
-
--------------------------------------------------------------------------------
 -- Version / Help / Toggle
 -------------------------------------------------------------------------------
 
@@ -5108,36 +4515,36 @@ end
 
 local function arcSlashCommandHandler(msg)
 	local command, arg1, arg2, arg3, arg4, arg5, arg6 = AceConsole:GetArgs(msg, 7)
-	if not command or command == "" then 
+	if not command or command == "" then
 		cprint("Commands & API")
-		print(addonColor.."Main Commands:")
-		print(addonColor..'NOTE: If you want to use a space, wrap your $variable in quotes (i.e., "command with spaces").')
-		print(addonColor.."/arcanum [$commID] - Cast an ArcSpell by it's command ID you gave it (aka CommID), or open the Spell Forge UI if left blank.")
-		print(addonColor.."/sf [$commID] - Shorter Alternative to /arcanum.")
+		print(ADDON_COLOR.."Main Commands:")
+		print(ADDON_COLOR..'NOTE: If you want to use a space, wrap your $variable in quotes (i.e., "command with spaces").')
+		print(ADDON_COLOR.."/arcanum [$commID] - Cast an ArcSpell by it's command ID you gave it (aka CommID), or open the Spell Forge UI if left blank.")
+		print(ADDON_COLOR.."/sf [$commID] - Shorter Alternative to /arcanum.")
 		print(" ")
-		print(addonColor.."ARC:API Commands:")
-		print(addonColor.."/arc ..")
-		print(addonColor.."     .. cast $commID|r - Cast from your personal vault, same as /arcanum or /sf")
-		print(addonColor.."     .. castp $commID|r - Cast a spell from the Phase Vault if it exists.")
+		print(ADDON_COLOR.."ARC:API Commands:")
+		print(ADDON_COLOR.."/arc ..")
+		print(ADDON_COLOR.."     .. cast $commID|r - Cast from your personal vault, same as /arcanum or /sf")
+		print(ADDON_COLOR.."     .. castp $commID|r - Cast a spell from the Phase Vault if it exists.")
 		print("               Direct Function: |cffFFAAAA/run ARC:CASTP()|r")
-		print(addonColor.."     .. cmd $command|r - Runs the server $command specified (i.e., 'cheat fly').")
+		print(ADDON_COLOR.."     .. cmd $command|r - Runs the server $command specified (i.e., 'cheat fly').")
 		print("               Direct Function: |cffFFAAAA/run ARC:COMM()|r")
-		print(addonColor..'     .. if $tag $commandTrue $commandFalse [$varTrue] [$varFalse]')
+		print(ADDON_COLOR..'     .. if $tag $commandTrue $commandFalse [$varTrue] [$varFalse]')
 		print("          Checks if the $tag is true and runs the $commandTrue (with $var1 added if given),")
 		print("          or $commandFalse if not true (with $varTrue/$varFalse added if given).")
 		print("               Direct Function: |cffFFAAAA/run ARC:IF()|r")
-		print(addonColor..'     .. ifs $tag $check $commandTrue $commandFalse [$varTrue] [$varFalse]')
+		print(ADDON_COLOR..'     .. ifs $tag $check $commandTrue $commandFalse [$varTrue] [$varFalse]')
 		print("          Same as ARC:IF but checks if the $tag is equal to $check instead of just testing if it's true.")
 		print("               Direct Function: |cffFFAAAA/run ARC:IF()|r")
-		print(addonColor.."     .. tog $tag|r - Toggles the $tag between true & false, used with ARC:IF (/arc if).")
+		print(ADDON_COLOR.."     .. tog $tag|r - Toggles the $tag between true & false, used with ARC:IF (/arc if).")
 		print("               Direct Function: |cffFFAAAA/run ARC:TOG()|r")
-		print(addonColor..'     .. set $tag $value|r - Sets the $tag to a specific "$value". Use with GET or IFS.')
+		print(ADDON_COLOR..'     .. set $tag $value|r - Sets the $tag to a specific "$value". Use with GET or IFS.')
 		print("               Direct Function: |cffFFAAAA/run ARC:SET()|r")
-		print(addonColor..'     .. copy $URL/Text|r - Shows a pop-up box to copy the URL / Text given.')
+		print(ADDON_COLOR..'     .. copy $URL/Text|r - Shows a pop-up box to copy the URL / Text given.')
 		print("               Direct Function: |cffFFAAAA/run ARC:COPY()|r")
-		print(addonColor..'     .. getname|r - Gets the name of the target - if it is a MogIt name, it will give you the MogIt Link.')
+		print(ADDON_COLOR..'     .. getname|r - Gets the name of the target - if it is a MogIt name, it will give you the MogIt Link.')
 		print("               Direct Function: |cffFFAAAA/run ARC:GETNAME()|r")
-		print(addonColor.."/sfdebug|r - List all the Debug Commands. WARNING: These are for DEBUG, not to play with and complain something broke.")
+		print(ADDON_COLOR.."/sfdebug|r - List all the Debug Commands. WARNING: These are for DEBUG, not to play with and complain something broke.")
 		return;
 	elseif command == "cast" then
 		ARC:CAST(arg1)
@@ -5203,11 +4610,11 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 				phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 						phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
-						phaseVaultKeys = serialDecompressForAddonMsg(text)
+						phaseVaultKeys = serializer.decompressForAddonMsg(text)
 						local theDeletedKey = phaseVaultKeys[rest]
 						if theDeletedKey then
 							table.remove(phaseVaultKeys, rest)
-							phaseVaultKeys = serialCompressForAddonMsg(phaseVaultKeys)
+							phaseVaultKeys = serializer.compressForAddonMsg(phaseVaultKeys)
 							dprint(true, "Deleted Phase Key: ["..rest.."] = "..theDeletedKey)
 							C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
 						else
@@ -5230,7 +4637,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 				phaseAddonDataListener:SetScript("OnEvent", function( self, event, prefix, text, channel, sender, ... )
 					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 						phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
-						interAction = serialDecompressForAddonMsg(text)
+						interAction = serializer.decompressForAddonMsg(text)
 						_phaseSpellDebugDataTable[interAction.fullName] = {
 							["encoded"] = text,
 							["decoded"] = interAction,
@@ -5248,7 +4655,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 						phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
 
 						if (#text < 1 or text == "") then noSpellsToLoad(true); return; end
-						phaseVaultKeys = serialDecompressForAddonMsg(text)
+						phaseVaultKeys = serializer.decompressForAddonMsg(text)
 						if #phaseVaultKeys < 1 then noSpellsToLoad(true); return; end
 						local phaseVaultLoadingCount = 0
 						local phaseVaultLoadingExpected = #phaseVaultKeys
@@ -5261,7 +4668,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 							if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
 								messageTicketQueue[prefix] = nil -- remove it from the queue.. We'll reset the table next time anyways but whatever.
 								phaseVaultLoadingCount = phaseVaultLoadingCount+1
-								interAction = serialDecompressForAddonMsg(text)
+								interAction = serializer.decompressForAddonMsg(text)
 								_phaseSpellDebugDataTable[interAction.fullName] = {
 									["encoded"] = text,
 									["decoded"] = interAction,
@@ -5294,7 +4701,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 					phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" )
 					SpellCreatorMasterTable.Options["debugPhaseKeys"] = text
 					print(text)
-					phaseVaultKeys = serialDecompressForAddonMsg(text)
+					phaseVaultKeys = serializer.decompressForAddonMsg(text)
 					dump(phaseVaultKeys)
 				end
 			end)
