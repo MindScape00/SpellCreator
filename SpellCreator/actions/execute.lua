@@ -13,14 +13,17 @@ local sfCmd_ReplacerChar = "@N@"
 local runningActions = {}
 
 local function stopRunningActions()
+	local didStopSomething = false
 	for i = 1, #runningActions do
 		if runningActions[i] then
 			runningActions[i]:Cancel()
 			runningActions[i]=nil
+			didStopSomething = true
 			--print("Timer ", i, "Cancelled")
 		end
 	end
 	ns.Utils.Castbar.stopCastingBars()
+	return didStopSomething
 end
 
 local function executeAction(varTable, actionData, selfOnly, isRevert, runningActionID)
@@ -108,11 +111,11 @@ local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 	ns.Utils.Castbar.showCastBar(longestDelay, spellName, nil, channeled, nil, nil)
 end
 
-
 ns.actions.executeSpell = executeSpell
 ns.actions.stopRunningActions = stopRunningActions
 
-
+hooksecurefunc("SpellStopCasting", function() return stopRunningActions() end)
+--[[
 local f  = CreateFrame("Frame", nil, UIParent)
 local function onKeyInput(self, key)
 	if key == "ESCAPE" then
@@ -121,3 +124,4 @@ local function onKeyInput(self, key)
 end 
 f:SetScript("OnKeyDown", onKeyInput)
 f:SetPropagateKeyboardInput(true)
+--]]
