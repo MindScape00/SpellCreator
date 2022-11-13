@@ -69,6 +69,7 @@
 	<Script file="permissions.lua"/>
 	<Script file="utils/Utils.lua"/>
 	<Script file="utils/Aura.lua"/>
+	<Script file="utils/Castbar.lua"/>
 	<Script file="cmd.lua"/>
 	<Script file="actions/actions.lua"/>
 	<Script file="actions/execute.lua"/>

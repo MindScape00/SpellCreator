@@ -17,6 +17,7 @@ local actionTypeDataList = { -- formatted for easier sorting - whatever order th
 	"RunHeader",
 	"MacroText",
 	"Command",
+	"ARCAPIMenu",
 	"ArcSpell",
 }
 
@@ -66,6 +67,7 @@ local actionTypeData = {
 		["menuDataList"] = {
 			"SpellAura",
 			"ToggleAura",
+			"ToggleAuraSelf",
 			"Spacer",
 			"RemoveAura",
 			"RemoveAllAuras",
@@ -125,6 +127,15 @@ local actionTypeData = {
 			"Unmorph",
 		},
 	},
+	["ARCAPIMenu"] = {
+		["name"] = "ARC:API",
+		["type"] = "submenu",
+		["menuDataList"] = {
+			"ARCSet",
+			"ARCTog",
+			"ARCCopy",
+		},
+	},
 	["Spacer"] = {
 		["type"] = "spacer",
 	},
@@ -161,7 +172,7 @@ local actionTypeData = {
 	["ToggleAura"] = {
 		["name"] = "Toggle Aura",
 		["command"] = function(spellID) if Aura.checkForAuraID(tonumber(spellID)) then cmd("unaura "..spellID) else cmd("aura "..spellID) end; end,
-		["description"] = "Toggles an Aura on / off.\n\rApplies to your target if you have Phase DM on & Officer+",
+		["description"] = "Toggles an Aura on / off.\n\rApplies to your target if you have Phase DM on & Officer+\n\rRevert: Toggles the Aura again.",
 		["dataName"] = "Spell ID",
 		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\r'.look spell' for IDs.",
 		["comTarget"] = "func",
@@ -170,7 +181,7 @@ local actionTypeData = {
 	["ToggleAuraSelf"] = {
 		["name"] = "Toggle Aura (Self)",
 		["command"] = function(spellID) if Aura.checkForAuraID(tonumber(spellID)) then cmd("unaura "..spellID.." self") else cmd("aura "..spellID.." self") end; end,
-		["description"] = "Toggles an Aura on / off\n\rApples on yourself.",
+		["description"] = "Toggles an Aura on / off\n\rApples on yourself.\n\rRevert: Toggles the Aura again.",
 		["dataName"] = "Spell ID",
 		["inputDescription"] = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\r'.look spell' for IDs.",
 		["comTarget"] = "func",
@@ -414,10 +425,42 @@ local actionTypeData = {
 		},
 	["ArcSpell"] = {
 		["name"] = "Arcanum Spell",
-		["command"] = function(commID) ns.actions.executeSpell(SpellCreatorSavedSpells[commID].actions) end,
+		["command"] = function(commID) ns.actions.executeSpell(SpellCreatorSavedSpells[commID].actions, nil, SpellCreatorSavedSpells[commID].fullName) end,
 		["description"] = "Cast another Arcanum Spell from your Personal Vault.",
 		["dataName"] = "Spell Command",
 		["inputDescription"] = "The command ID (commID) used to cast the ArcSpell\n\rExample: '/sf MySpell', where MySpell is the command ID to input here.",
+		["comTarget"] = "func",
+		["revert"] = nil,
+		},
+	["ARCSet"] = {
+		["name"] = "Set Variable",
+		["command"] = function(data)
+			local var, val = strsplit("|", data, 2);
+			var = strtrim(var, " \t\r\n\124");
+			val = strtrim(val, " \t\r\n\124");
+			ARC:SET(var, val);
+		end,
+		["description"] = "Set an ARCVAR to a specific value.",
+		["dataName"] = "VarName | Value",
+		["inputDescription"] = "Provide the variable name & the value to set it as, separated by a | character.",
+		["comTarget"] = "func",
+		["revert"] = nil,
+		},
+	["ARCTog"] = {
+		["name"] = "Toggle Variable",
+		["command"] = function(var) ARC:TOG(var) end,
+		["description"] = "Toggle an ARCVAR, like a light switch.\n\rRevert: Toggles the variable again.",
+		["dataName"] = "Variable Name",
+		["inputDescription"] = "The variable name to toggle.",
+		["comTarget"] = "func",
+		["revert"] = function(var) ARC:TOG(var) end,
+		},
+	["ARCCopy"] = {
+		["name"] = "Copy Text/URL",
+		["command"] = function(text) ARC:COPY(text) end,
+		["description"] = "Open a dialog box to copy the given text (i.e., a URL).",
+		["dataName"] = "Text / URL",
+		["inputDescription"] = "The text / link / URL to copy.",
 		["comTarget"] = "func",
 		["revert"] = nil,
 		},

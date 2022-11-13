@@ -75,7 +75,8 @@ local function dump(o)
 		UIParentLoadAddOn("Blizzard_DebugTools");
 	end
 	if type(o) == "table" then
-		DisplayTableInspectorWindow(o)
+		DevTools_Dump(o);
+		--DisplayTableInspectorWindow(o)
 	else
 		DevTools_Dump(o);
 	end
@@ -1601,7 +1602,8 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 		end
 	end
 	C_Timer.After(maxDelay, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25) end)
-	executeSpell(actionsToCommit)
+	local spellName = SCForgeMainFrame.SpellInfoNameBox:GetText()
+	executeSpell(actionsToCommit, nil, spellName)
 end)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -2232,7 +2234,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 	if vault == "PHASE" then
 		menuList = {
 			{text = phaseVault.spells[spellCommID].fullName, notCheckable = true, isTitle=true},
-			{text = "Cast", notCheckable = true, func = function() executeSpell(phaseVault.spells[spellCommID].actions) end},
+			{text = "Cast", notCheckable = true, func = function() executeSpell(phaseVault.spells[spellCommID].actions, nil, phaseVault.spells[spellCommID].fullName) end},
 			{text = "Edit", notCheckable = true, func = function() loadSpell(phaseVault.spells[spellCommID]) end},
 			{text = "Transfer", tooltipTitle="Transfer to Personal Vault", tooltipOnButton=true, notCheckable = true, func = function() saveSpell(nil, spellCommID) end},
 		}
@@ -4136,7 +4138,7 @@ local gossipScript = {
 		local spellRanSuccessfully
 		for k,v in pairs(phaseVault.spells) do
 			if v.commID == payLoad then
-				executeSpell(phaseVault.spells[k].actions, true);
+				executeSpell(v.actions, true, v.fullName);
 				spellRanSuccessfully = true
 			end
 		end
@@ -4299,7 +4301,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		local gossipGreetingText = GossipGreetingText:GetText()
 		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then
 			gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText;
-			tagSearchText = gossipGreetingText
+			local tagSearchText = gossipGreetingText
 			useImmersion = true;
 			dprint("Immersion detected, using it");
 
@@ -4454,7 +4456,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				for i,j in pairs(spellsToCast) do
 					for k,v in pairs(phaseVault.spells) do
 						if v.commID == j then
-							executeSpell(phaseVault.spells[k].actions, true);
+							executeSpell(v.actions, true, v.fullName);
 							spellRanSuccessfully = true
 						end
 					end
@@ -4502,7 +4504,7 @@ function SlashCmdList.SCFORGEMAIN(msg, editbox) -- 4.
 	if #msg > 0 then
 		dprint(false,"Casting Arcanum Spell by CommID: "..msg)
 		if SpellCreatorSavedSpells[msg] then
-			executeSpell(SpellCreatorSavedSpells[msg].actions)
+			executeSpell(SpellCreatorSavedSpells[msg].actions, nil, SpellCreatorSavedSpells[msg].fullName)
 		elseif msg == "options" then
 			scforge_showhide("options")
 		else
@@ -4730,7 +4732,7 @@ function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
 	modelFrameSetModel(SCForgeMainFrame.portrait.Model, testComVar, minimapModels)
 	print(testComVar)
 
---[[
+	--[[
 	if msg ~= "" then
 		modelFrameSetModel(minimapButton.Model, msg, minimapModels)
 	else

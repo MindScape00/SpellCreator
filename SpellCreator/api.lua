@@ -51,7 +51,7 @@ end
 function ARC:CAST(text)
 	if text and text ~= "" then
 		if SpellCreatorSavedSpells[text] then
-			executeSpell(SpellCreatorSavedSpells[text].actions)
+			executeSpell(SpellCreatorSavedSpells[text].actions, nil, SpellCreatorSavedSpells[text].fullName)
 		else
 			cprint("No spell found with commID '"..text.."' in your Personal Vault.")
 		end
@@ -70,7 +70,7 @@ function ARC:CASTP(text)
 		if phaseVault.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
 		for k,v in pairs(phaseVault.spells) do
 			if v.commID == text then
-				executeSpell(phaseVault.spells[k].actions, true);
+				executeSpell(v.actions, true, v.fullName);
 				spellRanSuccessfully = true
 			end
 		end
@@ -132,7 +132,7 @@ end
 function ARC:TOG(tag)
 	if tag and tag ~= "" then
 		if ARC.VAR[tag] then ARC.VAR[tag] = false else ARC.VAR[tag] = true end
-		dprint(tostring(ARC.VAR[tag]))
+		dprint(false, tag, "= "..tostring(ARC.VAR[tag]))
 	else
 		cprint('ARC:API SYNTAX - TOG - Toggles an ArcTag (ARC.VAR) between true and false.')
 		print(ADDON_COLOR..'Function: |cffFFAAAAARC:TOG("tag")|r')
@@ -147,6 +147,7 @@ function ARC:SET(tag, str)
 	if str == "" then str = nil end
 	if tag and str then
 		ARC.VAR[tag] = str
+		dprint(false, tag, "= "..tostring(ARC.VAR[tag]))
 	else
 		cprint('ARC:API SYNTAX - SET - Set an ArcTag (ARC.VAR) to a specific value.')
 		print(ADDON_COLOR..'Function: |cffFFAAAAARC:SET("tag", "value")|r')

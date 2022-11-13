@@ -1,5 +1,8 @@
 local _, ns = ...
 
+local C_Timer = C_Timer
+local pairs = pairs
+
 local actionTypeData = ns.actions.actionTypeData
 local cmd = ns.cmd.cmd
 local cprint = ns.logging.cprint
@@ -7,7 +10,21 @@ local isOfficerPlus = ns.permissions.isOfficerPlus
 
 local sfCmd_ReplacerChar = "@N@"
 
-local function executeAction(varTable, actionData, selfOnly, isRevert)
+local runningActions = {}
+
+local function stopRunningActions()
+	for i = 1, #runningActions do
+		if runningActions[i] then
+			runningActions[i]:Cancel()
+			runningActions[i]=nil
+			--print("Timer ", i, "Cancelled")
+		end
+	end
+	ns.Utils.Castbar.stopCastingBars()
+end
+
+local function executeAction(varTable, actionData, selfOnly, isRevert, runningActionID)
+	if runningActionID then runningActions[runningActionID] = nil end
 	local comTarget = actionData.comTarget
 	for i = 1, #varTable do
 		local v = varTable[i]
@@ -49,27 +66,58 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	end
 
 	if delay == 0 then
-		executeAction(varTable, actionData, selfOnly, nil)
+		executeAction(varTable, actionData, selfOnly, nil, nil)
 		if revertDelay and revertDelay > 0 then
-			C_Timer.After(revertDelay, function() executeAction(varTable, actionData, selfOnly, true) end)
+			local runningActionID = #runningActions+1
+			runningActions[runningActionID] = C_Timer.NewTimer(revertDelay, function() executeAction(varTable, actionData, selfOnly, true, runningActionID) end)
 		end
 	else
-		C_Timer.After(delay, function()
-			executeAction(varTable, actionData, selfOnly, nil)
+		local runningActionID = #runningActions+1
+		runningActions[runningActionID] = C_Timer.NewTimer(delay, function()
+			executeAction(varTable, actionData, selfOnly, nil, runningActionID)
 			if revertDelay and revertDelay > 0 then
-				C_Timer.After(revertDelay, function() executeAction(varTable, actionData, selfOnly, true) end)
+				local runningActionID = #runningActions+1
+				runningActions[runningActionID] = C_Timer.NewTimer(revertDelay, function() executeAction(varTable, actionData, selfOnly, true, runningActionID) end)
 			end
 		end)
 	end
 end
 
-local function executeSpell(actionsToCommit, byPassCheck)
-	if ((not byPassCheck) and (not SpellCreatorMasterTable.Options["debug"])) then
+local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
+	local longestDelay = 0
+	local channeled
+	if ((not bypassCheck) and (not SpellCreatorMasterTable.Options["debug"])) then
 		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than Dranosh Valley.") return; end
 	end
 	for _,spell in pairs(actionsToCommit) do
 		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
+		if spell.delay > longestDelay then 
+			longestDelay = spell.delay
+		end
+		if spell.revertDelay and spell.revertDelay > longestDelay then
+			longestDelay = spell.revertDelay
+		end
 	end
+	
+	if spellData then 
+		local spellOptions = spellData["options"]
+		channeled = tContains(spellOptions, "channeled")
+	end
+
+	if not spellName then spellName = "Arcanum Spell" end
+	ns.Utils.Castbar.showCastBar(longestDelay, spellName, nil, channeled, nil, nil)
 end
 
+
 ns.actions.executeSpell = executeSpell
+ns.actions.stopRunningActions = stopRunningActions
+
+
+local f  = CreateFrame("Frame", nil, UIParent)
+local function onKeyInput(self, key)
+	if key == "ESCAPE" then
+		stopRunningActions()
+	end
+end 
+f:SetScript("OnKeyDown", onKeyInput)
+f:SetPropagateKeyboardInput(true)
