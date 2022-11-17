@@ -69,8 +69,8 @@ end
 
 local function updateButtonTexs(self) -- you need to set the main texture first
 	local pushedTex = self:GetPushedTexture()
-	local normalTex = self.icon:GetTexture()
-	pushedTex:SetTexture(normalTex)
+	local normalTex = self:GetNormalTexture()
+	pushedTex:SetTexture(normalTex:GetTexture())
 	pushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
 	pushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
 	pushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
@@ -92,13 +92,23 @@ local function genQuickCastButtons(self)
 			button:Hide()
 			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 			button.index = i
-			button.icon = button:CreateTexture(nil, "ARTWORK")
-			button.icon:SetAllPoints()
+			--button.icon = button:CreateTexture(nil, "ARTWORK")
+			--button.icon:SetAllPoints()
 			local someIcon = ns.UI.Gems.randomGem()
-			SetPortraitToTexture(button.icon, someIcon)
+			--SetPortraitToTexture(button.icon, someIcon)
+			button:SetNormalTexture(someIcon)
 			button:SetPushedTexture(someIcon)
-			button.ring = button:CreateTexture(nil, "BORDER")
-			button.ring:SetAllPoints()
+			updateButtonTexs(button)
+			button.mask = button:CreateMaskTexture()
+			button.mask:SetAllPoints()
+			button.mask:SetTexture("Interface/CHARACTERFRAME/TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+			button:GetNormalTexture():AddMaskTexture(button.mask)
+			button:GetPushedTexture():AddMaskTexture(button.mask)
+			button.ring = button:CreateTexture(nil, "OVERLAY")
+			--button.ring:SetAllPoints()
+			local ringPadding = 3
+			button.ring:SetPoint("TOPLEFT",-ringPadding,ringPadding)
+			button.ring:SetPoint("BOTTOMRIGHT",ringPadding,-ringPadding)
 			button.ring:SetTexture("Interface\\Artifacts\\Artifacts-PerkRing-Final-Mask")
 			button:SetHighlightTexture("Interface/Minimap/UI-Minimap-ZoomButton-Highlight")
 			button.anims = button:CreateAnimationGroup()
@@ -129,21 +139,30 @@ local function genQuickCastButtons(self)
 		local button = self.castButtons[i]
 		button:SetPoint("CENTER", self, "CENTER", x, y)
 		button:SetSize(30,30)
-		updateButtonTexs(button)
 
 		if spellData == nil then
 			button.tooltipTitle = "Error Loading Spell"
 			button.tooltipText = "Spell "..i.." does not exist in your vault."
-			button.icon:SetTexture("interface/icons/inv_misc_questionmark")
+			--button.icon:SetTexture("interface/icons/inv_misc_questionmark")
+			button:SetNormalTexture("interface/icons/inv_misc_questionmark")
+			button:SetScript("OnClick", function(self, button)
+				if button == "RightButton" then
+					tremove(quickCastSpells, i)
+					hideCastButtons()
+					C_Timer.After(0.1, function() genQuickCastButtons(self:GetParent()) end)
+				end
+			end)
 		else
 			button.tooltipTitle = spellData.fullName
 			button.tooltipText = "Cast '"..spellData.commID.."' ("..#spellData.actions.." actions)."
 			button.commID = spellData.commID
 			if spellData.icon then
-				button.icon:SetTexture(ns.UI.Icons.getIcon(spellData.icon))
+				--button.icon:SetTexture(ns.UI.Icons.getIcon(spellData.icon))
+				button:SetNormalTexture(ns.UI.Icons.getIcon(spellData.icon))
 			else
 				local iconNum = ((i-1) % (#ns.UI.Gems.arcaneGemIcons)) + 1
-				button.icon:SetTexture(ns.UI.Gems.gemPath(ns.UI.Gems.arcaneGemIcons[iconNum]))
+				--button.icon:SetTexture(ns.UI.Gems.gemPath(ns.UI.Gems.arcaneGemIcons[iconNum]))
+				button:SetNormalTexture(ns.UI.Gems.gemPath(ns.UI.Gems.arcaneGemIcons[iconNum]))
 			end
 			button:SetScript("OnClick", function(self, button)
 				if button == "RightButton" then
@@ -156,6 +175,7 @@ local function genQuickCastButtons(self)
 				end
 			end)
 		end
+		updateButtonTexs(button)
 		--button:Show()
 		if not button:IsShown() then button.showTimer = C_Timer.NewTimer(0.05*i, function() UIFrameFadeIn(button, 0.05, 0, 1) end) end
 	end
