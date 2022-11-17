@@ -1,8 +1,12 @@
-local addonName, ns = ...
+local addonName = ...
+---@class ns
+local ns = select(2, ...)
 
 local addonPath = "Interface/AddOns/"..tostring(addonName)
 local arcaneGemPath = addonPath.."/assets/gem-icons/Gem"
 local addonIcon = arcaneGemPath.."Violet"
+local castingBarFillTexture = addonPath.."/assets/castingbar-fill"
+local castingBarShieldBorder = addonPath.."/assets/castingbar-border-icon"
 
 local function CustomCastingBarFrame_OnUpdate(self, elapsed)
 
@@ -100,11 +104,13 @@ local function genNewCastBar()
     CastingBarFrame_SetStartChannelColor(castStatusBar, 0/255, 255/255, 255/255);
     castStatusBar.Spark:SetVertexColor(206/255, 46/255, 255/255)
 
+    castStatusBar:SetStatusBarTexture(castingBarFillTexture)
+    castStatusBar.BorderShield:SetTexture(castingBarShieldBorder)
+
     castStatusBar:SetScript("OnUpdate", CustomCastingBarFrame_OnUpdate)
 
     tinsert(availableCastBars, castStatusBar)
-    
-    print("Made a new cast bar.")
+
     return castStatusBar
 
 end
@@ -125,7 +131,7 @@ local function stopCastingBars()
                 self.Flash:Show();
             end
             self:SetValue(self.maxValue);
-            if self.casting then 
+            if self.casting then
                 if not self.finishedColorSameAsStart then
                     self:SetStatusBarColor(self.finishedCastColor:GetRGB());
                 end
@@ -150,17 +156,18 @@ end
 local function showCastBar(length, text, spellData, channeled, showIcon, showShield)
 
     if length < 0.75 then return end; -- hard limit for no cast bars under 0.75 cuz it looks terrible
-    
+
     local self = getFreeCastBar()
     local notInterruptible = false
     local startColor
-    
-    if not showIcon then showIcon = false end
-    self.showShield = showShield or false
+
+    self.showShield = showShield or true
+    if (not showIcon and not self.showShield) then showIcon = false else showIcon = true end
+
     if not text or text == "" then text = "Arcanum Spell" end
     local castIcon = addonIcon -- default icon, change it below if needed
 
-    if spellData then 
+    if spellData then
         -- do stuff here to give more UI info, like setting the icon
     end
 
@@ -168,7 +175,7 @@ local function showCastBar(length, text, spellData, channeled, showIcon, showShi
     self:SetStatusBarColor(startColor:GetRGB());
 
     self.maxValue = (length);
-    if channeled then 
+    if channeled then
         if ( self.Spark ) then
             self.Spark:Show(); -- Blizzard style UI has this as :Hide(); I think it looks nicer shown
             self.Spark:SetVertexColor(startColor:GetRGB())
@@ -224,7 +231,8 @@ local function showCastBar(length, text, spellData, channeled, showIcon, showShi
     self:Show();
 end
 
-ns.Utils.Castbar = {
+---@class UI_Castbar
+ns.UI.Castbar = {
     showCastBar = showCastBar,
     stopCastingBars = stopCastingBars,
 }

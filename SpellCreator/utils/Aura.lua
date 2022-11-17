@@ -1,4 +1,5 @@
-local _, ns = ...
+---@class ns
+local ns = select(2, ...)
 
 local checkForAuraIDPredicate = function(wantedID, _, _, ...)
 	local spellID = select(10, ...)

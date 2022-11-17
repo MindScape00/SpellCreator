@@ -1,12 +1,13 @@
-local _, ns = ...
+---@class ns
+local ns = select(2, ...)
 
 local C_Timer = C_Timer
 local pairs = pairs
 
-local actionTypeData = ns.actions.actionTypeData
-local cmd = ns.cmd.cmd
-local cprint = ns.logging.cprint
-local isOfficerPlus = ns.permissions.isOfficerPlus
+local actionTypeData = ns.Actions.Data.actionTypeData
+local cmd = ns.Cmd.cmd
+local cprint = ns.Logging.cprint
+local isOfficerPlus = ns.Permissions.isOfficerPlus
 
 local sfCmd_ReplacerChar = "@N@"
 
@@ -19,10 +20,9 @@ local function stopRunningActions()
 			runningActions[i]:Cancel()
 			runningActions[i]=nil
 			didStopSomething = true
-			--print("Timer ", i, "Cancelled")
 		end
 	end
-	ns.Utils.Castbar.stopCastingBars()
+	ns.UI.Castbar.stopCastingBars()
 	return didStopSomething
 end
 
@@ -94,34 +94,28 @@ local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 	end
 	for _,spell in pairs(actionsToCommit) do
 		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
-		if spell.delay > longestDelay then 
+		if spell.delay > longestDelay then
 			longestDelay = spell.delay
 		end
 		if spell.revertDelay and spell.revertDelay > longestDelay then
 			longestDelay = spell.revertDelay
 		end
 	end
-	
-	if spellData then 
+
+	if spellData then
 		local spellOptions = spellData["options"]
 		channeled = tContains(spellOptions, "channeled")
 	end
 
 	if not spellName then spellName = "Arcanum Spell" end
-	ns.Utils.Castbar.showCastBar(longestDelay, spellName, nil, channeled, nil, nil)
+	ns.UI.Castbar.showCastBar(longestDelay, spellName, nil, channeled, nil, nil)
 end
 
-ns.actions.executeSpell = executeSpell
-ns.actions.stopRunningActions = stopRunningActions
+hooksecurefunc("ToggleGameMenu", function()
+	if stopRunningActions() then HideUIPanel(GameMenuFrame); end
+end)
 
-hooksecurefunc("SpellStopCasting", function() return stopRunningActions() end)
---[[
-local f  = CreateFrame("Frame", nil, UIParent)
-local function onKeyInput(self, key)
-	if key == "ESCAPE" then
-		stopRunningActions()
-	end
-end 
-f:SetScript("OnKeyDown", onKeyInput)
-f:SetPropagateKeyboardInput(true)
---]]
+---@class Actions_Execute
+ns.Actions.Execute = {
+	executeSpell = executeSpell,
+}

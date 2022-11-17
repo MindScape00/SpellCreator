@@ -64,18 +64,33 @@
 		</Layers>
 	</Frame>
 
-	<Script file="constants.lua"/>
-	<Script file="logging.lua"/>
-	<Script file="permissions.lua"/>
-	<Script file="utils/Utils.lua"/>
-	<Script file="utils/Aura.lua"/>
-	<Script file="utils/Castbar.lua"/>
-	<Script file="cmd.lua"/>
-	<Script file="actions/actions.lua"/>
-	<Script file="actions/execute.lua"/>
-	<Script file="serializer.lua"/>
-	<Script file="vault.lua"/>
+	<Script file="Constants.lua"/>
+	<Script file="Logging.lua"/>
+	<Script file="Permissions.lua"/>
+
+	<Script file="Utils/Utils.lua"/>
+	<Script file="Utils/Aura.lua"/>
+
+	<Script file="Cmd.lua"/>
+
+	<Script file="Actions/Actions.lua"/>
+	<Script file="Actions/Data.lua"/>
+	<Script file="Actions/Execute.lua"/>
+
+	<Script file="Serializer.lua"/>
+	<Script file="Vault.lua"/>
+
+	<Script file="UI/UI.lua"/>
+	<Script file="UI/Animation.lua"/>
+	<Script file="UI/Gems.lua"/>
+	<Script file="UI/Models.lua"/>
+	<Script file="UI/MinimapButton.lua"/>
+	<Script file="UI/Portrait.lua"/>
+	<Script file="UI/Castbar.lua"/>
+	<Script file="UI/Quickcast.lua"/>
+
 	<Script file="SpellCreator.lua"/>
-	<Script file="api.lua"/>
+	<Script file="API.lua"/>
+	<Script file="Slash.lua"/>
 
 </Ui>

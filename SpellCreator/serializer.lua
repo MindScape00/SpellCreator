@@ -1,4 +1,5 @@
-local _, ns = ...
+---@class ns
+local ns = select(2, ...)
 
 local LibDeflate
 local AceSerializer
@@ -39,7 +40,7 @@ local function decompressForImport(str)
 	return str;
 end
 
-ns.serializer = {
+ns.Serializer = {
 	compressForAddonMsg = compressForAddonMsg,
 	decompressForAddonMsg = decompressForAddonMsg,
 	compressForExport = compressForExport,

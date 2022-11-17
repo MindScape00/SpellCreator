@@ -1,4 +1,5 @@
-local _, ns = ...
+---@class ns
+local ns = select(2, ...)
 
 local C_Epsilon = C_Epsilon
 
@@ -14,7 +15,7 @@ local function isMemberPlus()
 	if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then return true; else return false; end
 end
 
-ns.permissions = {
+ns.Permissions = {
     isDMEnabled = isDMEnabled,
     isOfficerPlus = isOfficerPlus,
     isMemberPlus = isMemberPlus,

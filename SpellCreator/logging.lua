@@ -1,6 +1,7 @@
-local _, ns = ...
+---@class ns
+local ns = select(2, ...)
 
-local ADDON_COLOR, ADDON_TITLE = ns.constants.ADDON_COLOR, ns.constants.ADDON_TITLE
+local ADDON_COLOR, ADDON_TITLE = ns.Constants.ADDON_COLOR, ns.Constants.ADDON_TITLE
 
 local prefix = ADDON_COLOR .. ADDON_TITLE
 
@@ -41,7 +42,7 @@ local function eprint(text,rest)
 	end
 end
 
-ns.logging = {
+ns.Logging = {
     cprint = cprint,
     dprint = dprint,
     eprint = eprint,

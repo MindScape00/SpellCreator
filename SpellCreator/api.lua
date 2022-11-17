@@ -1,10 +1,11 @@
-local _, ns = ...
+---@class ns
+local ns = select(2, ...)
 
-local executeSpell = ns.actions.executeSpell
-local cmdWithDotCheck = ns.cmd.cmdWithDotCheck
-local ADDON_COLOR = ns.constants.ADDON_COLOR
-local cprint, dprint, eprint = ns.logging.cprint, ns.logging.dprint, ns.logging.eprint
-local phaseVault = ns.vault.phase
+local executeSpell = ns.Actions.Execute.executeSpell
+local cmdWithDotCheck = ns.Cmd.cmdWithDotCheck
+local ADDON_COLOR = ns.Constants.ADDON_COLOR
+local cprint, dprint, eprint = ns.Logging.cprint, ns.Logging.dprint, ns.Logging.eprint
+local phaseVault = ns.Vault.phase
 
 ARC = {}
 ARC.VAR = {}

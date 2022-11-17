@@ -1,17 +1,24 @@
-local addonName, ns = ...
+local addonName = ...
+---@class ns
+local ns = select(2, ...)
 
-local actionTypeData, actionTypeDataList = ns.actions.actionTypeData, ns.actions.actionTypeDataList
-local executeSpell = ns.actions.executeSpell
-local cmd, cmdWithDotCheck = ns.cmd.cmd, ns.cmd.cmdWithDotCheck
-local runMacroText = ns.cmd.runMacroText
-local ADDON_COLOR, ADDON_TITLE = ns.constants.ADDON_COLOR, ns.constants.ADDON_TITLE
-local cprint, dprint, eprint = ns.logging.cprint, ns.logging.dprint, ns.logging.eprint
-local isDMEnabled, isOfficerPlus, isMemberPlus = ns.permissions.isDMEnabled, ns.permissions.isOfficerPlus, ns.permissions.isMemberPlus
-local serializer = ns.serializer
-local phaseVault = ns.vault.phase
+local ActionsData = ns.Actions.Data
+local actionTypeData, actionTypeDataList = ActionsData.actionTypeData, ActionsData.actionTypeDataList
+local executeSpell = ns.Actions.Execute.executeSpell
+local cmd, cmdWithDotCheck = ns.Cmd.cmd, ns.Cmd.cmdWithDotCheck
+local runMacroText = ns.Cmd.runMacroText
+local ADDON_COLOR, ADDON_PATH, ADDON_TITLE = ns.Constants.ADDON_COLOR, ns.Constants.ADDON_PATH, ns.Constants.ADDON_TITLE
+local ASSETS_PATH = ns.Constants.ASSETS_PATH
+local cprint, dprint, eprint = ns.Logging.cprint, ns.Logging.dprint, ns.Logging.eprint
+local isDMEnabled, isOfficerPlus, isMemberPlus = ns.Permissions.isDMEnabled, ns.Permissions.isOfficerPlus, ns.Permissions.isMemberPlus
+local serializer = ns.Serializer
+local phaseVault = ns.Vault.phase
+
+local Animation = ns.UI.Animation
+local Models, Portrait = ns.UI.Models, ns.UI.Portrait
+local MinimapButton = ns.UI.MinimapButton
 
 local addonVersion, addonAuthor = GetAddOnMetadata(addonName, "Version"), GetAddOnMetadata(addonName, "Author")
-local addonPath = "Interface/AddOns/"..tostring(addonName)
 local lastAddonVersion
 local addonUpdated
 
@@ -38,10 +45,8 @@ local pairs, ipairs = pairs, ipairs
 -- local curDate = date("*t") -- Current Date for surprise launch - disabled since it's over anyways
 
 local AceComm
-local AceConsole
 if LibStub then
 	AceComm = LibStub:GetLibrary("AceComm-3.0")
-	AceConsole = LibStub:GetLibrary("AceConsole-3.0")
 end
 
 local sfCmd_ReplacerChar = "@N@"
@@ -125,37 +130,6 @@ local function orderedPairs (t, f) -- get keys & sort them - default sort is alp
 	return iter
 end
 
-local function hsvToRgb(h, s, v)
-  local r, g, b
-
-  local i = math.floor(h * 6);
-  local f = h * 6 - i;
-  local p = v * (1 - s);
-  local q = v * (1 - f * s);
-  local t = v * (1 - (1 - f) * s);
-
-  i = i % 6
-
-  if i == 0 then r, g, b = v, t, p
-  elseif i == 1 then r, g, b = q, v, p
-  elseif i == 2 then r, g, b = p, v, t
-  elseif i == 3 then r, g, b = p, q, v
-  elseif i == 4 then r, g, b = t, p, v
-  elseif i == 5 then r, g, b = v, p, q
-  end
-
-  return r * 255, g * 255, b * 255
-end
-
-local checkForAuraIDPredicate = function(wantedID, _, _, ...)
-	local spellID = select(10, ...)
-	return spellID == wantedID
-end
-
-local function checkForAuraID(wantedID)
-	return AuraUtil.FindAura(checkForAuraIDPredicate, "player", nil, wantedID)
-end
-
 -- Frame Listeners
 local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
@@ -186,9 +160,17 @@ end
 local function isNotDefined(s)
 	return s == nil or s == '';
 end
+
 SpellCreatorMasterTable = {}
 SpellCreatorMasterTable.Options = {}
+SpellCreatorMasterTable.quickCastSpells = {}
+SpellCreatorMasterTable.quickCastHotkeys = {}
+
 local function SC_loadMasterTable()
+
+	if isNotDefined(SpellCreatorMasterTable.Options) then SpellCreatorMasterTable.Options = {} end
+	if isNotDefined(SpellCreatorMasterTable.quickCastSpells) then SpellCreatorMasterTable.quickCastSpells = {} end
+	if isNotDefined(SpellCreatorMasterTable.quickCastHotkeys) then SpellCreatorMasterTable.quickCastHotkeys = {} end
 
 	if isNotDefined(SpellCreatorMasterTable.Options["debug"]) then SpellCreatorMasterTable.Options["debug"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["locked"]) then SpellCreatorMasterTable.Options["locked"] = false end
@@ -224,68 +206,6 @@ end
 -------------------------------------------------------------------------------
 -- UI Stuff
 -------------------------------------------------------------------------------
-
-local arcaneGemPath = addonPath.."/assets/gem-icons/Gem"
-local arcaneGemIcons = {
-"Blue",
---"Green",
-"Indigo",
-"Jade",
-"Orange",
-"Pink",
-"Prismatic",
-"Red",
-"Violet",
---"Yellow",
-}
-
-local runeIconOverlays = {}
-local runeIconOverlay
-
-local function initRuneIcon()
-	runeIconOverlays = {
-		{atlas = "Rune-0"..fastrandom(6).."-purple", desat = false, x = 30, y = 30, alpha=0.8},
-		{atlas = "Rune-"..string.format("%02d",fastrandom(11)).."-light", desat = true, x = 30, y = 30, alpha=0.8},
-		{atlas = "ChallengeMode-Runes-BL-Glow", desat = true, x = 32, y = 32},
-		{atlas = "ChallengeMode-Runes-BR-Glow", desat = true, x = 32, y = 32},
-		{atlas = "ChallengeMode-Runes-L-Glow", desat = true, x = 34, y = 34},
-		{atlas = "ChallengeMode-Runes-R-Glow", desat = true, x = 32, y = 32},
-		{atlas = "ChallengeMode-Runes-T-Glow", desat = true, x = 32, y = 32},
-		{atlas = "heartofazeroth-slot-minor-unactivated-rune", desat = true, x = 44, y = 44, alpha=0.8},
-		{atlas = "Darklink-active", desat = true},
-		{tex = addonPath.."/assets/BookIcon", desat = false, x = 26, y = 26},
-	}
-	runeIconOverlay = runeIconOverlays[fastrandom(#runeIconOverlays)]
-end
-initRuneIcon()
-
--- debug over-ride, comment out when done
--- runeIconOverlay = {tex = "Interface/AddOns/SpellCreator/assets/BookIcon"}
-
-------------- Background Models
-
-local minimapModels = {
-{disp = 58836, camScale = 1}, -- Purple Missle
-{disp = 71960, camScale = 1}, -- Nightborne Missle
---{disp = 91994, camScale = 1}, -- Void Sporadic
-{disp = 92827, camScale = 0.95}, -- Void Scrolling
-{disp = 31497, camScale = 5, alpha=0.7}, -- Arcane Portal
---{disp = 39581, camScale = 5}, -- Blue Portalish - not great
-{disp = 61420, camScale = 2.5}, -- Purple Portal
-{disp = 66092, camScale = 3, alpha=0.2}, -- Thick Purple Magic Ring
-{disp = 74190, camScale = 3, alpha=0.25}, -- Thick Blue Magic Ring
-{disp = 88991, camScale = 6.5}, -- Void Ring
-}
-
-local function modelFrameSetModel(frame, id, list)
-	id = tonumber(id)
-	frame:SetDisplayInfo(list[id].disp)
-	frame:SetCamDistanceScale(list[id].camScale)
-	frame:SetRotation(0)
-	frame:SetModelAlpha(list[id].alpha or 1)
-end
-
-local load_row_background = addonPath.."/assets/SpellForgeVaultPanelRow"
 
 -------------------------------------------------------------------------------
 -- UI Helper & Definitions
@@ -369,48 +289,6 @@ local function updateFrameChildScales(frame)
 		child:SetScale(n)
 	end
 	return n;
-end
-
-local function stopFrameFlicker(frame, endAlpha, optFadeTime)
-	for i = 1, #frame.flickerTimer do
-		frame.flickerTimer[i]:Cancel()
-		frame.flickerTimer[i] = nil
-	end
-	if optFadeTime then
-		UIFrameFadeOut(frame, optFadeTime, frame:GetAlpha(), endAlpha)
-	else
-		frame:SetAlpha(endAlpha or 1)
-	end
-end
-
-local function setFrameFlicker(frame, iter, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, repeatnum)
-	if not frame then return; end
-
-	if not timeToFadeOut then timeToFadeOut = 0.1 end
-	if not timeToFadeIn then timeToFadeIn = 0.5 end
-	if not startAlpha then startAlpha = 1 end
-	if not endAlpha then endAlpha = 0.33 end
-
-	if repeatnum then
-		if not frame.flickerTimer then frame.flickerTimer = {} end
-		frame.flickerTimer[repeatnum] = C_Timer.NewTimer((fastrandom(10,30)/10), function()
-			UIFrameFadeOut(frame,timeToFadeOut,startAlpha,endAlpha)
-			frame.fadeInfo.finishedFunc = function() UIFrameFadeIn(frame,timeToFadeIn,endAlpha,startAlpha) end
-			setFrameFlicker(frame, nil, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, repeatnum)
-		end)
-	else
-		if frame.flickerTimer and next(frame.flickerTimer) then stopFrameFlicker(frame, startAlpha) end -- assume we're starting a new flicker and don't want the old one.
-		if not iter then iter = 1 end
-		for i = 1,iter do
-			if not frame.flickerTimer then frame.flickerTimer = {} end
-			if frame.flickerTimer[i] then frame.flickerTimer[i]:Cancel() end
-			frame.flickerTimer[i] = C_Timer.NewTimer((fastrandom(10,30)/10), function()
-				UIFrameFadeOut(frame,timeToFadeOut,startAlpha,endAlpha)
-				frame.fadeInfo.finishedFunc = function() UIFrameFadeIn(frame,timeToFadeIn,endAlpha,startAlpha) end
-				setFrameFlicker(frame, nil, timeToFadeOut, timeToFadeIn, startAlpha, endAlpha, i)
-			end)
-		end
-	end
 end
 
 local function generateSpellChatLink(commID, vaultType)
@@ -552,7 +430,7 @@ end
 local function genSpellRowTextures(newRow)
 	newRow.Background = newRow:CreateTexture(nil,"BACKGROUND", nil, 5)
 	newRow.Background:SetAllPoints()
-	newRow.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
+	newRow.Background:SetTexture(ADDON_PATH.."/assets/SpellForgeMainPanelRow1")
 	newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
 	newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
 	newRow.Background:SetAlpha(0.9)
@@ -560,7 +438,7 @@ local function genSpellRowTextures(newRow)
 
 	newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
 	newRow.Background2:SetAllPoints()
-	newRow.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+	newRow.Background2:SetTexture(ADDON_PATH.."/assets/SpellForgeMainPanelRow2")
 	newRow.Background2:SetTexCoord(0.208,1-0.209,0,1)
 	newRow.Background2:SetPoint("TOPLEFT",-3,0)
 	newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
@@ -571,7 +449,7 @@ local function genSpellRowTextures(newRow)
 	newRow.RowGem:SetPoint("CENTER", newRow.Background2, "LEFT", 2, 0)
 	newRow.RowGem:SetHeight(40)
 	newRow.RowGem:SetWidth(40)
-	newRow.RowGem:SetTexture(addonPath.."/assets/DragonGem")
+	newRow.RowGem:SetTexture(ADDON_PATH.."/assets/DragonGem")
 	--newRow.RowGem:SetTexCoord(0.208,1-0.209,0,1)
 	--newRow.RowGem:SetPoint("RIGHT",-9,0)
 end
@@ -1038,9 +916,9 @@ end)
 
 --NineSliceUtil.ApplyLayout(SCForgeMainFrame, "BFAMissionAlliance") -- You can use this to apply other nine-slice templates to a nine-slice frame. We want a custom Nine-Slice tho so below is my application of it.
 
-local myNineSliceFile_corners = addonPath.."/assets/frame_border_corners"
-local myNineSliceFile_vert = addonPath.."/assets/frame_border_vertical"
-local myNineSliceFile_horz = addonPath.."/assets/frame_border_horizontal"
+local myNineSliceFile_corners = ADDON_PATH.."/assets/frame_border_corners"
+local myNineSliceFile_vert = ADDON_PATH.."/assets/frame_border_vertical"
+local myNineSliceFile_horz = ADDON_PATH.."/assets/frame_border_horizontal"
 local newNineSliceOverride = {
     TopLeftCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.263672, txb = 0.521484, }, --0.263672, 0.521484, 0.263672, 0.521484
     --TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.263672, txb = 0.521484, }, -- 0.00195312, 0.259766, 0.263672, 0.521484
@@ -1057,89 +935,42 @@ for k,v in pairs(newNineSliceOverride) do
 	SCForgeMainFrame.NineSlice[k]:SetTexCoord(v.txl, v.txr, v.txt, v.txb)
 end
 
---local SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)] -- Old Random Icon Stuff
---SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait) -- Switched to using our version.
---SCForgeMainFrame.portrait:SetTexture(addonPath.."/assets/arcanum_icon")
-
-SCForgeMainFrame.portrait:SetTexture(addonPath.."/assets/CircularBG")
-SCForgeMainFrame.portrait:SetTexCoord(0.25,1-0.25,0,1)
-SCForgeMainFrame.portrait.mask = SCForgeMainFrame:CreateMaskTexture()
-SCForgeMainFrame.portrait.mask:SetAllPoints(SCForgeMainFrame.portrait)
-SCForgeMainFrame.portrait.mask:SetTexture("Interface/CHARACTERFRAME/TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-SCForgeMainFrame.portrait:AddMaskTexture(SCForgeMainFrame.portrait.mask)
-
-SCForgeMainFrame.portrait.icon = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 6)
-SCForgeMainFrame.portrait.icon:SetTexture(arcaneGemPath..arcaneGemIcons[fastrandom(#arcaneGemIcons)])
-SCForgeMainFrame.portrait.icon:SetAllPoints(SCForgeMainFrame.portrait)
-SCForgeMainFrame.portrait.icon:SetAlpha(0.93)
---SCForgeMainFrame.portrait.icon:SetBlendMode("ADD")
-
-SCForgeMainFrame.portrait.rune = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 7)
-local function setRuneTex(texInfo)
-	if texInfo.atlas then
-		SCForgeMainFrame.portrait.rune:SetAtlas(texInfo.atlas)
-	else
-		SCForgeMainFrame.portrait.rune:SetTexture(texInfo.tex)
-	end
-	if texInfo.desat then
-		SCForgeMainFrame.portrait.rune:SetDesaturated(true)
-		SCForgeMainFrame.portrait.rune:SetVertexColor(0.9,0.9,0.9)
-	else
-		SCForgeMainFrame.portrait.rune:SetDesaturated(false)
-		SCForgeMainFrame.portrait.rune:SetVertexColor(1,1,1)
-	end
-	SCForgeMainFrame.portrait.rune:SetPoint("CENTER", SCForgeMainFrame.portrait)
-	SCForgeMainFrame.portrait.rune:SetSize(texInfo.x or 28, texInfo.y or 28)
-	SCForgeMainFrame.portrait.rune:SetBlendMode(texInfo.blend or "ADD")
-	SCForgeMainFrame.portrait.rune:SetAlpha(texInfo.alpha or 1)
-end
-setRuneTex(runeIconOverlay)
-
-SCForgeMainFrame.portrait.Model = CreateFrame("PLAYERMODEL", nil, SCForgeMainFrame, "MouseDisabledModelTemplate")
-SCForgeMainFrame.portrait.Model:SetAllPoints(SCForgeMainFramePortrait)
-SCForgeMainFrame.portrait.Model:SetFrameStrata("MEDIUM")
-SCForgeMainFrame.portrait.Model:SetFrameLevel(SCForgeMainFrame:GetFrameLevel())
-SCForgeMainFrame.portrait.Model:SetModelDrawLayer("OVERLAY")
-SCForgeMainFrame.portrait.Model:SetKeepModelOnHide(true)
-modelFrameSetModel(SCForgeMainFrame.portrait.Model, fastrandom(#minimapModels), minimapModels)
-SCForgeMainFrame.portrait.Model:SetScript("OnMouseDown", function()
-	local randID = fastrandom(#minimapModels)
-	modelFrameSetModel(SCForgeMainFrame.portrait.Model, randID, minimapModels)
-	dprint("Portrait Icon BG Model Set to ID "..randID)
-end)
+Portrait.init()
 
 SCForgeMainFrame:SetTitle("Arcanum - Spell Forge")
 
 SCForgeMainFrame.DragBar = CreateFrame("Frame", nil, SCForgeMainFrame)
-SCForgeMainFrame.DragBar:SetPoint("TOPLEFT")
-SCForgeMainFrame.DragBar:SetSize(mainFrameSize.x, 20)
-SCForgeMainFrame.DragBar:EnableMouse(true)
-SCForgeMainFrame.DragBar:RegisterForDrag("LeftButton")
-SCForgeMainFrame.DragBar:SetScript("OnMouseDown", function(self)
-    self:GetParent():Raise()
-  end)
-SCForgeMainFrame.DragBar:SetScript("OnDragStart", function(self)
-    self:GetParent():StartMoving()
-  end)
-SCForgeMainFrame.DragBar:SetScript("OnDragStop", function(self)
-    self:GetParent():StopMovingOrSizing()
-  end)
+local _frame = SCForgeMainFrame.DragBar
+	_frame:SetPoint("TOPLEFT")
+	_frame:SetSize(mainFrameSize.x, 20)
+	_frame:EnableMouse(true)
+	_frame:RegisterForDrag("LeftButton")
+	_frame:SetScript("OnMouseDown", function(self)
+		self:GetParent():Raise()
+	end)
+	_frame:SetScript("OnDragStart", function(self)
+		self:GetParent():StartMoving()
+	end)
+	_frame:SetScript("OnDragStop", function(self)
+		self:GetParent():StopMovingOrSizing()
+	end)
 
 -- The top bar Spell Info Boxes - Needs some placement love later..
 SCForgeMainFrame.SpellInfoNameBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
-	SCForgeMainFrame.SpellInfoNameBox:SetFontObject(ChatFontNormal)
-	SCForgeMainFrame.SpellInfoNameBox:SetMaxBytes(60)
-	SCForgeMainFrame.SpellInfoNameBox.disabledColor = GRAY_FONT_COLOR
-	SCForgeMainFrame.SpellInfoNameBox.enabledColor = HIGHLIGHT_FONT_COLOR
-	SCForgeMainFrame.SpellInfoNameBox.Instructions:SetText(localization.SPELLNAME)
-	SCForgeMainFrame.SpellInfoNameBox.Instructions:SetTextColor(0.5,0.5,0.5)
-	SCForgeMainFrame.SpellInfoNameBox.Title = SCForgeMainFrame.SpellInfoNameBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-	SCForgeMainFrame.SpellInfoNameBox.Title:SetText(NAME)
-	SCForgeMainFrame.SpellInfoNameBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoNameBox, "TOP", 0, 0)
-	SCForgeMainFrame.SpellInfoNameBox:SetAutoFocus(false)
-	SCForgeMainFrame.SpellInfoNameBox:SetSize(100,23)
-	SCForgeMainFrame.SpellInfoNameBox:SetPoint("TOPLEFT", 110, -35)
-	SCForgeMainFrame.SpellInfoNameBox:SetScript("OnEnter", function(self)
+local _frame = SCForgeMainFrame.SpellInfoNameBox
+	_frame:SetFontObject(ChatFontNormal)
+	_frame:SetMaxBytes(60)
+	_frame.disabledColor = GRAY_FONT_COLOR
+	_frame.enabledColor = HIGHLIGHT_FONT_COLOR
+	_frame.Instructions:SetText(localization.SPELLNAME)
+	_frame.Instructions:SetTextColor(0.5,0.5,0.5)
+	--_frame.Title = _frame:CreateFontString(nil, "OVERLAY", "GameTooltipText")
+	--_frame.Title:SetText(NAME)
+	--_frame.Title:SetPoint("BOTTOM", _frame, "TOP", 0, 0)
+	_frame:SetAutoFocus(false)
+	_frame:SetSize(SCForgeMainFrame:GetWidth()/5,23)
+	_frame:SetPoint("TOPRIGHT", SCForgeMainFrame, "TOP", -3, -20)
+	_frame:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
 			GameTooltip:SetText(localization.SPELLNAME, nil, nil, nil, nil, true)
@@ -1147,25 +978,27 @@ SCForgeMainFrame.SpellInfoNameBox = CreateFrame("EditBox", nil, SCForgeMainFrame
 			GameTooltip:Show()
 		end)
 	end)
-	SCForgeMainFrame.SpellInfoNameBox:SetScript("OnLeave", function(self)
+	_frame:SetScript("OnLeave", function(self)
 		GameTooltip_Hide()
 		self.Timer:Cancel()
 	end)
 
 SCForgeMainFrame.SpellInfoCommandBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
-	SCForgeMainFrame.SpellInfoCommandBox:SetFontObject(ChatFontNormal)
-	SCForgeMainFrame.SpellInfoCommandBox:SetMaxBytes(40)
-	SCForgeMainFrame.SpellInfoCommandBox.disabledColor = GRAY_FONT_COLOR
-	SCForgeMainFrame.SpellInfoCommandBox.enabledColor = HIGHLIGHT_FONT_COLOR
-	SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetText(localization.SPELLCOMM)
-	SCForgeMainFrame.SpellInfoCommandBox.Instructions:SetTextColor(0.5,0.5,0.5)
-	SCForgeMainFrame.SpellInfoCommandBox.Title = SCForgeMainFrame.SpellInfoCommandBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-	SCForgeMainFrame.SpellInfoCommandBox.Title:SetText(COMMAND)
-	SCForgeMainFrame.SpellInfoCommandBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoCommandBox, "TOP", 0, 0)
-	SCForgeMainFrame.SpellInfoCommandBox:SetAutoFocus(false)
-	SCForgeMainFrame.SpellInfoCommandBox:SetSize(SCForgeMainFrame:GetWidth()/6,23)
-	SCForgeMainFrame.SpellInfoCommandBox:SetPoint("TOP", 0, -35)
-	SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnEnter", function(self)
+local _frame = SCForgeMainFrame.SpellInfoCommandBox
+	_frame:SetFontObject(ChatFontNormal)
+	_frame:SetMaxBytes(40)
+	_frame.disabledColor = GRAY_FONT_COLOR
+	_frame.enabledColor = HIGHLIGHT_FONT_COLOR
+	_frame.Instructions:SetText(localization.SPELLCOMM)
+	_frame.Instructions:SetTextColor(0.5,0.5,0.5)
+	--_frame.Title = _frame:CreateFontString(nil, "OVERLAY", "GameTooltipText")
+	--_frame.Title:SetText(COMMAND)
+	--_frame.Title:SetPoint("BOTTOM", _frame, "TOP", 0, 0)
+	_frame:SetAutoFocus(false)
+	--_frame:SetSize(SCForgeMainFrame:GetWidth()/6,23)
+	_frame:SetSize(SCForgeMainFrame:GetWidth()/5,23)
+	_frame:SetPoint("LEFT", SCForgeMainFrame.SpellInfoNameBox, "RIGHT", 6, 0)
+	_frame:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
 			GameTooltip:SetText(localization.SPELLCOMM, nil, nil, nil, nil, true)
@@ -1175,30 +1008,32 @@ SCForgeMainFrame.SpellInfoCommandBox = CreateFrame("EditBox", nil, SCForgeMainFr
 			GameTooltip:Show()
 		end)
 	end)
-	SCForgeMainFrame.SpellInfoCommandBox:SetScript("OnLeave", function(self)
+	_frame:SetScript("OnLeave", function(self)
 		GameTooltip_Hide()
 		self.Timer:Cancel()
 	end)
-	SCForgeMainFrame.SpellInfoCommandBox:HookScript("OnTextChanged", function(self)
+	_frame:HookScript("OnTextChanged", function(self)
 		local selfText = self:GetText();
 		if selfText:match(",") then self:SetText(selfText:gsub(",","")) end
 	end)
-	SCForgeMainFrame.SpellInfoNameBox:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoCommandBox, "LEFT", -10, 0)
+	--SCForgeMainFrame.SpellInfoNameBox:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoCommandBox, "LEFT", -10, 0)
 
 SCForgeMainFrame.SpellInfoDescBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
-	SCForgeMainFrame.SpellInfoDescBox:SetFontObject(ChatFontNormal)
-	SCForgeMainFrame.SpellInfoDescBox:SetMaxBytes(100)
-	SCForgeMainFrame.SpellInfoDescBox.disabledColor = GRAY_FONT_COLOR
-	SCForgeMainFrame.SpellInfoDescBox.enabledColor = HIGHLIGHT_FONT_COLOR
-	SCForgeMainFrame.SpellInfoDescBox.Instructions:SetText("Description")
-	SCForgeMainFrame.SpellInfoDescBox.Instructions:SetTextColor(0.5,0.5,0.5)
-	SCForgeMainFrame.SpellInfoDescBox.Title = SCForgeMainFrame.SpellInfoDescBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-	SCForgeMainFrame.SpellInfoDescBox.Title:SetText("Description")
-	SCForgeMainFrame.SpellInfoDescBox.Title:SetPoint("BOTTOM", SCForgeMainFrame.SpellInfoDescBox, "TOP", 0, 0)
-	SCForgeMainFrame.SpellInfoDescBox:SetAutoFocus(false)
-	SCForgeMainFrame.SpellInfoDescBox:SetSize(100,23)
-	SCForgeMainFrame.SpellInfoDescBox:SetPoint("TOPRIGHT", -20, -35)
-	SCForgeMainFrame.SpellInfoDescBox:SetScript("OnEnter", function(self)
+local _frame = SCForgeMainFrame.SpellInfoDescBox
+	_frame:SetFontObject(ChatFontNormal)
+	_frame:SetMaxBytes(100)
+	_frame.disabledColor = GRAY_FONT_COLOR
+	_frame.enabledColor = HIGHLIGHT_FONT_COLOR
+	_frame.Instructions:SetText("Description")
+	_frame.Instructions:SetTextColor(0.5,0.5,0.5)
+	--_frame.Title = _frame:CreateFontString(nil, "OVERLAY", "GameTooltipText")
+	--_frame.Title:SetText("Description")
+	--_frame.Title:SetPoint("BOTTOM", _frame, "TOP", 0, 0)
+	_frame:SetAutoFocus(false)
+	_frame:SetSize(SCForgeMainFrame:GetWidth()/2.5,23)
+	_frame:SetPoint("TOPLEFT", SCForgeMainFrame.SpellInfoNameBox, "BOTTOMLEFT", 0, 4)
+	_frame:SetPoint("TOPRIGHT", SCForgeMainFrame.SpellInfoCommandBox, "BOTTOMRIGHT", 0, 4)
+	_frame:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		self.Timer = C_Timer.NewTimer(0.7,function()
 			GameTooltip:SetText("Description", nil, nil, nil, nil, true)
@@ -1208,11 +1043,11 @@ SCForgeMainFrame.SpellInfoDescBox = CreateFrame("EditBox", nil, SCForgeMainFrame
 			GameTooltip:Show()
 		end)
 	end)
-	SCForgeMainFrame.SpellInfoDescBox:SetScript("OnLeave", function(self)
+	_frame:SetScript("OnLeave", function(self)
 		GameTooltip_Hide()
 		self.Timer:Cancel()
 	end)
-	SCForgeMainFrame.SpellInfoDescBox:SetPoint("LEFT", SCForgeMainFrame.SpellInfoCommandBox, "RIGHT", 10, 0)
+	--_frame:SetPoint("LEFT", SCForgeMainFrame.SpellInfoCommandBox, "RIGHT", 10, 0)
 
 -- Enable Tabing between editboxes
 SCForgeMainFrame.SpellInfoNameBox.nextEditBox = SCForgeMainFrame.SpellInfoCommandBox
@@ -1223,19 +1058,19 @@ SCForgeMainFrame.SpellInfoCommandBox.previousEditBox = SCForgeMainFrame.SpellInf
 SCForgeMainFrame.SpellInfoNameBox.previousEditBox = SCForgeMainFrame.SpellInfoDescBox
 
 local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, save a frame texture
-	background:SetTexture(addonPath.."/assets/bookbackground_full")
+	background:SetTexture(ADDON_PATH.."/assets/bookbackground_full")
 	background:SetVertTile(false)
 	background:SetHorizTile(false)
 	background:SetAllPoints()
 
 	background.Overlay = SCForgeMainFrame.Inset:CreateTexture(nil, "BACKGROUND")
-	background.Overlay:SetTexture(addonPath.."/assets/forge_ui_bg_anim")
+	background.Overlay:SetTexture(ADDON_PATH.."/assets/forge_ui_bg_anim")
 	background.Overlay:SetAllPoints()
 	background.Overlay:SetAlpha(0.02)
 
 	--[[
 	background.Overlay2 = SCForgeMainFrame.Inset:CreateTexture(nil, "BACKGROUND")
-	background.Overlay2:SetTexture(addonPath.."/assets/forge_ui_bg_runes")
+	background.Overlay2:SetTexture(ADDON_PATH.."/assets/forge_ui_bg_runes")
 	background.Overlay2:SetAllPoints()
 	background.Overlay2:SetAlpha(0.25)
 	--]]
@@ -1297,7 +1132,7 @@ SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame.Inset)
 		--SCForgeMainFrame.TitleBar.Overlay:SetAllPoints(SCForgeMainFrame.TitleBar.Background)
 		SCForgeMainFrame.TitleBar.Overlay:SetPoint("TOPLEFT",-3,0)
 		SCForgeMainFrame.TitleBar.Overlay:SetPoint("BOTTOMRIGHT",-8,-3)
-		--SCForgeMainFrame.TitleBar.Overlay:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+		--SCForgeMainFrame.TitleBar.Overlay:SetTexture(ADDON_PATH.."/assets/SpellForgeMainPanelRow2")
 		SCForgeMainFrame.TitleBar.Overlay:SetAtlas("search-select") -- Garr_CostBar
 		SCForgeMainFrame.TitleBar.Overlay:SetDesaturated(true)
 		SCForgeMainFrame.TitleBar.Overlay:SetVertexColor(0.35,0.7,0.85)
@@ -1342,14 +1177,14 @@ local _frame = SCForgeMainFrame.AddRowRow
 
 	_frame.Background = _frame:CreateTexture(nil,"BACKGROUND", nil, 5)
 		_frame.Background:SetAllPoints()
-		_frame.Background:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow1")
+		_frame.Background:SetTexture(ADDON_PATH.."/assets/SpellForgeMainPanelRow1")
 		_frame.Background:SetTexCoord(0.208,1-0.209,0,1)
 		_frame.Background:SetPoint("BOTTOMRIGHT",-9,0)
 		_frame.Background:SetAlpha(0.9)
 
 	_frame.Background2 = _frame:CreateTexture(nil,"BACKGROUND", nil, 6)
 		_frame.Background2:SetAllPoints()
-		_frame.Background2:SetTexture(addonPath.."/assets/SpellForgeMainPanelRow2")
+		_frame.Background2:SetTexture(ADDON_PATH.."/assets/SpellForgeMainPanelRow2")
 		_frame.Background2:SetTexCoord(0.208,1-0.209,0,1)
 		_frame.Background2:SetPoint("TOPLEFT",-3,0)
 		_frame.Background2:SetPoint("BOTTOMRIGHT",-7,0)
@@ -1441,7 +1276,9 @@ SCForgeMainFrame:SetScript("OnSizeChanged", function(self)
 	local newHeight = self:GetHeight()
 	local ratio = newHeight/mainFrameSize.y
 	SCForgeLoadFrame:SetSize(280*ratio, self:GetHeight())
-	SCForgeMainFrame.SpellInfoCommandBox:SetSize(SCForgeMainFrame:GetWidth()/6,23)
+	SCForgeMainFrame.SpellInfoCommandBox:SetWidth(SCForgeMainFrame:GetWidth()/5)
+	SCForgeMainFrame.SpellInfoNameBox:SetWidth(SCForgeMainFrame:GetWidth()/5)
+	SCForgeMainFrame.SpellInfoDescBox:SetWidth(SCForgeMainFrame:GetWidth()/2.5)
 end)
 
 --[[ -- Replaced!
@@ -1580,8 +1417,8 @@ SCForgeMainFrame.ExecuteSpellButton:SetSize(24*4,24)
 SCForgeMainFrame.ExecuteSpellButton:SetText(ACTION_SPELL_CAST_SUCCESS:gsub("^%l", string.upper))
 SCForgeMainFrame.ExecuteSpellButton:SetMotionScriptsWhileDisabled(true)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
---	setFrameFlicker(frame: any, iter: any, timeToFadeOut: any, timeToFadeIn: any, startAlpha: any, endAlpha: any)
-	setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
+--	Animation.setFrameFlicker(frame: any, iter: any, timeToFadeOut: any, timeToFadeIn: any, startAlpha: any, endAlpha: any)
+	Animation.setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
 	local maxDelay = 0
 	local actionsToCommit = {}
 	for i = 1, numberOfSpellRows do
@@ -1601,7 +1438,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 			table.insert(actionsToCommit, actionData)
 		end
 	end
-	C_Timer.After(maxDelay, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25) end)
+	C_Timer.After(maxDelay, function() Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25) end)
 	local spellName = SCForgeMainFrame.SpellInfoNameBox:GetText()
 	executeSpell(actionsToCommit, nil, spellName)
 end)
@@ -1651,7 +1488,8 @@ local function loadSpell(spellToLoad)
 	if spellToLoad.description then SCForgeMainFrame.SpellInfoDescBox:SetText(spellToLoad.description) end
 
 	local spellActions = spellToLoad.actions
-	local numberOfActionsToLoad = #spellActions
+	local localSpellActions = CopyTable(spellActions)
+	local numberOfActionsToLoad = #localSpellActions
 
 	-- Adjust the number of available Action Rows
 	if numberOfActionsToLoad > numberOfSpellRows then
@@ -1665,12 +1503,12 @@ local function loadSpell(spellToLoad)
 	end
 
 	if SpellCreatorMasterTable.Options["loadChronologically"] then
-		table.sort(spellActions, function (k1, k2) return k1.delay < k2.delay end)
+		table.sort(localSpellActions, function (k1, k2) return k1.delay < k2.delay end)
 	end
 
 	-- Loop thru actions & set their data
 	local rowNum, actionData
-	for rowNum, actionData in ipairs(spellActions) do
+	for rowNum, actionData in ipairs(localSpellActions) do
 		local _spellRow = _G["spellRow"..rowNum]
 		if actionData.actionType == "reset" then
 			UIDropDownMenu_SetSelectedID(_spellRow.actionSelectButton.Dropdown, 0)
@@ -1707,7 +1545,7 @@ SCForgeMainFrame.ResetUIButton:SetScript("OnClick", function(self)
 		loadSpell(emptySpell)
 	else
 		UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay,0.1,0.05,0.8)
-		setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
+		Animation.setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
 		local deleteRowIter = 0
 		for i = numberOfSpellRows, 1, -1 do
 			deleteRowIter = deleteRowIter+1
@@ -1716,7 +1554,7 @@ SCForgeMainFrame.ResetUIButton:SetScript("OnClick", function(self)
 
 		C_Timer.After(numberOfSpellRows/50, function()
 			loadSpell(emptySpell)
-			stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
+			Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
 			SCForgeMainFrame.ResetUIButton:Enable();
 		end)
 	end
@@ -1779,6 +1617,7 @@ local function getSpellForgePhaseVault(callback)
 					tinsert(phaseVault.spells, interAction)
 					--print("phaseVaultLoadingCount: ",phaseVaultLoadingCount," | phaseVaultLoadingExpected: ",phaseVaultLoadingExpected)
 					if phaseVaultLoadingCount == phaseVaultLoadingExpected then
+						dprint("Phase Vault Loading should be done")
 						phaseAddonDataListener2:UnregisterEvent("CHAT_MSG_ADDON")
 						phaseVault.isSavingOrLoadingAddonData = false
 						phaseVault.isLoaded = true
@@ -2293,6 +2132,21 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 		--tinsert(item.menuList, { text = "Add New", })
 		tinsert(menuList, item)
 		--]]
+		if tContains(SpellCreatorMasterTable.quickCastSpells, spellCommID) then
+			menuList[#menuList+1] = {text = "Remove from QuickCast", notCheckable = true, func = function()
+				tDeleteItem(SpellCreatorMasterTable.quickCastSpells, spellCommID);
+				ns.UI.Quickcast.hideCastCuttons()
+			end}
+		else
+			menuList[#menuList+1] = {text = "Add to QuickCast", notCheckable = true, func = function()
+				tinsert(SpellCreatorMasterTable.quickCastSpells, spellCommID);
+			end}
+		end
+
+		menuList[#menuList+1] = {text = "Link Hotkey", notCheckable = true, func = function()
+			SELECTED_CHAT_FRAME.editBox:SetFocus();
+			ChatEdit_InsertLink(generateSpellChatLink(spellCommID, vault));
+		end}
 	end
 
 	menuList[#menuList+1] = {text = "Chatlink", notCheckable = true, func = function()
@@ -2309,6 +2163,8 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 end
 
 ------------------------
+
+local load_row_background = ASSETS_PATH.."/SpellForgeVaultPanelRow"
 
 local loadRowHeight = 45
 local loadRowSpacing = 5
@@ -2463,19 +2319,19 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				button:SetSize(24,24)
 				--button:SetText("x")
 
-				button:SetNormalTexture(addonPath.."/assets/icon-x")
+				button:SetNormalTexture(ADDON_PATH.."/assets/icon-x")
 				button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 
 				button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 				button.DisabledTex:SetAllPoints(true)
-				button.DisabledTex:SetTexture(addonPath.."/assets/icon-x")
+				button.DisabledTex:SetTexture(ADDON_PATH.."/assets/icon-x")
 				button.DisabledTex:SetDesaturated(true)
 				button.DisabledTex:SetVertexColor(.6,.6,.6)
 				button:SetDisabledTexture(button.DisabledTex)
 
 				button.PushedTex = button:CreateTexture(nil, "ARTWORK")
 				button.PushedTex:SetAllPoints(true)
-				button.PushedTex:SetTexture(addonPath.."/assets/icon-x")
+				button.PushedTex:SetTexture(ADDON_PATH.."/assets/icon-x")
 				button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
 				button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
 				button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
@@ -2503,19 +2359,19 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					button:SetSize(24,24)
 					--button:SetText(EDIT)
 
-					button:SetNormalTexture(addonPath.."/assets/icon-edit")
+					button:SetNormalTexture(ADDON_PATH.."/assets/icon-edit")
 					button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 
 					button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 					button.DisabledTex:SetAllPoints(true)
-					button.DisabledTex:SetTexture(addonPath.."/assets/icon-edit")
+					button.DisabledTex:SetTexture(ADDON_PATH.."/assets/icon-edit")
 					button.DisabledTex:SetDesaturated(true)
 					button.DisabledTex:SetVertexColor(.6,.6,.6)
 					button:SetDisabledTexture(button.DisabledTex)
 
 					button.PushedTex = button:CreateTexture(nil, "ARTWORK")
 					button.PushedTex:SetAllPoints(true)
-					button.PushedTex:SetTexture(addonPath.."/assets/icon-edit")
+					button.PushedTex:SetTexture(ADDON_PATH.."/assets/icon-edit")
 					button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
 					button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
 					button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
@@ -2655,7 +2511,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					button:SetPoint("RIGHT", thisRow.gossipButton, "LEFT", -8, 0)
 
 					--button:SetNormalAtlas("UI_Editor_Eye_Icon")
-					button:SetNormalTexture(addonPath.."/assets/icon_visible_32")
+					button:SetNormalTexture(ADDON_PATH.."/assets/icon_visible_32")
 					button.normal = button:GetNormalTexture()
 					button.normal:SetVertexColor(0.9,0.65,0)
 					--button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
@@ -2663,7 +2519,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
 					button.DisabledTex:SetAllPoints(true)
 					--button.DisabledTex:SetAtlas("transmog-icon-hidden")
-					button.DisabledTex:SetTexture(addonPath.."/assets/icon_hidden_32")
+					button.DisabledTex:SetTexture(ADDON_PATH.."/assets/icon_hidden_32")
 					--button.DisabledTex:SetDesaturated(true)
 					button.DisabledTex:SetVertexColor(.6,.6,.6)
 					button:SetDisabledTexture(button.DisabledTex)
@@ -3028,9 +2884,9 @@ SCForgeMainFrame.SaveSpellButton:SetSize(24*4,24)
 SCForgeMainFrame.SaveSpellButton:SetText(BATTLETAG_CREATE)
 SCForgeMainFrame.SaveSpellButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 SCForgeMainFrame.SaveSpellButton:SetScript("OnClick", function(self, button)
-	setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
+	Animation.setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
 	saveSpell(button)
-	C_Timer.After(1, function() stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25) end)
+	C_Timer.After(1, function() Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25) end)
 end)
 SCForgeMainFrame.SaveSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -3131,7 +2987,7 @@ SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
 do
 	SCForgeMainFrame.LoadSpellFrame.Inset.Bg2 = SCForgeMainFrame.LoadSpellFrame.Inset:CreateTexture(nil, "BACKGROUND")
 	local background = SCForgeMainFrame.LoadSpellFrame.Inset.Bg2
-	background:SetTexture(addonPath.."/assets/SpellForgeVaultBG")
+	background:SetTexture(ADDON_PATH.."/assets/SpellForgeVaultBG")
 	background:SetVertTile(false)
 	background:SetHorizTile(false)
 	background:SetTexCoord(0.0546875,1-0.0546875,0.228515625,1-0.228515625)
@@ -3193,7 +3049,7 @@ SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton = CreateFrame("BUTTON", nil,
 	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetMotionScriptsWhileDisabled(true)
 
 	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon = SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:CreateTexture(nil, "ARTWORK")
-		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture(addonPath.."/assets/icon-transfer")
+		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture(ADDON_PATH.."/assets/icon-transfer")
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexCoord(0,1,1,0)
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetPoint("TOPLEFT", 5, 0)
 		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetSize(24,24)
@@ -3241,13 +3097,13 @@ _frame:SetPoint("LEFT", SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton, "RI
 _frame:SetSize(20,20)
 --_frame.text:SetText("Private")
 
-_frame:SetNormalTexture(addonPath.."/assets/icon_visible_32")
+_frame:SetNormalTexture(ADDON_PATH.."/assets/icon_visible_32")
 _frame.NormalTexture = _frame:GetNormalTexture()
 _frame.NormalTexture:SetVertexColor(0.9,0.65,0)
 
 _frame:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight", "ADD")
 
-_frame:SetCheckedTexture(addonPath.."/assets/icon_hidden_32")
+_frame:SetCheckedTexture(ADDON_PATH.."/assets/icon_hidden_32")
 _frame.CheckedTexture = _frame:GetCheckedTexture()
 _frame.CheckedTexture:SetBlendMode("BLEND")
 _frame.CheckedTexture:SetVertexColor(0.6,0.6,0.6)
@@ -3280,7 +3136,7 @@ _frame:SetScript("OnClick", function(self)
 	if self:GetChecked() then
 		self:SetNormalTexture("")
 	else
-		self:SetNormalTexture(addonPath.."/assets/icon_visible_32")
+		self:SetNormalTexture(ADDON_PATH.."/assets/icon_visible_32")
 	end
 end)
 
@@ -3302,7 +3158,7 @@ SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetText("     Personal 
 SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetMotionScriptsWhileDisabled(true)
 
 SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon = SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:CreateTexture(nil, "ARTWORK")
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetTexture(addonPath.."/assets/icon-transfer")
+SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetTexture(ADDON_PATH.."/assets/icon-transfer")
 SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetTexCoord(0,1,1,0)
 SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetPoint("TOPLEFT", 5, 0)
 SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetSize(24,24)
@@ -3560,7 +3416,7 @@ function ChatFrame_OnHyperlinkShow(...)
 		local spellComm, charOrPhase, spellName, numActions, spellDesc = strsplit(":", linkData)
 		if not spellDesc then spellDesc = numActions; numActions = spellName end -- legacy support for old link types
 		local spellName = displayText:gsub("%[(.+)%]","%1")
-		local spellIconPath = addonPath.."/assets/BookIcon"
+		local spellIconPath = ADDON_PATH.."/assets/BookIcon"
 		local spellIconSize = 24
 		local spellIconSequence = "|T"..spellIconPath..":"..spellIconSize.."|t "
 		local tooltipTitle = spellIconSequence..ADDON_COLOR..spellName
@@ -3624,9 +3480,7 @@ local function scforge_showhide(where)
 			SCForgeMainFrame:Show()
 			if where == "enableMMIcon" and SpellCreatorMasterTable.Options["minimapIcon"] == nil then
 				SpellCreatorMasterTable.Options["minimapIcon"] = true
-				UIFrameFlash(SpellCreatorMinimapButton.Flash, 1.0, 1.0, -1, false, 0, 0);
-				SpellCreatorMinimapButton:SetShown(true)
-				UIFrameFadeIn(SpellCreatorMinimapButton, 0.5)
+				MinimapButton.onEnabled()
 			end
 		else
 			SCForgeMainFrame:Hide()
@@ -3634,227 +3488,12 @@ local function scforge_showhide(where)
 	end
 end
 
-local minimapButton = CreateFrame("Button", "SpellCreatorMinimapButton", Minimap)
-minimapButton:SetMovable(true)
-minimapButton:EnableMouse(true)
-minimapButton:SetSize(33,33)
-minimapButton:SetFrameStrata("MEDIUM");
-minimapButton:SetFrameLevel("62");
-minimapButton:SetClampedToScreen(true);
-minimapButton:SetClampRectInsets(5,-5,-5,5)
-minimapButton:SetPoint("TOPLEFT")
-minimapButton:RegisterForDrag("LeftButton","RightButton")
-minimapButton:RegisterForClicks("LeftButtonUp","RightButtonUp")
-
-local minimapShapes = {
-	["ROUND"] = {true, true, true, true},
-	["SQUARE"] = {false, false, false, false},
-	["CORNER-TOPLEFT"] = {false, false, false, true},
-	["CORNER-TOPRIGHT"] = {false, false, true, false},
-	["CORNER-BOTTOMLEFT"] = {false, true, false, false},
-	["CORNER-BOTTOMRIGHT"] = {true, false, false, false},
-	["SIDE-LEFT"] = {false, true, false, true},
-	["SIDE-RIGHT"] = {true, false, true, false},
-	["SIDE-TOP"] = {false, false, true, true},
-	["SIDE-BOTTOM"] = {true, true, false, false},
-	["TRICORNER-TOPLEFT"] = {false, true, true, true},
-	["TRICORNER-TOPRIGHT"] = {true, false, true, true},
-	["TRICORNER-BOTTOMLEFT"] = {true, true, false, true},
-	["TRICORNER-BOTTOMRIGHT"] = {true, true, true, false},
-}
-
-local RadialOffset = 10;	--minimapbutton offset
-local function MinimapButton_UpdateAngle(radian)
-	local x, y, q = math.cos(radian), math.sin(radian), 1;
-	if x < 0 then q = q + 1 end
-	if y > 0 then q = q + 2 end
-	local minimapShape = GetMinimapShape and GetMinimapShape() or "ROUND";
-	local quadTable = minimapShapes[minimapShape];
-	local w = (Minimap:GetWidth() / 2) + RadialOffset	--10
-	local h = (Minimap:GetHeight() / 2) + RadialOffset
-	if quadTable[q] then
-		x, y = x*w, y*h
-	else
-		local diagRadiusW = sqrt(2*(w)^2) - RadialOffset	--  -10
-		local diagRadiusH = sqrt(2*(h)^2) - RadialOffset
-		x = max(-w, min(x*diagRadiusW, w));
-		y = max(-h, min(y*diagRadiusH, h));
-	end
-	minimapButton:ClearAllPoints()
-	minimapButton:SetPoint("CENTER", "Minimap", "CENTER", x, y);
-end
-
-local function minimap_OnUpdate(self)
-	local radian;
-
-	local mx, my = Minimap:GetCenter();
-	local px, py = GetCursorPosition();
-	local scale = Minimap:GetEffectiveScale();
-	px, py = px / scale, py / scale;
-	radian = math.atan2(py - my, px - mx);
-
-	MinimapButton_UpdateAngle(radian);
-	SpellCreatorMasterTable.Options["mmLoc"] = radian;
-	if not self.highlight.anim:IsPlaying() then self.highlight.anim:Play() end
-end
-
-minimapButton.Flash = minimapButton:CreateTexture("$parentFlash", "OVERLAY")
-minimapButton.Flash:SetAtlas("Azerite-Trait-RingGlow")
-minimapButton.Flash:SetAllPoints()
-minimapButton.Flash:SetPoint("TOPLEFT", -4, 4)
-minimapButton.Flash:SetPoint("BOTTOMRIGHT", 4, -4)
-minimapButton.Flash:SetDesaturated(true)
-minimapButton.Flash:SetVertexColor(1,1,0)
-minimapButton.Flash:Hide()
-local function rainbowVertex(frame, parentIfNeeded)
-	frame.elapsed = 0
-	frame.rainbowVertex = true
-	local scriptFrame = parentIfNeeded or frame
-	scriptFrame:HookScript("OnUpdate", function(self,elapsed)
-		if frame.rainbowVertex then
-			elapsed = elapsed/10
-			frame.elapsed = frame.elapsed + elapsed
-			if frame.elapsed > 1 then frame.elapsed = 0 end
-			local r,g,b = hsvToRgb(frame.elapsed, 1, 1)
-			frame:SetVertexColor(r/255, g/255, b/255)
-		end
-	end)
-end
-
-minimapButton.bg = minimapButton:CreateTexture("$parentBg", "BACKGROUND")
-minimapButton.bg:SetTexture(addonPath.."/assets/CircularBG")
-minimapButton.bg:SetSize(24,24)
-minimapButton.bg:SetPoint("CENTER")
-minimapButton.bg.mask = minimapButton:CreateMaskTexture()
-minimapButton.bg.mask:SetAllPoints(minimapButton.bg)
-minimapButton.bg.mask:SetTexture("Interface/CHARACTERFRAME/TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-minimapButton.bg:AddMaskTexture(minimapButton.bg.mask)
-
-local mmIcon = arcaneGemPath.."Violet"
-minimapButton.icon = minimapButton:CreateTexture("$parentIcon", "ARTWORK")
-minimapButton.icon:SetTexture(mmIcon)
-minimapButton.icon:SetSize(22,22)
-minimapButton.icon:SetPoint("CENTER")
-
-minimapButton.Model = CreateFrame("PLAYERMODEL", nil, minimapButton, "MouseDisabledModelTemplate")
-minimapButton.Model:SetAllPoints()
-minimapButton.Model:SetFrameStrata("MEDIUM")
-minimapButton.Model:SetFrameLevel(minimapButton:GetFrameLevel())
-minimapButton.Model:SetModelDrawLayer("BORDER")
-minimapButton.Model:SetKeepModelOnHide(true)
-modelFrameSetModel(minimapButton.Model, 2, minimapModels)
-modelFrameSetModel(minimapButton.Model, fastrandom(#minimapModels), minimapModels)
-
---SpellCreatorMinimapButton.Model
---SpellCreatorMinimapButton.Model:SetCamDistanceScale()
-
---[[
-minimapButton.rune = minimapButton:CreateTexture(nil, "OVERLAY", nil, 7)
-if runeIconOverlay.atlas then
-	minimapButton.rune:SetAtlas(runeIconOverlay.atlas)
-else
-	minimapButton.rune:SetTexture(runeIconOverlay.tex)
-end
-
-minimapButton.rune:SetDesaturated(true)
-minimapButton.rune:SetVertexColor(1,1,1)
-minimapButton.rune:SetBlendMode("ADD")
-minimapButton.rune:SetPoint("CENTER")
-minimapButton.rune:SetSize(12,12)
---minimapButton.rune:SetPoint("TOPLEFT", minimapButton, 8, -8)
---minimapButton.rune:SetPoint("BOTTOMRIGHT", minimapButton, -8, 8)
---]]
-
--- Minimap Border Ideas (Atlas):
-local mmBorders = {
-	{atlas = "Artifacts-PerkRing-Final", size=0.58, posx=1, posy=-1 },	-- 1 -- Thin Gold Border with gloss over the icon area like glass
-	{atlas = "auctionhouse-itemicon-border-purple", size=0.62, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
-	{atlas = "legionmission-portraitring-epicplus", size=0.65, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- thicker purple ring w/ gold edges & decor
-	{tex = addonPath.."/assets/Icon_Ring_Border", size=0.62, posx=-1, posy=0, hilight="Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
-}
-
-local mmBorder = mmBorders[4]	-- put your table choice here
-minimapButton.border = minimapButton:CreateTexture("$parentBorder", "BORDER")
-	if mmBorder.atlas then minimapButton.border:SetAtlas(mmBorder.atlas, false) else minimapButton.border:SetTexture(mmBorder.tex) end
-minimapButton.border:SetSize(56*mmBorder.size,56*mmBorder.size)
-minimapButton.border:SetPoint("TOPLEFT",mmBorder.posx,mmBorder.posy)
-if mmBorder.hilight then minimapButton:SetHighlightAtlas(mmBorder.hilight) else minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight") end
-minimapButton.highlight = minimapButton:GetHighlightTexture()
-
-minimapButton.highlight.anim = minimapButton.highlight:CreateAnimationGroup()
-minimapButton.highlight.anim:SetLooping("REPEAT")
-minimapButton.highlight.anim.rot = minimapButton.highlight.anim:CreateAnimation("Rotation")
-minimapButton.highlight.anim.rot:SetDegrees(-360)
-minimapButton.highlight.anim.rot:SetDuration(5)
-minimapButton.highlight.anim:SetScript("OnPlay", function(self)
-	setFrameFlicker(self:GetParent(), 2, 0.1, 0.5, 1, 0.33)
-end)
-minimapButton.highlight.anim:SetScript("OnPause", function(self)
-	stopFrameFlicker(self:GetParent(), 1)
-end)
-
---[[
-SpellCreatorMinimapButton.border:SetSize(56*0.6,56*0.6)
-SpellCreatorMinimapButton.border:SetPoint("TOPLEFT",2,-1)
-minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
-		-- kept these here for ez copy-paste in-game lol
---]]
-
-minimapButton:SetScript("OnDragStart", function(self)
-	self:LockHighlight()
-	self:SetScript("OnUpdate", minimap_OnUpdate)
-end)
-minimapButton:SetScript("OnDragStop", function(self)
-	self:UnlockHighlight()
-	self.highlight.anim:Pause()
-	self:SetScript("OnUpdate", nil)
-end)
-minimapButton:SetScript("OnMouseUp", function(self, button)
-	if button == "LeftButton" then
-		scforge_showhide()
-		modelFrameSetModel(minimapButton.Model, fastrandom(#minimapModels), minimapModels)
-	elseif button == "RightButton" then
-		scforge_showhide("options")
-	end
-end)
-
-minimapButton:SetScript("OnEnter", function(self)
-	self.highlight.anim:Play()
-	SetCursor("Interface/CURSOR/voidstorage.blp");
-	-- interface/cursor/argusteleporter.blp , interface/cursor/trainer.blp ,
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	GameTooltip:SetText(ADDON_TITLE)
-	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("/arcanum - Toggle UI",1,1,1,true)
-	GameTooltip:AddLine("/sf - Shortcut Command!",1,1,1,true)
-	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("|cffFFD700Left-Click|r to toggle the main UI!",1,1,1,true)
-	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options.",1,1,1,true)
-	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("Mouse over most UI Elements to see tooltips for help! (Like this one!)",0.9,0.75,0.75,true)
-	GameTooltip:AddDoubleLine(" ", ADDON_TITLE.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
-	GameTooltip:AddDoubleLine(" ", "by "..addonAuthor, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);
-	GameTooltip:Show()
-
-	if self.Flash:IsShown() then UIFrameFlashStop(self.Flash) end
-	self.Flash.rainbowVertex = false
-
-end)
-minimapButton:SetScript("OnLeave", function(self)
-	self.highlight.anim:Pause()
-	ResetCursor();
-	GameTooltip:Hide()
-end)
-
-minimapButton:SetScript("OnShow", function(self)
-	if not self.Flash:IsShown() then UIFrameFlash(self.Flash, 0.75, 0.75, 4.5, false, 0, 0); end
-	rainbowVertex(minimapButton.Flash, minimapButton)
-end)
+MinimapButton.setCallback(scforge_showhide)
 
 local function LoadMinimapPosition()
 	local radian = tonumber(SpellCreatorMasterTable.Options["mmLoc"]) or 2.7
-	MinimapButton_UpdateAngle(radian);
-	if not SpellCreatorMasterTable.Options["minimapIcon"] then minimapButton:SetShown(false) end
+	MinimapButton.updateAngle(radian);
+	if not SpellCreatorMasterTable.Options["minimapIcon"] then MinimapButton:setShown(false) end
 end
 
 -------------------------------------------------------------------------------
@@ -3989,7 +3628,7 @@ function CreateSpellCreatorInterfaceOptions()
 		["tooltipTitle"] = "Enable Minimap Button",
 		["tooltipText"] = nil,
 		["optionKey"] = "minimapIcon",
-		["onClickHandler"] = function(self) if SpellCreatorMasterTable.Options["minimapIcon"] then minimapButton:SetShown(true) else minimapButton:SetShown(false) end end,
+		["onClickHandler"] = function(self) if SpellCreatorMasterTable.Options["minimapIcon"] then MinimapButton.setShown(true) else MinimapButton.setShown(false) end end,
 		}
 	SpellCreatorInterfaceOptions.panel.MinimapIconToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 
@@ -4216,7 +3855,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		C_Epsilon.IsDM = false
 		updateSpellLoadRows();
 
-		getSpellForgePhaseVault();
+		getSpellForgePhaseVault(SCForgeLoadFrame:IsShown() and updateSpellLoadRows or nil);
 
 		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then
 			SCForgeMainFrame.ExecuteSpellButton:Disable()
@@ -4243,18 +3882,18 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 		-- Adjust Radial Offset for Minimap Icon for alternate UI Overhaul Addons
 		if IsAddOnLoaded("AzeriteUI") then
-			RadialOffset = 18;
+			MinimapButton.setRadialOffset(18)
 		elseif IsAddOnLoaded("DiabolicUI") then
-			RadialOffset = 12;
+			MinimapButton.setRadialOffset(12)
 		elseif IsAddOnLoaded("GoldieSix") then
 			--GoldpawUI
-			RadialOffset = 18;
+			MinimapButton.setRadialOffset(18)
 		elseif IsAddOnLoaded("GW2_UI") then
-			RadialOffset = 44;
+			MinimapButton.setRadialOffset(44)
 		elseif IsAddOnLoaded("SpartanUI") then
-			RadialOffset = 8;
+			MinimapButton.setRadialOffset(8)
 		else
-			RadialOffset = 10;
+			MinimapButton.setRadialOffset(10)
 		end
 
 		CreateSpellCreatorInterfaceOptions()
@@ -4515,63 +4154,6 @@ function SlashCmdList.SCFORGEMAIN(msg, editbox) -- 4.
 	end
 end
 
-local function arcSlashCommandHandler(msg)
-	local command, arg1, arg2, arg3, arg4, arg5, arg6 = AceConsole:GetArgs(msg, 7)
-	if not command or command == "" then
-		cprint("Commands & API")
-		print(ADDON_COLOR.."Main Commands:")
-		print(ADDON_COLOR..'NOTE: If you want to use a space, wrap your $variable in quotes (i.e., "command with spaces").')
-		print(ADDON_COLOR.."/arcanum [$commID] - Cast an ArcSpell by it's command ID you gave it (aka CommID), or open the Spell Forge UI if left blank.")
-		print(ADDON_COLOR.."/sf [$commID] - Shorter Alternative to /arcanum.")
-		print(" ")
-		print(ADDON_COLOR.."ARC:API Commands:")
-		print(ADDON_COLOR.."/arc ..")
-		print(ADDON_COLOR.."     .. cast $commID|r - Cast from your personal vault, same as /arcanum or /sf")
-		print(ADDON_COLOR.."     .. castp $commID|r - Cast a spell from the Phase Vault if it exists.")
-		print("               Direct Function: |cffFFAAAA/run ARC:CASTP()|r")
-		print(ADDON_COLOR.."     .. cmd $command|r - Runs the server $command specified (i.e., 'cheat fly').")
-		print("               Direct Function: |cffFFAAAA/run ARC:COMM()|r")
-		print(ADDON_COLOR..'     .. if $tag $commandTrue $commandFalse [$varTrue] [$varFalse]')
-		print("          Checks if the $tag is true and runs the $commandTrue (with $var1 added if given),")
-		print("          or $commandFalse if not true (with $varTrue/$varFalse added if given).")
-		print("               Direct Function: |cffFFAAAA/run ARC:IF()|r")
-		print(ADDON_COLOR..'     .. ifs $tag $check $commandTrue $commandFalse [$varTrue] [$varFalse]')
-		print("          Same as ARC:IF but checks if the $tag is equal to $check instead of just testing if it's true.")
-		print("               Direct Function: |cffFFAAAA/run ARC:IF()|r")
-		print(ADDON_COLOR.."     .. tog $tag|r - Toggles the $tag between true & false, used with ARC:IF (/arc if).")
-		print("               Direct Function: |cffFFAAAA/run ARC:TOG()|r")
-		print(ADDON_COLOR..'     .. set $tag $value|r - Sets the $tag to a specific "$value". Use with GET or IFS.')
-		print("               Direct Function: |cffFFAAAA/run ARC:SET()|r")
-		print(ADDON_COLOR..'     .. copy $URL/Text|r - Shows a pop-up box to copy the URL / Text given.')
-		print("               Direct Function: |cffFFAAAA/run ARC:COPY()|r")
-		print(ADDON_COLOR..'     .. getname|r - Gets the name of the target - if it is a MogIt name, it will give you the MogIt Link.')
-		print("               Direct Function: |cffFFAAAA/run ARC:GETNAME()|r")
-		print(ADDON_COLOR.."/sfdebug|r - List all the Debug Commands. WARNING: These are for DEBUG, not to play with and complain something broke.")
-		return;
-	elseif command == "cast" then
-		ARC:CAST(arg1)
-	elseif command == "castp" then
-		ARC:CASTP(arg1)
-	elseif command == "tog" then
-		ARC:TOG(arg1)
-	elseif command == "if" then
-		ARC:IF(arg1,arg2,arg3,arg4,arg5)
-	elseif command == "ifs" then
-		ARC:IFS(arg1, arg2, arg3, arg4, arg5, arg6)
-	elseif command == "cmd" then
-		cmdWithDotCheck(arg1)
-	elseif command == "set" then
-		tag, rest = rest:match("^(%S*)%s*(.-)$")
-		ARC:SET(arg1, arg2)
-	elseif command == "copy" then
-		ARC:COPY(arg1)
-	elseif command == "getname" then
-		ARC:GETNAME()
-	end
-end
-
-AceConsole:RegisterChatCommand("arc", arcSlashCommandHandler)
-
 local _phaseSpellDebugDataTable = {}
 SLASH_SCFORGEDEBUG1 = '/sfdebug';
 function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
@@ -4728,13 +4310,13 @@ end
 local testComVar
 SLASH_SCFORGETEST1 = '/sftest';
 function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
-	if testComVar and testComVar < #minimapModels then testComVar = testComVar+1 else testComVar = 1 end
-	modelFrameSetModel(SCForgeMainFrame.portrait.Model, testComVar, minimapModels)
+	if testComVar and testComVar < #Models.minimapModels then testComVar = testComVar+1 else testComVar = 1 end
+	Models.modelFrameSetModel(SCForgeMainFrame.portrait.Model, testComVar, Models.minimapModels)
 	print(testComVar)
 
 	--[[
 	if msg ~= "" then
-		modelFrameSetModel(minimapButton.Model, msg, minimapModels)
+		Models.modelFrameSetModel(minimapButton.Model, msg, Models.minimapModels)
 	else
 		initRuneIcon()
 		setRuneTex(runeIconOverlay)

@@ -1,6 +1,7 @@
-local _, ns = ...
+---@class ns
+local ns = select(2, ...)
 
-local eprint = ns.logging.eprint
+local eprint = ns.Logging.eprint
 
 local MacroEditBox = MacroEditBox
 
@@ -26,7 +27,7 @@ local function runMacroText(command)
 	end
 end
 
-ns.cmd = {
+ns.Cmd = {
     cmd = cmd,
     cmdNoDot = cmdNoDot,
     cmdWithDotCheck = cmdWithDotCheck,

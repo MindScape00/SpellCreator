@@ -1,6 +1,7 @@
-local _, ns = ...
+---@class ns
+local ns = select(2, ...)
 
-ns.vault = {
+ns.Vault = {
     phase = {
         isLoaded = false,
         isSavingOrLoadingAddonData = false,
