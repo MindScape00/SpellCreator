@@ -14,6 +14,8 @@ local isDMEnabled, isOfficerPlus, isMemberPlus = ns.Permissions.isDMEnabled, ns.
 local serializer = ns.Serializer
 local phaseVault = ns.Vault.phase
 
+local Debug = ns.Utils.Debug
+
 local Animation = ns.UI.Animation
 local Models, Portrait = ns.UI.Models, ns.UI.Portrait
 local MinimapButton = ns.UI.MinimapButton
@@ -33,6 +35,7 @@ local selectedProfileFilter = {}
 
 local modifiedGossips = {}
 local isGossipLoaded
+local saveSpell
 
 -- localized frequent functions for speed
 local C_Timer = C_Timer
@@ -72,40 +75,6 @@ local C_Epsilon = C_Epsilon
 
 local function sendChat(text)
   SendChatMessage(text, "SAY");
-end
-
---local dump = DevTools_Dump
-local function dump(o)
-	if not DevTools_Dump then
-		UIParentLoadAddOn("Blizzard_DebugTools");
-	end
-	if type(o) == "table" then
-		DevTools_Dump(o);
-		--DisplayTableInspectorWindow(o)
-	else
-		DevTools_Dump(o);
-	end
-
---[[ -- Old Table String-i-zer.. Replaced with Blizzard_DebugTools nice dump :)
-   if type(o) == 'table' then
-      local s = '{ '
-      for k,v in pairs(o) do
-         if type(k) ~= 'number' then k = '"'..k..'"' end
-         s = s .. '['..k..'] = ' .. dump(v) .. ','
-      end
-      return s .. '} '
-   else
-      return tostring(o)
-   end
---]]
-end
-
-local function ddump(o)
-	if SpellCreatorMasterTable.Options["debug"] then
-		local line = strmatch(debugstack(2),":(%d+):")
-		print(ADDON_COLOR..ADDON_TITLE.." DEBUG-DUMP "..line..":|r")
-		dump(o)
-	end
 end
 
 local function get_keys(t)
@@ -458,62 +427,65 @@ local function initActionDropdownItems(dataList, flatMenuList, menuList, parentM
 	for i = 1, #dataList do
 		local key = dataList[i]
 		local data = actionTypeData[key]
-
-		local menuItem = UIDropDownMenu_CreateInfo()
-		menuItem.text = data.name
-
-		if data.type == "header" then
-			menuItem.isTitle = true
-			menuItem.text = data.name
-			menuItem.notCheckable = true
-		elseif data.type == "spacer" then
-			menuItem.text = ""
-			menuItem.notCheckable = true
-			menuItem.disabled = true
-		elseif data.type == "submenu" then
-			menuItem.text = data.name
-			menuItem.hasArrow = true
-			menuItem.keepShownOnClick = true
-			menuItem.value = nil
-
-			menuItem.menuList = {}
-
-			initActionDropdownItems(data.menuDataList, flatMenuList, menuItem.menuList, menuList, menuItem)
+		if data.dependency and not IsAddOnLoaded(data.dependency) then
+			--eprint("AddOn " .. data.dependency .. " required for action "..data.name);
 		else
+			local menuItem = UIDropDownMenu_CreateInfo()
 			menuItem.text = data.name
-			menuItem.tooltipTitle = data.name
-			menuItem.tooltipText = data.description
-			menuItem.tooltipOnButton = true
-			menuItem.value = key
-			menuItem.arg1 = numberOfSpellRows
-			menuItem.func = function(self, arg1)
-				for _, v in pairs(flatMenuList) do
-					v.checked = false
+
+			if data.type == "header" then
+				menuItem.isTitle = true
+				menuItem.text = data.name
+				menuItem.notCheckable = true
+			elseif data.type == "spacer" then
+				menuItem.text = ""
+				menuItem.notCheckable = true
+				menuItem.disabled = true
+			elseif data.type == "submenu" then
+				menuItem.text = data.name
+				menuItem.hasArrow = true
+				menuItem.keepShownOnClick = true
+				menuItem.value = nil
+
+				menuItem.menuList = {}
+
+				initActionDropdownItems(data.menuDataList, flatMenuList, menuItem.menuList, menuList, menuItem)
+			else
+				menuItem.text = data.name
+				menuItem.tooltipTitle = data.name
+				menuItem.tooltipText = data.description
+				menuItem.tooltipOnButton = true
+				menuItem.value = key
+				menuItem.arg1 = numberOfSpellRows
+				menuItem.func = function(self, arg1)
+					for _, v in pairs(flatMenuList) do
+						v.checked = false
+					end
+
+					menuItem.checked = true
+					if (parentItem) then
+						parentItem.checked = true
+					end
+
+					UIDropDownMenu_SetText(_G["spellRow"..arg1.."ActionSelectButton"], menuItem.text)
+					Debug.ddump(self)
+					updateSpellRowOptions(arg1, menuItem.value)
+
+					if (parentItem) then
+						CloseDropDownMenus()
+					end
 				end
 
-				menuItem.checked = true
 				if (parentItem) then
-					parentItem.checked = true
-				end
-
-				UIDropDownMenu_SetText(_G["spellRow"..arg1.."ActionSelectButton"], menuItem.text)
-				ddump(self)
-				updateSpellRowOptions(arg1, menuItem.value)
-
-				if (parentItem) then
-					CloseDropDownMenus()
+					parentItem.func = function(self)
+						_G[self:GetName().."Check"]:Hide()
+					end
 				end
 			end
 
-			if (parentItem) then
-				parentItem.func = function(self)
-					_G[self:GetName().."Check"]:Hide()
-				end
-			end
+			table.insert(menuList, menuItem)
+			table.insert(flatMenuList, menuItem)
 		end
-
-		table.insert(menuList, menuItem)
-		table.insert(flatMenuList, menuItem)
 	end
 end
 
@@ -1049,6 +1021,24 @@ local _frame = SCForgeMainFrame.SpellInfoDescBox
 	end)
 	--_frame:SetPoint("LEFT", SCForgeMainFrame.SpellInfoCommandBox, "RIGHT", 10, 0)
 
+SCForgeMainFrame.CastBarCheckButton = CreateFrame("CheckButton", nil, SCForgeMainFrame, "UICheckButtonTemplate")
+	_frame = SCForgeMainFrame.CastBarCheckButton
+	_frame:SetSize(20,20)
+	_frame:SetPoint("LEFT", SCForgeMainFrame.SpellInfoCommandBox, "RIGHT", 0, 0)
+	_frame.text:SetText("Castbar")
+	_frame:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		self.Timer = C_Timer.NewTimer(0.7,function()
+			GameTooltip:SetText("Castbar", nil, nil, nil, nil, true)
+			GameTooltip:AddLine("Show a casting bar when this spell is cast.\n\rCastbars do not show, even if enabled, if the total spell length is under 0.25 seconds.",1,1,1,true)
+			GameTooltip:Show()
+		end)
+	end)
+	_frame:SetScript("OnLeave", function(self)
+		GameTooltip_Hide()
+		self.Timer:Cancel()
+	end)
+
 -- Enable Tabing between editboxes
 SCForgeMainFrame.SpellInfoNameBox.nextEditBox = SCForgeMainFrame.SpellInfoCommandBox
 SCForgeMainFrame.SpellInfoCommandBox.nextEditBox = SCForgeMainFrame.SpellInfoDescBox
@@ -1434,7 +1424,7 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 			if actionData.revertDelay and actionData.revertDelay > maxDelay then maxDelay = actionData.revertDelay end
 			actionData.selfOnly = theSpellRow.SelfCheckbox:GetChecked()
 			actionData.vars = theSpellRow.InputEntryBox:GetText()
-			ddump(actionData)
+			Debug.ddump(actionData)
 			table.insert(actionsToCommit, actionData)
 		end
 	end
@@ -1601,7 +1591,7 @@ local function getSpellForgePhaseVault(callback)
 			phaseVaultKeys = serializer.decompressForAddonMsg(text)
 			if #phaseVaultKeys < 1 then noSpellsToLoad(); return; end
 			dprint("Phase spell keys: ")
-			ddump(phaseVaultKeys)
+			Debug.ddump(phaseVaultKeys)
 			local phaseVaultLoadingCount = 0
 			local phaseVaultLoadingExpected = #phaseVaultKeys
 			local messageTicketQueue = {}
@@ -1702,7 +1692,7 @@ local function saveSpellToPhaseVault(commID, overwrite)
 				if (text ~= "" and #text > 0) then phaseVaultKeys = serializer.decompressForAddonMsg(text) else phaseVaultKeys = {} end
 
 				dprint("Phase spell keys: ")
-				ddump(phaseVaultKeys)
+				Debug.ddump(phaseVaultKeys)
 
 				for k,v in ipairs(phaseVaultKeys) do
 					if v == commID then
@@ -2073,7 +2063,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 	if vault == "PHASE" then
 		menuList = {
 			{text = phaseVault.spells[spellCommID].fullName, notCheckable = true, isTitle=true},
-			{text = "Cast", notCheckable = true, func = function() executeSpell(phaseVault.spells[spellCommID].actions, nil, phaseVault.spells[spellCommID].fullName) end},
+			{text = "Cast", notCheckable = true, func = function() executeSpell(phaseVault.spells[spellCommID].actions, nil, phaseVault.spells[spellCommID].fullName, phaseVault.spells[spellCommID]) end},
 			{text = "Edit", notCheckable = true, func = function() loadSpell(phaseVault.spells[spellCommID]) end},
 			{text = "Transfer", tooltipTitle="Transfer to Personal Vault", tooltipOnButton=true, notCheckable = true, func = function() saveSpell(nil, spellCommID) end},
 		}
@@ -2796,7 +2786,7 @@ StaticPopupDialogs["SCFORGE_CONFIRM_DELETE"] = {
 	preferredIndex = 3,
 }
 
-local function saveSpell(mousebutton, fromPhaseVaultID, manualData)
+saveSpell = function (mousebutton, fromPhaseVaultID, manualData)
 
 	local wasOverwritten = false
 	local newSpellData = {}
@@ -2808,7 +2798,7 @@ local function saveSpell(mousebutton, fromPhaseVaultID, manualData)
 		dprint("Saving Spell from Phase Vault, fake commID: "..fromPhaseVaultID..", real commID: "..newSpellData.commID)
 	elseif manualData then
 		newSpellData = manualData
-		dump(manualData)
+		Debug.dump(manualData)
 		dprint("Saving Manual Spell Data (Import): "..newSpellData.commID)
 	else
 		newSpellData.commID = SCForgeMainFrame.SpellInfoCommandBox:GetText()
@@ -3167,7 +3157,7 @@ SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetSize(24,24)
 SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnClick", function(self)
 	if selectedVaultRow then
 		local commID = spellLoadRows[selectedVaultRow].commID
-		ddump(phaseVault.spells[commID]) -- Dump the table of the phase vault spell for debug
+		Debug.ddump(phaseVault.spells[commID]) -- Dump the table of the phase vault spell for debug
 		saveSpell(nil, commID)
 	end
 end)
@@ -3777,7 +3767,7 @@ local gossipScript = {
 		local spellRanSuccessfully
 		for k,v in pairs(phaseVault.spells) do
 			if v.commID == payLoad then
-				executeSpell(v.actions, true, v.fullName);
+				executeSpell(v.actions, true, v.fullName, v);
 				spellRanSuccessfully = true
 			end
 		end
@@ -3936,6 +3926,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		gossipOptionPayload = nil
 		gossipGreetPayload = nil
 		currGossipText = GetGossipText();
+		local needToHookLateForImmersion = false
 
 		local gossipGreetingText = GossipGreetingText:GetText()
 		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then
@@ -4063,7 +4054,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 					if ImmersionFrame then
 						if not titleButton.isHookedByArc then
 							titleButton:HookScript("OnClick", _newOnClickHook)
-							titleButton.isHookedByArc = true
+							needToHookLateForImmersion=true
 						end
 					else
 						titleButton:HookScript("OnClick", _newOnClickHook)
@@ -4083,6 +4074,9 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				titleButtonText = titleButton:GetText();
 				dprint("Saw an option tag | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
 			end
+			if needToHookLateForImmersion then
+				titleButton.isHookedByArc = true
+			end
 
 			GossipResize(titleButton) -- Fix the size if the gossip option changed number of lines.
 
@@ -4095,7 +4089,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				for i,j in pairs(spellsToCast) do
 					for k,v in pairs(phaseVault.spells) do
 						if v.commID == j then
-							executeSpell(v.actions, true, v.fullName);
+							executeSpell(v.actions, true, v.fullName, v);
 							spellRanSuccessfully = true
 						end
 					end
@@ -4143,7 +4137,7 @@ function SlashCmdList.SCFORGEMAIN(msg, editbox) -- 4.
 	if #msg > 0 then
 		dprint(false,"Casting Arcanum Spell by CommID: "..msg)
 		if SpellCreatorSavedSpells[msg] then
-			executeSpell(SpellCreatorSavedSpells[msg].actions, nil, SpellCreatorSavedSpells[msg].fullName)
+			executeSpell(SpellCreatorSavedSpells[msg].actions, nil, SpellCreatorSavedSpells[msg].fullName, SpellCreatorSavedSpells[msg])
 		elseif msg == "options" then
 			scforge_showhide("options")
 		else
@@ -4171,12 +4165,12 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 		elseif command == "listSpells" then
 			for k,v in orderedPairs(SpellCreatorSavedSpells) do
 				cprint("ArcSpell: "..k.." =")
-				dump(v)
+				Debug.dump(v)
 			end
 		elseif command == "listSpellKeys" then -- debug to list all spell keys by alphabetical order.
 			local newTable = get_keys(SpellCreatorSavedSpells)
 			table.sort(newTable)
-			dump(newTable)
+			Debug.dump(newTable)
 		elseif command == "resetPhaseSpellKeys" then
 			if rest == "confirm" then
 				C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", "")
@@ -4226,7 +4220,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 							["encoded"] = text,
 							["decoded"] = interAction,
 						}
-						dump(interAction)
+						Debug.dump(interAction)
 					end
 				end)
 			else
@@ -4286,7 +4280,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 					SpellCreatorMasterTable.Options["debugPhaseKeys"] = text
 					print(text)
 					phaseVaultKeys = serializer.decompressForAddonMsg(text)
-					dump(phaseVaultKeys)
+					Debug.dump(phaseVaultKeys)
 				end
 			end)
 

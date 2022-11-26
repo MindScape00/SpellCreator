@@ -12,6 +12,10 @@ local f = CreateFrame("Button", "SCForgeQuickcast", UIParent)
 --f:SetPoint("CENTER")
 f:SetPoint("TOPRIGHT", -60, -220)
 f:SetSize(50,50)
+f:SetNormalTexture(ASSETS_PATH .. "/quick_cast_main")
+f:SetHighlightTexture(ASSETS_PATH .. "/quick_cast_main")
+f.highlight = f:GetHighlightTexture()
+f.highlight:SetAlpha(0.3)
 
 f:SetMovable(true)
 f:EnableMouse(true)
@@ -24,14 +28,18 @@ f:SetScript("OnDragStop", function(self)
 	self:StopMovingOrSizing()
 end)
 
+f:SetScript("OnClick", function(self, button)
+	--print(button)
+	if button ~= "LeftButton" then
+		ns.Actions.Execute.executeSpell(SpellCreatorSavedSpells[button].actions, nil, SpellCreatorSavedSpells[button].fullName)
+	end
+end)
+
 f.hitFrame = CreateFrame("Frame", nil, f)
 f.hitFrame:SetSize(135,135)
 f.hitFrame:SetPoint("CENTER")
 f.hitFrame:SetFrameStrata("LOW")
 
-f.icon = f:CreateTexture(nil, "ARTWORK")
-f.icon:SetAllPoints()
-f.icon:SetTexture(ASSETS_PATH .. "/BookIcon")
 f.castButtons = {}
 
 local function CustomUIFrameFadeOut(frame, timeToFade, startAlpha, endAlpha)
@@ -55,8 +63,9 @@ local function hideCastButtons(buttonToActivate)
 		if UIFrameIsFading(button) then UIFrameFadeRemoveFrame(button) end
 
 		if button == buttonToActivate then
-			button.anims:Play()
-			CustomUIFrameFadeOut(button, 0.5, 1, 0)
+			--button.anims:Play()
+			UIFrameFadeOut(button, 0.35, 1, 0)
+			C_Timer.After(0.5, function() button:Hide() end)
 		else
 			if button:IsShown() then
 				CustomUIFrameFadeOut(button, 0.05, button:GetAlpha(), 0)
@@ -77,17 +86,36 @@ local function updateButtonTexs(self) -- you need to set the main texture first
 	pushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
 end
 
+local function setButtonActorNormal(self)
+	local self = self.scene
+	self.Actor:SetSpellVisualKit(0)
+	self.Actor:SetModelByFileID(166432)
+	self.Actor:SetSpellVisualKit(0)
+	self.Actor:SetModelByFileID(166432) -- sometimes you have to set it twice to remove it..
+	self.Actor:SetAlpha(1)
+	self.Actor:Hide()
+end
+
+local function setButtonActorExplode(self)
+	local self = self.scene
+	self.Actor:SetModelByFileID(166432)
+	self.Actor:SetSpellVisualKit(30627)
+	self.Actor:SetSpellVisualKit(7122)
+	self.Actor:SetAlpha(1)
+	self.Actor:Show()
+end
+
 --local quickCastSpells = {"arcsmash", "drunk","drunk","drunk","drunk","drunk","drunk","drunk","drunk","drunk","drunk",}
 local function genQuickCastButtons(self)
 	local quickCastSpells = SpellCreatorMasterTable.quickCastSpells
 	local numSpells = #quickCastSpells
-	local radius = 42+(2*numSpells)
+	local radius = 38+(2*numSpells)
 	self.radius = radius
 	for i = 1, #quickCastSpells do
 		local v = quickCastSpells[i]
 		local spellData = SpellCreatorSavedSpells[v]
 		if not self.castButtons[i] then
-			self.castButtons[i] = CreateFrame("Button", nil, self)
+			self.castButtons[i] = CreateFrame("Button", "$parentButton"..i, self)
 			local button = self.castButtons[i]
 			button:Hide()
 			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -106,21 +134,67 @@ local function genQuickCastButtons(self)
 			button:GetPushedTexture():AddMaskTexture(button.mask)
 			button.ring = button:CreateTexture(nil, "OVERLAY")
 			--button.ring:SetAllPoints()
-			local ringPadding = 3
+			local ringPadding = 4
+			local ringAnimPadding = 6
 			button.ring:SetPoint("TOPLEFT",-ringPadding,ringPadding)
 			button.ring:SetPoint("BOTTOMRIGHT",ringPadding,-ringPadding)
-			button.ring:SetTexture("Interface\\Artifacts\\Artifacts-PerkRing-Final-Mask")
+			button.ring:SetTexture(ASSETS_PATH .. "/quick_cast_ring_border")
 			button:SetHighlightTexture("Interface/Minimap/UI-Minimap-ZoomButton-Highlight")
 			button.anims = button:CreateAnimationGroup()
 			button.anims.move = button.anims:CreateAnimation("Translation")
 			button.anims.move:SetOffset(0, 10)
 			button.anims.move:SetDuration(0.5)
 
+			button.scene = CreateFrame("MODELSCENE", nil, button)
+			do
+				local self = button.scene
+
+				self:SetPoint("TOPLEFT",-ringAnimPadding,ringAnimPadding)
+				self:SetPoint("BOTTOMRIGHT",ringAnimPadding,-ringAnimPadding)
+				Mixin(self, ModelSceneMixin)
+
+				self.cameras = {}
+				self.actorTemplate = "ModelSceneActorTemplate"
+				self.tagToActor = {}
+				self.tagToCamera = {}
+
+				if self.reversedLighting then
+					local lightPosX, lightPosY, lightPosZ = self:GetLightPosition();
+					self:SetLightPosition(-lightPosX, -lightPosY, lightPosZ);
+
+					local lightDirX, lightDirY, lightDirZ = self:GetLightDirection();
+					self:SetLightDirection(-lightDirX, -lightDirY, lightDirZ);
+				end
+
+				self:SetCameraNearClip(0.01)
+				self:SetCameraFarClip(2 ^ 64)
+
+				local camera = CameraRegistry:CreateCameraByType("OrbitCamera")
+				camera.panningXOffset = 0
+				camera.panningYOffset = 0
+				camera.modelSceneCameraInfo = {
+				flags = 0,
+				}
+				self:AddCamera(camera)
+				camera:SetTarget(0, 0, 0)
+				camera:SnapToTargetInterpolationTarget()
+				camera:SetPitch(math.rad(0))
+				camera:SetYaw(math.rad(180))
+				camera:SetMinZoomDistance(1)
+				camera:SetZoomDistance(0)
+
+				self.Actor = self:GetActorAtIndex(1) or self:CreateActor()
+				--self.Actor:SetUseCenterForOrigin(true, true, true)
+				self.Actor:SetPosition(10,0,-1)
+				self.Actor:Hide()
+				--setButtonActorExplode(self:GetParent())
+			end
+
 			button:SetScript("OnEnter", function(self)
 				if self.tooltipText ~= nil then
 					if self.tooltipTitle then
 						GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-						self.Timer = C_Timer.NewTimer(0.35,function()
+						self.Timer = C_Timer.NewTimer(0.5,function()
 							GameTooltip:SetText(self.tooltipTitle, nil, nil, nil, nil, true)
 							GameTooltip:AddLine(self.tooltipText,1,1,1,true)
 							GameTooltip:Show()
@@ -131,6 +205,7 @@ local function genQuickCastButtons(self)
 			button:SetScript("OnLeave", function(self)
 				if self.tooltipText ~= nil then
 					GameTooltip:Hide();
+					self.Timer:Cancel();
 				end
 			end)
 		end
@@ -142,7 +217,7 @@ local function genQuickCastButtons(self)
 
 		if spellData == nil then
 			button.tooltipTitle = "Error Loading Spell"
-			button.tooltipText = "Spell "..i.." does not exist in your vault."
+			button.tooltipText = "Spell '"..v.."' does not exist in your vault.\n\rRight-Click to remove this from your Quickcast."
 			--button.icon:SetTexture("interface/icons/inv_misc_questionmark")
 			button:SetNormalTexture("interface/icons/inv_misc_questionmark")
 			button:SetScript("OnClick", function(self, button)
@@ -154,7 +229,7 @@ local function genQuickCastButtons(self)
 			end)
 		else
 			button.tooltipTitle = spellData.fullName
-			button.tooltipText = "Cast '"..spellData.commID.."' ("..#spellData.actions.." actions)."
+			button.tooltipText = "Cast '"..spellData.commID.."' ("..#spellData.actions.." actions).\n|cffAA6F6FRight-Click to remove.|r"
 			button.commID = spellData.commID
 			if spellData.icon then
 				--button.icon:SetTexture(ns.UI.Icons.getIcon(spellData.icon))
@@ -170,14 +245,18 @@ local function genQuickCastButtons(self)
 					hideCastButtons()
 					C_Timer.After(0.1, function() genQuickCastButtons(self:GetParent()) end)
 				else
-					executeSpell(spellData.actions, nil, spellData.fullName)
+					executeSpell(spellData.actions, nil, spellData.fullName, spellData)
 					hideCastButtons(self)
+					setButtonActorExplode(self)
+					C_Timer.After(0.5, function() setButtonActorNormal(self) end)
 				end
 			end)
 		end
 		updateButtonTexs(button)
 		--button:Show()
-		if not button:IsShown() then button.showTimer = C_Timer.NewTimer(0.05*i, function() UIFrameFadeIn(button, 0.05, 0, 1) end) end
+		local sequenceDelay = 0.05
+		if numSpells < 4 then sequenceDelay = 0 end
+		if not button:IsShown() then button.showTimer = C_Timer.NewTimer(sequenceDelay*i, function() UIFrameFadeIn(button, 0.05, 0, 1) end) end
 	end
 
 end
@@ -203,17 +282,43 @@ f.hitFrame:SetScript("OnLeave", function(self)
 	hideCastButtons()
 end)
 
---local quickCastHotkeys = { {key = "A", commID = "drunk"} }
+--[[ -- Dynamic Hotkey System - unused
+--local quickCastHotkeys = { {key = "A", commID = "drunk", shift = true} }
 f:SetScript("OnKeyDown", function(self, button)
 	local quickCastHotkeys = SpellCreatorMasterTable.quickCastHotkeys
 	for i = 1, #quickCastHotkeys do
 		local v = quickCastHotkeys[i]
 		if v.key == button then
-			ns.Actions.Execute.executeSpell(SpellCreatorSavedSpells[v.commID].actions, nil, SpellCreatorSavedSpells[v.commID].fullName)
+			local castAllowed = true
+			if v.shift and not IsShiftKeyDown() then castAllowed = false end
+			if v.ctrl and not IsControlKeyDown() then castAllowed = false end
+			if v.alt and not IsAltKeyDown() then castAllowed = false end
+			if castAllowed then
+				ns.Actions.Execute.executeSpell(SpellCreatorSavedSpells[v.commID].actions, nil, SpellCreatorSavedSpells[v.commID].fullName)
+			end
 		end
 	end
 end)
 f:SetPropagateKeyboardInput(true)
+--]]
+
+local hotKeyModInsertFrame = CreateFrame("Frame")
+hotKeyModInsertFrame:SetSize(300,68)
+hotKeyModInsertFrame:Hide()
+
+StaticPopupDialogs["SCFORGE_LINK_HOTKEY"] = {
+	text = "Key to Bind:",
+	button1 = YES,
+	button2 = NO,
+	OnAccept = function(self, data, data2)
+		-- do stuff
+	end,
+	timeout = 0,
+	cancels = true,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+}
 
 ---@class UI_Quickcast
 ns.UI.Quickcast = {

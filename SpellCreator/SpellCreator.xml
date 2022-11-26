@@ -70,6 +70,7 @@
 
 	<Script file="Utils/Utils.lua"/>
 	<Script file="Utils/Aura.lua"/>
+	<Script file="Utils/Debug.lua"/>
 
 	<Script file="Cmd.lua"/>
 

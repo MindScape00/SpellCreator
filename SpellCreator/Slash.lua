@@ -91,6 +91,12 @@ local arcCommands = {
 		fn = "GETNAME",
 		numArgs = 0,
 	},
+	rand = {
+		cmd = "rand",
+		desc = "Returns a random argument from those supplied.",
+		fn = "RAND",
+		numArgs = 0,
+	},
 }
 
 local arcCommandsList = {
@@ -102,7 +108,8 @@ local arcCommandsList = {
 	"tog",
 	"set",
 	"copy",
-	"getname"
+	"getname",
+	"rand"
 }
 
 local function printMsg(msg)

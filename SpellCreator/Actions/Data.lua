@@ -117,6 +117,7 @@ local actionTypeData = {
 			"TRP3StatusIC",
 			"TRP3StatusOOC",
 		},
+		["dependency"] = "totalRP3",
 	},
 	["MorphMenu"] = {
 		["name"] = "Morph",
@@ -242,7 +243,7 @@ local actionTypeData = {
 		["inputDescription"] = "Accepts multiple IDs, separated by commas, to set multiple standstates at once.. but you can't have two, so probably don't try it.\n\r'.look emote' for IDs.",
 		["comTarget"] = "server",
 		["revert"] = "mod stand 0",
-		["selfAble"] = true,
+		["selfAble"] = false,
 		},
 	["Equip"] = {
 		["name"] = "Equip Item",
@@ -299,6 +300,7 @@ local actionTypeData = {
 		["comTarget"] = "func",
 		["revert"] = nil,
 		["selfAble"] = false,
+		["dependency"] = "totalRP3",
 	},
 	["TRP3StatusToggle"] = {
 		["name"] = "TRP3: IC/OOC",
@@ -308,6 +310,7 @@ local actionTypeData = {
 		["comTarget"] = "func",
 		["revert"] = nil,
 		["selfAble"] = false,
+		["dependency"] = "totalRP3",
 	},
 	["TRP3StatusIC"] = {
 		["name"] = "TRP3: IC",
@@ -317,6 +320,7 @@ local actionTypeData = {
 		["comTarget"] = "func",
 		["revert"] = nil,
 		["selfAble"] = false,
+		["dependency"] = "totalRP3",
 	},
 	["TRP3StatusOOC"] = {
 		["name"] = "TRP3: OOC",
@@ -326,6 +330,7 @@ local actionTypeData = {
 		["comTarget"] = "func",
 		["revert"] = nil,
 		["selfAble"] = false,
+		["dependency"] = "totalRP3",
 	},
 	["Speed"] = {
 		["name"] = "Speed",
@@ -414,6 +419,7 @@ local actionTypeData = {
 		["inputDescription"] = "The Mogit Profile, and set name, just as if using the /moge chat command.\n\rExample: "..GetUnitName("player", false).." Cool Armor Set 1",
 		["comTarget"] = "func",
 		["revert"] = nil,
+		["dependency"] = "MogIt",
 		},
 	["EquipSet"] = {
 		["name"] = "Equip Set",
@@ -426,7 +432,7 @@ local actionTypeData = {
 		},
 	["ArcSpell"] = {
 		["name"] = "Arcanum Spell",
-		["command"] = function(commID) ns.Actions.Execute.executeSpell(SpellCreatorSavedSpells[commID].actions, nil, SpellCreatorSavedSpells[commID].fullName) end,
+		["command"] = function(commID) ns.Actions.Execute.executeSpell(SpellCreatorSavedSpells[commID].actions, nil, SpellCreatorSavedSpells[commID].fullName, SpellCreatorSavedSpells[commID]) end,
 		["description"] = "Cast another Arcanum Spell from your Personal Vault.",
 		["dataName"] = "Spell Command",
 		["inputDescription"] = "The command ID (commID) used to cast the ArcSpell\n\rExample: '/sf MySpell', where MySpell is the command ID to input here.",

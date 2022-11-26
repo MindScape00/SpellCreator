@@ -6,6 +6,7 @@
 ## DefaultState: Enabled
 ## SavedVariables: SpellCreatorMasterTable, SpellCreatorSavedSpells
 ## X-Date: November 7, 2022
-## X-Credits: MindScape
+## X-Credits: MindScape, AJT, Iyadriel, skylar, & the Epsilon Team
+## OptionalDeps: totalRP3, MogIt, Epsilon
 
 SpellCreator.xml

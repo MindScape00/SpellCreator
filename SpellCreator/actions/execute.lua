@@ -7,6 +7,7 @@ local pairs = pairs
 local actionTypeData = ns.Actions.Data.actionTypeData
 local cmd = ns.Cmd.cmd
 local cprint = ns.Logging.cprint
+local eprint = ns.Logging.eprint
 local isOfficerPlus = ns.Permissions.isOfficerPlus
 
 local sfCmd_ReplacerChar = "@N@"
@@ -58,6 +59,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	if not actionType then return; end
 	local actionData = actionTypeData[actionType]
 	if revertDelay then revertDelay = tonumber(revertDelay) end
+	if actionData.dependency and not IsAddOnLoaded(actionData.dependency) then eprint("AddOn " .. actionData.dependency .. " required for action "..actionData.name); return; end
 	local varTable
 
 	if vars then
@@ -79,7 +81,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 		runningActions[runningActionID] = C_Timer.NewTimer(delay, function()
 			executeAction(varTable, actionData, selfOnly, nil, runningActionID)
 			if revertDelay and revertDelay > 0 then
-				local runningActionID = #runningActions+1
+				runningActionID = #runningActions+1
 				runningActions[runningActionID] = C_Timer.NewTimer(revertDelay, function() executeAction(varTable, actionData, selfOnly, true, runningActionID) end)
 			end
 		end)
@@ -102,13 +104,22 @@ local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 		end
 	end
 
+	if not spellName then spellName = "Arcanum Spell" end
+
 	if spellData then
 		local spellOptions = spellData["options"]
-		channeled = tContains(spellOptions, "channeled")
-	end
+		if spellOptions then
+			channeled = tContains(spellOptions, "channeled")
+		end
 
-	if not spellName then spellName = "Arcanum Spell" end
-	ns.UI.Castbar.showCastBar(longestDelay, spellName, nil, channeled, nil, nil)
+		if spellData.castbar ~= false then
+			ns.UI.Castbar.showCastBar(longestDelay, spellName, nil, channeled, nil, nil)
+		end
+	else
+		if SpellCreatorMasterTable.Options["ShowCastBarForUndefined"] then
+			ns.UI.Castbar.showCastBar(longestDelay, spellName, nil, channeled, nil, nil)
+		end
+	end
 end
 
 hooksecurefunc("ToggleGameMenu", function()

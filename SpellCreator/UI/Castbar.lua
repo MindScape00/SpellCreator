@@ -155,7 +155,7 @@ end
 
 local function showCastBar(length, text, spellData, channeled, showIcon, showShield)
 
-    if length < 0.75 then return end; -- hard limit for no cast bars under 0.75 cuz it looks terrible
+    if length < 0.25 then return end; -- hard limit for no cast bars under 0.25 cuz it looks terrible
 
     local self = getFreeCastBar()
     local notInterruptible = false

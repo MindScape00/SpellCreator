@@ -52,7 +52,7 @@ end
 function ARC:CAST(text)
 	if text and text ~= "" then
 		if SpellCreatorSavedSpells[text] then
-			executeSpell(SpellCreatorSavedSpells[text].actions, nil, SpellCreatorSavedSpells[text].fullName)
+			executeSpell(SpellCreatorSavedSpells[text].actions, nil, SpellCreatorSavedSpells[text].fullName, SpellCreatorSavedSpells[text])
 		else
 			cprint("No spell found with commID '"..text.."' in your Personal Vault.")
 		end
@@ -71,7 +71,7 @@ function ARC:CASTP(text)
 		if phaseVault.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
 		for k,v in pairs(phaseVault.spells) do
 			if v.commID == text then
-				executeSpell(v.actions, true, v.fullName);
+				executeSpell(v.actions, true, v.fullName, v);
 				spellRanSuccessfully = true
 			end
 		end
@@ -165,5 +165,15 @@ function ARC:GET(tag)
 		cprint("ARC:API SYNTAX - GET - Get the value of an ArcTag (ARC.VAR).")
 		print(ADDON_COLOR..'Function: |cffFFAAAAARC:GET("tag")|r')
 		print(ADDON_COLOR..'Example 1: |cffFFAAAAARC:GET("ToggleLight")|r')
+	end
+end
+
+function ARC:RAND(...)
+	if ... then
+		return (select(random(select("#", ...)), ...));
+	else
+		cprint("ARC:API SYNTAX - RAND - Return a random variable.")
+		print(ADDON_COLOR..'Function: |cffFFAAAAARC:RAND(...)|r')
+		print(ADDON_COLOR..'Example 1: |cffFFAAAAARC:RAND("Apple","Banana","Cherry")|r')
 	end
 end
