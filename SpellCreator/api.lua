@@ -1,6 +1,8 @@
 ---@class ns
 local ns = select(2, ...)
 
+local HTML = ns.Utils.HTML
+
 local executeSpell = ns.Actions.Execute.executeSpell
 local cmdWithDotCheck = ns.Cmd.cmdWithDotCheck
 local ADDON_COLOR = ns.Constants.ADDON_COLOR
@@ -24,7 +26,7 @@ end
 -- SYNTAX: ARC:COPY("text to copy, like a URL") - i.e., ARC:COPY("https://discord.gg/C8DZ7AxxcG")
 function ARC:COPY(text)
 	if text and text ~= "" then
-		HTML_HyperlinkClick_Copy(nil, text)
+		HTML.copyLink(nil, text)
 	else
 		cprint('ARC:API SYNTAX - COPY - Opens a Dialog to copy the given text.')
 		print(ADDON_COLOR..'Function: |cffFFAAAAARC:COPY("text to copy, like a URL")|r')

@@ -5,10 +5,7 @@ local cmdWithDotCheck = ns.Cmd.cmdWithDotCheck
 local ADDON_COLOR = ns.Constants.ADDON_COLOR
 local cprint = ns.Logging.cprint
 
-local AceConsole
-if LibStub then
-	AceConsole = LibStub:GetLibrary("AceConsole-3.0")
-end
+local AceConsole = ns.Libs.AceConsole
 
 local slashCommands = {
 	arcanum = {

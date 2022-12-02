@@ -26,7 +26,7 @@ end
 
 local function createIcon()
 	SCForgeMainFrame.portrait.icon = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 6)
-	SCForgeMainFrame.portrait.icon:SetTexture(Gems.randomGem())
+	SCForgeMainFrame.portrait.icon:SetTexture(Gems.randomLimitedGem())
 	SCForgeMainFrame.portrait.icon:SetAllPoints(SCForgeMainFrame.portrait)
 	SCForgeMainFrame.portrait.icon:SetAlpha(0.93)
 	--SCForgeMainFrame.portrait.icon:SetBlendMode("ADD")

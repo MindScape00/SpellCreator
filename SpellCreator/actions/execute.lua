@@ -4,11 +4,12 @@ local ns = select(2, ...)
 local C_Timer = C_Timer
 local pairs = pairs
 
+local Permissions = ns.Permissions
+
 local actionTypeData = ns.Actions.Data.actionTypeData
 local cmd = ns.Cmd.cmd
 local cprint = ns.Logging.cprint
 local eprint = ns.Logging.eprint
-local isOfficerPlus = ns.Permissions.isOfficerPlus
 
 local sfCmd_ReplacerChar = "@N@"
 
@@ -90,9 +91,11 @@ end
 
 local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 	local longestDelay = 0
-	local channeled
 	if ((not bypassCheck) and (not SpellCreatorMasterTable.Options["debug"])) then
-		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than Dranosh Valley.") return; end
+		if not Permissions.canExecuteSpells() then
+			cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than Dranosh Valley.")
+			return
+		end
 	end
 	for _,spell in pairs(actionsToCommit) do
 		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
@@ -107,17 +110,11 @@ local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 	if not spellName then spellName = "Arcanum Spell" end
 
 	if spellData then
-		local spellOptions = spellData["options"]
-		if spellOptions then
-			channeled = tContains(spellOptions, "channeled")
-		end
-
-		if spellData.castbar ~= false then
-			ns.UI.Castbar.showCastBar(longestDelay, spellName, nil, channeled, nil, nil)
-		end
-	else
-		if SpellCreatorMasterTable.Options["ShowCastBarForUndefined"] then
-			ns.UI.Castbar.showCastBar(longestDelay, spellName, nil, channeled, nil, nil)
+		if spellData.castbar == 0 then return;
+		elseif spellData.castbar == 2 then
+			ns.UI.Castbar.showCastBar(longestDelay, spellName, spellData, true, nil, nil)
+		else
+			ns.UI.Castbar.showCastBar(longestDelay, spellName, spellData, false, nil, nil)
 		end
 	end
 end
@@ -129,4 +126,5 @@ end)
 ---@class Actions_Execute
 ns.Actions.Execute = {
 	executeSpell = executeSpell,
+	stopRunningActions = stopRunningActions,
 }

@@ -1,0 +1,108 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\..\FrameXML\UI.xsd">
+
+	<Script file="UI/IconPicker.lua"/>
+
+  <!-- Template for the icon buttons in the trait icon selector. -->
+  <Button name="SpellCreatorIconPickerButton" virtual="true">
+    <Size width="28" height="28"/>
+    <HighlightTexture file="Interface/BUTTONS/ButtonHilight-Square" alphaMode="ADD"/>
+    <Scripts>
+      <OnClick>
+        SCForgeIconFuncs.IconPickerButton_OnClick( self )
+      </OnClick>
+      <OnEnter>
+        SCForgeIconFuncs.IconPickerButton_ShowTooltip( self )
+      </OnEnter>
+      <OnLeave>
+        GameTooltip:Hide()
+      </OnLeave>
+    </Scripts>
+  </Button>
+
+  <!-- The icon selector, shown when you click on the trait icon to edit the texture. -->
+  <Frame name="SpellCreatorIconPicker" parent="SCForgeMainFrame" hidden="true" inherits="ButtonFrameTemplate" frameStrata="DIALOG" enableMouse="true" movable="false" resizable="false" toplevel="true">
+    <Size x="262" y="316" />
+    <Anchors>
+      <Anchor point="TOPRIGHT" relativePoint="TOPLEFT" x="-10" y="-60" />
+    </Anchors>
+
+    <Layers>
+    </Layers>
+
+    <Scripts>
+      <OnLoad>
+		SCForgeIconFuncs.IconPicker_OnLoad( self )
+      </OnLoad>
+    </Scripts>
+    <Frames>
+
+      <!-- Search/filter box. -->
+      <EditBox parentKey="search" inherits="SearchBoxTemplate">
+        <Size x="242" y="8" />
+        <Anchors>
+          <Anchor point="BOTTOMLEFT" x="10" y="10" />
+		  <Anchor point="BOTTOMRIGHT" x="-4" y="10" />
+        </Anchors>
+
+        <Scripts>
+          <OnTextChanged>
+            SearchBoxTemplate_OnTextChanged(self);
+            SCForgeIconFuncs.IconPicker_FilterChanged()
+          </OnTextChanged>
+
+
+          <OnEscapePressed function="EditBox_ClearFocus"/>
+        </Scripts>
+      </EditBox>
+
+      <!-- Area for icon selector. -->
+      <Frame parentKey="selectorFrame">
+        <Anchors>
+          <Anchor point="TOPLEFT" x="5" y="-5"/>
+          <Anchor point="BOTTOMRIGHT" x="-5" y="5"/>
+        </Anchors>
+        <Scripts>
+          <OnLoad>
+            self:EnableMouseWheel(true)
+          </OnLoad>
+          <OnMouseWheel>
+            SCForgeIconFuncs.IconPicker_MouseScroll( delta )
+          </OnMouseWheel>
+        </Scripts>
+
+        <Frames>
+
+          <!-- Scroll bar -->
+          <Slider parentKey="scroller" inherits="UIPanelScrollBarTrimTemplate" minvalue="0" maxvalue="1" valuestep="3">
+
+            <Anchors>
+              <Anchor point="TOPRIGHT" relativeTo="SpellCreatorIconPickerInset" relativePoint="TOPRIGHT" x="2" y="-16" />
+              <Anchor point="BOTTOMRIGHT" relativeTo="SpellCreatorIconPickerInset" relativePoint="BOTTOMRIGHT" x="2" y="14" />
+            </Anchors>
+
+            <Layers>
+              <Layer level="BACKGROUND">
+
+                <!-- scroller background -->
+                <Texture setAllPoints="true">
+                  <Color r="0" g="0" b="0" a="0.25"/>
+                </Texture>
+
+              </Layer>
+            </Layers>
+            <Scripts>
+              <OnLoad>
+                self:SetValueStep(1)
+                self.scrollStep = 4
+              </OnLoad>
+              <OnValueChanged>
+                SCForgeIconFuncs.IconPicker_ScrollChanged( value )
+              </OnValueChanged>
+            </Scripts>
+          </Slider>
+        </Frames>
+      </Frame>
+
+    </Frames>
+  </Frame>
+</Ui>

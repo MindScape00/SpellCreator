@@ -3,35 +3,52 @@ local addonName = ...
 local ns = select(2, ...)
 
 local ActionsData = ns.Actions.Data
-local actionTypeData, actionTypeDataList = ActionsData.actionTypeData, ActionsData.actionTypeDataList
+local actionTypeData = ActionsData.actionTypeData
 local executeSpell = ns.Actions.Execute.executeSpell
 local cmd, cmdWithDotCheck = ns.Cmd.cmd, ns.Cmd.cmdWithDotCheck
 local runMacroText = ns.Cmd.runMacroText
-local ADDON_COLOR, ADDON_PATH, ADDON_TITLE = ns.Constants.ADDON_COLOR, ns.Constants.ADDON_PATH, ns.Constants.ADDON_TITLE
-local ASSETS_PATH = ns.Constants.ASSETS_PATH
 local cprint, dprint, eprint = ns.Logging.cprint, ns.Logging.dprint, ns.Logging.eprint
-local isDMEnabled, isOfficerPlus, isMemberPlus = ns.Permissions.isDMEnabled, ns.Permissions.isOfficerPlus, ns.Permissions.isMemberPlus
-local serializer = ns.Serializer
-local phaseVault = ns.Vault.phase
 
+local Comms = ns.Comms
+local Constants = ns.Constants
+local Permissions = ns.Permissions
+local ProfileFilter = ns.ProfileFilter
+local SavedVariables = ns.SavedVariables
+local serializer = ns.Serializer
+local Vault = ns.Vault
+
+local DataUtils = ns.Utils.Data
 local Debug = ns.Utils.Debug
+local HTML = ns.Utils.HTML
+local NineSlice = ns.Utils.NineSlice
 
 local Animation = ns.UI.Animation
+local Attic = ns.UI.Attic
+local Castbar = ns.UI.Castbar
+local ChatLink = ns.UI.ChatLink
+local Icons = ns.UI.Icons
 local Models, Portrait = ns.UI.Models, ns.UI.Portrait
+local LoadSpellFrame = ns.UI.LoadSpellFrame
+local MainFrame = ns.UI.MainFrame
 local MinimapButton = ns.UI.MinimapButton
+local ProfileFilterMenu = ns.UI.ProfileFilterMenu
+local Quickcast = ns.UI.Quickcast
+local SpellRow = ns.UI.SpellRow
+local SpellVaultFrame = ns.UI.SpellVaultFrame
+
+local addonMsgPrefix = Comms.PREFIX
+local ADDON_COLOR, ADDON_PATH, ADDON_TITLE = Constants.ADDON_COLOR, Constants.ADDON_PATH, Constants.ADDON_TITLE
+local ASSETS_PATH = Constants.ASSETS_PATH
+local SPELL_VISIBILITY = Constants.SPELL_VISIBILITY
+local VAULT_TYPE = Constants.VAULT_TYPE
+local isDMEnabled, isOfficerPlus, isMemberPlus = Permissions.isDMEnabled, Permissions.isOfficerPlus, Permissions.isMemberPlus
+local phaseVault = Vault.phase
+local isNotDefined = DataUtils.isNotDefined
 
 local addonVersion, addonAuthor = GetAddOnMetadata(addonName, "Version"), GetAddOnMetadata(addonName, "Author")
-local lastAddonVersion
-local addonUpdated
 
-local addonMsgPrefix = "SCFORGE"
-
-local localization = {}
-localization.SPELLNAME = STAT_CATEGORY_SPELL.." "..NAME
-localization.SPELLCOMM = STAT_CATEGORY_SPELL.." "..COMMAND
-
+---@type table<CommID, VaultSpell>
 local savedSpellFromVault = {}
-local selectedProfileFilter = {}
 
 local modifiedGossips = {}
 local isGossipLoaded
@@ -47,10 +64,7 @@ local pairs, ipairs = pairs, ipairs
 --
 -- local curDate = date("*t") -- Current Date for surprise launch - disabled since it's over anyways
 
-local AceComm
-if LibStub then
-	AceComm = LibStub:GetLibrary("AceComm-3.0")
-end
+local AceComm = ns.Libs.AceComm
 
 local sfCmd_ReplacerChar = "@N@"
 
@@ -104,177 +118,8 @@ local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
 
 -------------------------------------------------------------------------------
--- Saved Variable Initialization
--------------------------------------------------------------------------------
-local function enableAllProfilesFilter()
-	local playerName = GetUnitName("player")
-	local _profiles = {}
-
-	selectedProfileFilter.showAll = true
-
-	-- gen dynamic list of available characters / profiles
-	for k,v in pairs(SpellCreatorSavedSpells) do
-		if v.profile then
-			_profiles[v.profile] = true
-		end
-	end
-
-	for k,v in pairs(_profiles) do
-		selectedProfileFilter[k] = true
-	end
-	selectedProfileFilter["Account"] = true
-	selectedProfileFilter[playerName] = true
-end
-
-local function isNotDefined(s)
-	return s == nil or s == '';
-end
-
-SpellCreatorMasterTable = {}
-SpellCreatorMasterTable.Options = {}
-SpellCreatorMasterTable.quickCastSpells = {}
-SpellCreatorMasterTable.quickCastHotkeys = {}
-
-local function SC_loadMasterTable()
-
-	if isNotDefined(SpellCreatorMasterTable.Options) then SpellCreatorMasterTable.Options = {} end
-	if isNotDefined(SpellCreatorMasterTable.quickCastSpells) then SpellCreatorMasterTable.quickCastSpells = {} end
-	if isNotDefined(SpellCreatorMasterTable.quickCastHotkeys) then SpellCreatorMasterTable.quickCastHotkeys = {} end
-
-	if isNotDefined(SpellCreatorMasterTable.Options["debug"]) then SpellCreatorMasterTable.Options["debug"] = false end
-	if isNotDefined(SpellCreatorMasterTable.Options["locked"]) then SpellCreatorMasterTable.Options["locked"] = false end
-	if isNotDefined(SpellCreatorMasterTable.Options["mmLoc"]) then SpellCreatorMasterTable.Options["mmLoc"] = 2.7 end
-	if isNotDefined(SpellCreatorMasterTable.Options["showTooltips"]) then SpellCreatorMasterTable.Options["showTooltips"] = true end
-	if isNotDefined(SpellCreatorMasterTable.Options["biggerInputBox"]) then SpellCreatorMasterTable.Options["biggerInputBox"] = false end
-	if isNotDefined(SpellCreatorMasterTable.Options["showVaultOnShow"]) then SpellCreatorMasterTable.Options["showVaultOnShow"] = false end
-	if isNotDefined(SpellCreatorMasterTable.Options["clearRowOnRemove"]) then SpellCreatorMasterTable.Options["clearRowOnRemove"] = false end
-	if isNotDefined(SpellCreatorMasterTable.Options["loadChronologically"]) then SpellCreatorMasterTable.Options["loadChronologically"] = false end
-	if isNotDefined(SpellCreatorMasterTable.Options["minimapIcon"]) then SpellCreatorMasterTable.Options["minimapIcon"] = true end
-
-	lastAddonVersion = SpellCreatorMasterTable.Options["lastAddonVersion"] or "0"
-	SpellCreatorMasterTable.Options["lastAddonVersion"] = addonVersion
-
-	if not SpellCreatorSavedSpells then SpellCreatorSavedSpells = {} end
-
-	if SpellCreatorMasterTable.Options["defaultProfile"] == "Character" then
-		selectedProfileFilter[GetUnitName("player")] = true
-	elseif SpellCreatorMasterTable.Options["defaultProfile"] == "Account" then
-		selectedProfileFilter["Account"] = true
-	elseif SpellCreatorMasterTable.Options["defaultProfile"] == "All" then
-		enableAllProfilesFilter()
-	else -- default filter
-		--selectedProfileFilter[GetUnitName("player")] = true
-		selectedProfileFilter.showAll = true
-	end
-
-	-- reset these so we are not caching debug data longer than a single reload.
-	SpellCreatorMasterTable.Options["debugPhaseData"] = nil
-	SpellCreatorMasterTable.Options["debugPhaseKeys"] = nil
-end
-
--------------------------------------------------------------------------------
--- UI Stuff
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
 -- UI Helper & Definitions
 -------------------------------------------------------------------------------
-
--- Row Sizing / Info
-local numberOfSpellRows = 0
-local maxNumberOfSpellRows = 69
-local rowHeight = 60
-local rowSpacing = 30
-
-local mainFrameSize = {
-	["x"] = 700,
-	["y"] = 700,
-	["Xmin"] = 550,
-	["Ymin"] = 550,
-	["Xmax"] = math.min(1100,UIParent:GetHeight()), -- Don't let them resize it bigger than their screen is.. then you can't resize it down w/o using hidden right-click on X button
-	["Ymax"] = math.min(1100,UIParent:GetHeight()), --
-}
-
--- Column Widths
-local delayColumnWidth = 100
-local actionColumnWidth = 100
-local selfColumnWidth = 32
-local InputEntryColumnWidth = 140+42
-local revertCheckColumnWidth = 60
-local revertDelayColumnWidth = 80
-
--- Drop Down Generator
-local function genStaticDropdownChild( parent, dropdownName, menuList, title, width )
-	if not parent or not dropdownName or not menuList then return end;
-	if not title then title = "Select" end
-	if not width then width = 55 end
-	local newDropdown = CreateFrame("Frame", dropdownName, parent, "UIDropDownMenuTemplate")
-	parent.Dropdown = newDropdown
-	newDropdown:SetPoint("CENTER")
-
-	local function newDropdown_Initialize( dropdownName, level, subMenu )
-		local list = menuList
-		if subMenu then list = subMenu end
-		for index = 1, #list do
-			local value = list[index]
-			if (value.text) then
-				value.index = index;
-				UIDropDownMenu_AddButton( value, level );
-			end
-		end
-	end
-
-	UIDropDownMenu_Initialize(newDropdown, newDropdown_Initialize, "nope", nil, menuList)
-	UIDropDownMenu_SetWidth(newDropdown, width);
-	UIDropDownMenu_SetButtonWidth(newDropdown, width+15)
-	UIDropDownMenu_SetSelectedID(newDropdown, 0)
-	UIDropDownMenu_JustifyText(newDropdown, "LEFT")
-	UIDropDownMenu_SetText(newDropdown, title)
-	_G[dropdownName.."Text"]:SetFontObject("GameFontWhiteTiny2")
-	_G[dropdownName.."Text"]:SetWidth(width-15)
-	local fontName,fontHeight,fontFlags = _G[dropdownName.."Text"]:GetFont()
---	_G[dropdownName.."Text"]:SetFont(fontName, 10)
-
-	newDropdown:GetParent():SetWidth(newDropdown:GetWidth())
-	newDropdown:GetParent():SetHeight(newDropdown:GetHeight())
-end
-
--- Resizing Functions to scale with main frame resizing
-local framesToResizeWithMainFrame = {}
-local function setResizeWithMainFrame(frame)
-	table.insert(framesToResizeWithMainFrame, frame)
-end
-
-local function updateFrameChildScales(frame)
-	local n = frame:GetWidth()
-	frame:SetHeight(n)
-	SCForgeMainFrame.DragBar:SetWidth(n)
-	local n = n / mainFrameSize.x
-	local childrens = {frame.Inset:GetChildren()}
-	for _,child in ipairs(childrens) do
-		child:SetScale(n)
-	end
-	for _,child in pairs(framesToResizeWithMainFrame) do
-		child:SetScale(n)
-	end
-	return n;
-end
-
-local function generateSpellChatLink(commID, vaultType)
-	local spellName = savedSpellFromVault[commID].fullName
-	local spellComm = savedSpellFromVault[commID].commID
-	local spellDesc = savedSpellFromVault[commID].description
-	if spellDesc == nil then spellDesc = "" end
-	local charOrPhase
-	if vaultType == "PHASE" then
-		charOrPhase = C_Epsilon.GetPhaseId()
-	else
-		charOrPhase = GetUnitName("player",false)
-	end
-	local numActions = #savedSpellFromVault[commID].actions
-	local chatLink = ADDON_COLOR.."|HarcSpell:"..spellComm..":"..charOrPhase..":"..numActions..":"..spellDesc.."|h["..spellName.."]|h|r"
-	return chatLink;
-end
 
 StaticPopupDialogs["SCFORGE_RELOADUI_REQUIRED"] = {
 	text = "A UI Reload is Required to Change Input Boxes.\n\rReload Now?\r[Warning: All un-saved data will be wiped]",
@@ -295,552 +140,6 @@ StaticPopupDialogs["SCFORGE_RELOADUI_REQUIRED"] = {
 -- Main UI Frame
 -------------------------------------------------------------------------------
 
-local function updateSpellRowOptions(row, selectedAction)
-	-- perform action type checks here against the actionTypeData table & disable/enable buttons / entries as needed. See actionTypeData for available options.
-	local theSpellRow = _G["spellRow"..row]
-	if selectedAction then -- if we call it with no action, reset
-		theSpellRow.SelectedAction = selectedAction
-		if actionTypeData[selectedAction].selfAble then theSpellRow.SelfCheckbox:Enable() else theSpellRow.SelfCheckbox:Disable() end
-		if actionTypeData[selectedAction].dataName then
-			theSpellRow.InputEntryBox:Enable()
-			theSpellRow.InputEntryBox.Instructions:SetText(actionTypeData[selectedAction].dataName)
-			if actionTypeData[selectedAction].inputDescription then theSpellRow.InputEntryBox.Description = actionTypeData[selectedAction].inputDescription end
-		else
-			theSpellRow.InputEntryBox:Disable()
-			theSpellRow.InputEntryBox.Instructions:SetText("n/a")
-		end
-		if actionTypeData[selectedAction].revert then
-			theSpellRow.RevertDelayBox:Enable();
-		else
-			theSpellRow.RevertDelayBox:Disable();
-		end
-	else
-		theSpellRow.SelectedAction = nil
-		theSpellRow.SelfCheckbox:Disable()
-		theSpellRow.InputEntryBox.Instructions:SetText("select an action...")
-		theSpellRow.InputEntryBox:Disable()
-		theSpellRow.RevertDelayBox:Disable()
-	end
-end
-
-local function RemoveSpellRow(rowToRemove)
-	if numberOfSpellRows <= 1 then
-		local theSpellRow = _G["spellRow"..numberOfSpellRows]
-		theSpellRow.mainDelayBox:SetText("")
-		for k,v in pairs(theSpellRow.menuList) do
-			v.checked = false
-		end
-		UIDropDownMenu_SetSelectedID(theSpellRow.actionSelectButton.Dropdown, 0)
-		theSpellRow.actionSelectButton.Dropdown.Text:SetText("Action")
-		updateSpellRowOptions(numberOfSpellRows, nil)
-
-		theSpellRow.SelfCheckbox:SetChecked(false)
-		theSpellRow.InputEntryBox:SetText("")
-		theSpellRow.RevertDelayBox:SetText("")
-		return;
-	end
-
-	if rowToRemove and (rowToRemove ~= numberOfSpellRows) then
-		for i = rowToRemove, numberOfSpellRows-1 do
-			local theRowToSet = _G["spellRow"..i]
-			local theRowToGrab = _G["spellRow"..i+1]
-
-			for k,v in pairs(theRowToSet.menuList) do
-				v.checked = false
-			end
-
-			-- theRowToSet.actionSelectButton.Dropdown
-			-- theRowToGrab.actionSelectButton.Dropdown
-			UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, UIDropDownMenu_GetSelectedID(theRowToGrab.actionSelectButton.Dropdown))
-			theRowToSet.actionSelectButton.Dropdown.Text:SetText(theRowToGrab.actionSelectButton.Dropdown.Text:GetText())
-			theRowToSet.SelectedAction = theRowToGrab.SelectedAction
-			updateSpellRowOptions(i, theRowToGrab.SelectedAction)
-
-			theRowToSet.mainDelayBox:SetText(theRowToGrab.mainDelayBox:GetText())
-			theRowToSet.SelfCheckbox:SetChecked(theRowToGrab.SelfCheckbox:GetChecked())
-			theRowToSet.InputEntryBox:SetText(theRowToGrab.InputEntryBox:GetText())
-			theRowToSet.RevertDelayBox:SetText(theRowToGrab.RevertDelayBox:GetText())
-		end
-	end
-
-	-- Now that we moved the data if needed, let's delete the last row..
-	local theSpellRow = _G["spellRow"..numberOfSpellRows]
-	theSpellRow:Hide()
-
---	if SpellCreatorMasterTable.Options["clearRowOnRemove"] then
-		theSpellRow.mainDelayBox:SetText("")
-
-		for k,v in pairs(theSpellRow.menuList) do
-			v.checked = false
-		end
-		-- theSpellRow.actionSelectButton.Dropdown
-		UIDropDownMenu_SetSelectedID(theSpellRow.actionSelectButton.Dropdown, 0)
-		theSpellRow.actionSelectButton.Dropdown.Text:SetText("Action")
-		updateSpellRowOptions(numberOfSpellRows, nil)
-
-		theSpellRow.SelfCheckbox:SetChecked(false)
-		theSpellRow.InputEntryBox:SetText("")
-		theSpellRow.RevertDelayBox:SetText("")
---	end
-
-	numberOfSpellRows = numberOfSpellRows - 1
-
-	_G["spellRow"..numberOfSpellRows].RevertDelayBox.nextEditBox = spellRow1.mainDelayBox
-
-	--if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Enable() end
-	if numberOfSpellRows < maxNumberOfSpellRows then SCForgeMainFrame.AddRowRow.AddRowButton:Enable() end
-
-	--if numberOfSpellRows <= 1 then SCForgeMainFrame.RemoveSpellRowButton:Disable() end
-	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
-
-	SCForgeMainFrame.AddRowRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows, "BOTTOMLEFT", 0, 0)
-end
-
-local function genSpellRowTextures(newRow)
-	newRow.Background = newRow:CreateTexture(nil,"BACKGROUND", nil, 5)
-	newRow.Background:SetAllPoints()
-	newRow.Background:SetTexture(ADDON_PATH.."/assets/SpellForgeMainPanelRow1")
-	newRow.Background:SetTexCoord(0.208,1-0.209,0,1)
-	newRow.Background:SetPoint("BOTTOMRIGHT",-9,0)
-	newRow.Background:SetAlpha(0.9)
-	--newRow.Background:SetColorTexture(0,0,0,0.25)
-
-	newRow.Background2 = newRow:CreateTexture(nil,"BACKGROUND", nil, 6)
-	newRow.Background2:SetAllPoints()
-	newRow.Background2:SetTexture(ADDON_PATH.."/assets/SpellForgeMainPanelRow2")
-	newRow.Background2:SetTexCoord(0.208,1-0.209,0,1)
-	newRow.Background2:SetPoint("TOPLEFT",-3,0)
-	newRow.Background2:SetPoint("BOTTOMRIGHT",-7,0)
-	--newRow.Background2:SetAlpha(0.8)
-	--newRow.Background:SetColorTexture(0,0,0,0.25)
-
-	newRow.RowGem = newRow:CreateTexture(nil,"ARTWORK")
-	newRow.RowGem:SetPoint("CENTER", newRow.Background2, "LEFT", 2, 0)
-	newRow.RowGem:SetHeight(40)
-	newRow.RowGem:SetWidth(40)
-	newRow.RowGem:SetTexture(ADDON_PATH.."/assets/DragonGem")
-	--newRow.RowGem:SetTexCoord(0.208,1-0.209,0,1)
-	--newRow.RowGem:SetPoint("RIGHT",-9,0)
-end
-
-local function initActionDropdownItems(dataList, flatMenuList, menuList, parentMenuList, parentItem)
-	for i = 1, #dataList do
-		local key = dataList[i]
-		local data = actionTypeData[key]
-		if data.dependency and not IsAddOnLoaded(data.dependency) then
-			--eprint("AddOn " .. data.dependency .. " required for action "..data.name);
-		else
-			local menuItem = UIDropDownMenu_CreateInfo()
-			menuItem.text = data.name
-
-			if data.type == "header" then
-				menuItem.isTitle = true
-				menuItem.text = data.name
-				menuItem.notCheckable = true
-			elseif data.type == "spacer" then
-				menuItem.text = ""
-				menuItem.notCheckable = true
-				menuItem.disabled = true
-			elseif data.type == "submenu" then
-				menuItem.text = data.name
-				menuItem.hasArrow = true
-				menuItem.keepShownOnClick = true
-				menuItem.value = nil
-
-				menuItem.menuList = {}
-
-				initActionDropdownItems(data.menuDataList, flatMenuList, menuItem.menuList, menuList, menuItem)
-			else
-				menuItem.text = data.name
-				menuItem.tooltipTitle = data.name
-				menuItem.tooltipText = data.description
-				menuItem.tooltipOnButton = true
-				menuItem.value = key
-				menuItem.arg1 = numberOfSpellRows
-				menuItem.func = function(self, arg1)
-					for _, v in pairs(flatMenuList) do
-						v.checked = false
-					end
-
-					menuItem.checked = true
-					if (parentItem) then
-						parentItem.checked = true
-					end
-
-					UIDropDownMenu_SetText(_G["spellRow"..arg1.."ActionSelectButton"], menuItem.text)
-					Debug.ddump(self)
-					updateSpellRowOptions(arg1, menuItem.value)
-
-					if (parentItem) then
-						CloseDropDownMenus()
-					end
-				end
-
-				if (parentItem) then
-					parentItem.func = function(self)
-						_G[self:GetName().."Check"]:Hide()
-					end
-				end
-			end
-
-			table.insert(menuList, menuItem)
-			table.insert(flatMenuList, menuItem)
-		end
-	end
-end
-
-local function AddSpellRow(rowToAdd)
-	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddRowRow.AddRowButton:Disable() return; end -- hard cap
-	numberOfSpellRows = numberOfSpellRows+1		-- The number of spell rows that this row will be.
-	local newRow
-	if _G["spellRow"..numberOfSpellRows] then
-		newRow = _G["spellRow"..numberOfSpellRows]
-		newRow:Show();
-	else
-		-- The main row frame
-		newRow = CreateFrame("Frame", "spellRow"..numberOfSpellRows, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
-		newRow.rowNum = numberOfSpellRows
-		if numberOfSpellRows == 1 then
-			newRow:SetPoint("TOPLEFT", 25, 0)
-		else
-			newRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows-1, "BOTTOMLEFT", 0, 0)
-		end
-		newRow:SetWidth(mainFrameSize.x-50)
-		newRow:SetHeight(rowHeight)
-
-		genSpellRowTextures(newRow)
-
-		-- main delay entry box
-		newRow.mainDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."MainDelayBox", newRow, "InputBoxInstructionsTemplate")
-			newRow.mainDelayBox:SetFontObject(ChatFontNormal)
-			newRow.mainDelayBox.disabledColor = GRAY_FONT_COLOR
-			newRow.mainDelayBox.enabledColor = HIGHLIGHT_FONT_COLOR
-			newRow.mainDelayBox.Instructions:SetText("(Seconds)")
-			newRow.mainDelayBox.Instructions:SetTextColor(0.5,0.5,0.5)
-			newRow.mainDelayBox:SetAutoFocus(false)
-			newRow.mainDelayBox:SetSize(delayColumnWidth,23)
-			newRow.mainDelayBox:SetPoint("LEFT", 40, 0)
-			newRow.mainDelayBox:SetMaxLetters(10)
-			newRow.mainDelayBox:HookScript("OnTextChanged", function(self)
-				if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
-					self:SetTextColor(255,255,255,1)
-				elseif self:GetText() == "" then
-					self:SetTextColor(255,255,255,1)
-				elseif self:GetText():find("%a") then
-					self:SetText(self:GetText():gsub("%a", ""))
-				else
-					self:SetTextColor(1,0,0,1)
-				end
-			end)
-			newRow.mainDelayBox:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Main Action Delay", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("How long after 'casting' the ArcSpell this action triggers.\rCan be '0' for instant.",1,1,1,true)
-					GameTooltip:Show()
-				end)
-			end)
-			newRow.mainDelayBox:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-
-		-- Action Dropdown Menu
-		newRow.menuList = {} -- tree structure
-		newRow.flatMenuList = {} -- flat structure for bulk operations
-		local menuList = newRow.menuList
-
-		initActionDropdownItems(actionTypeDataList, newRow.flatMenuList, menuList)
-
-		newRow.actionSelectButton = CreateFrame("Frame", "spellRow"..numberOfSpellRows.."ActionSelectAnchor", newRow)
-		newRow.actionSelectButton:SetPoint("LEFT", newRow.mainDelayBox, "RIGHT", 0, -2)
-		genStaticDropdownChild( newRow.actionSelectButton, "spellRow"..numberOfSpellRows.."ActionSelectButton", menuList, "Action", actionColumnWidth)
-
-		-- Self Checkbox
-		newRow.SelfCheckbox = CreateFrame("CHECKBUTTON", "spellRow"..numberOfSpellRows.."SelfCheckbox", newRow, "UICheckButtonTemplate")
-			newRow.SelfCheckbox:SetPoint("LEFT", newRow.actionSelectButton, "RIGHT", -5, 1)
-			newRow.SelfCheckbox:Disable()
-			newRow.SelfCheckbox:SetMotionScriptsWhileDisabled(true)
-			newRow.SelfCheckbox:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Cast on Self", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("Enable to use the 'Self' flag for Cast & Aura actions.", 1,1,1,true)
-					GameTooltip:Show()
-				end)
-			end)
-			newRow.SelfCheckbox:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-
-		-- ID Entry Box (Input)
-		if SpellCreatorMasterTable.Options["biggerInputBox"] == true then
-			newRow.InputEntryScrollFrame = CreateFrame("ScrollFrame", "spellRow"..numberOfSpellRows.."InputEntryScrollFrame", newRow, "InputScrollFrameTemplate")
-			newRow.InputEntryScrollFrame.CharCount:Hide()
-			newRow.InputEntryScrollFrame:SetSize(InputEntryColumnWidth,40)
-			newRow.InputEntryScrollFrame:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 15, 1)
-			newRow.InputEntryBox = newRow.InputEntryScrollFrame.EditBox
-			_G["spellRow"..numberOfSpellRows.."InputEntryBox"] = newRow.InputEntryBox
-			newRow.InputEntryBox:SetWidth(newRow.InputEntryScrollFrame:GetWidth()-18)
-		else
-			newRow.InputEntryBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."InputEntryBox", newRow, "InputBoxInstructionsTemplate")
-			newRow.InputEntryBox:SetSize(InputEntryColumnWidth,23)
-			newRow.InputEntryBox:SetPoint("LEFT", newRow.SelfCheckbox, "RIGHT", 15, 1)
-		end
-
-			newRow.InputEntryBox:SetFontObject(ChatFontNormal)
-			newRow.InputEntryBox.disabledColor = GRAY_FONT_COLOR
-			newRow.InputEntryBox.enabledColor = HIGHLIGHT_FONT_COLOR
-			newRow.InputEntryBox.Instructions:SetText("select an action...")
-			newRow.InputEntryBox.Instructions:SetTextColor(0.5,0.5,0.5)
-			newRow.InputEntryBox.Description = ""
-			newRow.InputEntryBox.rowNumber = numberOfSpellRows
-			newRow.InputEntryBox:SetAutoFocus(false)
-			newRow.InputEntryBox:Disable()
-
-			newRow.InputEntryBox:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				local row = self.rowNumber
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					if _G["spellRow"..row].SelectedAction and actionTypeData[_G["spellRow"..row].SelectedAction].dataName then
-						local actionData = actionTypeData[_G["spellRow"..row].SelectedAction]
-						GameTooltip:SetText(actionData.dataName, nil, nil, nil, nil, true)
-						if actionData.inputDescription then
-							GameTooltip:AddLine(" ")
-							GameTooltip:AddLine(actionData.inputDescription, 1, 1, 1, true)
-							--GameTooltip:AddLine(" ")
-						end
-						GameTooltip:Show()
-					end
-				end)
-			end)
-			newRow.InputEntryBox:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-
-		-- Revert Delay Box
-
-		newRow.RevertDelayBox = CreateFrame("EditBox", "spellRow"..numberOfSpellRows.."RevertDelayBox", newRow, "InputBoxInstructionsTemplate")
-			newRow.RevertDelayBox:SetFontObject(ChatFontNormal)
-			newRow.RevertDelayBox.disabledColor = GRAY_FONT_COLOR
-			newRow.RevertDelayBox.enabledColor = HIGHLIGHT_FONT_COLOR
-			newRow.RevertDelayBox.Instructions:SetText("Revert Delay")
-			newRow.RevertDelayBox.Instructions:SetTextColor(0.5,0.5,0.5)
-			newRow.RevertDelayBox:SetAutoFocus(false)
-			newRow.RevertDelayBox:Disable()
-			newRow.RevertDelayBox:SetSize(revertDelayColumnWidth,23)
-			newRow.RevertDelayBox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 25, 0)
-			newRow.RevertDelayBox:SetMaxLetters(10)
-
-			newRow.RevertDelayBox:HookScript("OnTextChanged", function(self)
-				if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
-					self:SetTextColor(255,255,255,1)
-				elseif self:GetText() == "" then
-					self:SetTextColor(255,255,255,1)
-				elseif self:GetText():find("%a") then
-					self:SetText(self:GetText():gsub("%a", ""))
-				else
-					self:SetTextColor(1,0,0,1)
-				end
-			end)
-			newRow.RevertDelayBox:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Revert Delay", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("How long after the initial action before reverting.\n\rNote: This is RELATIVE to this lines main action delay.",1,1,1,true)
-					GameTooltip:AddLine("\n\rEx: Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting..",1,1,1,true)
-					GameTooltip:Show()
-				end)
-			end)
-			newRow.RevertDelayBox:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-
-		newRow.AddSpellRowButton = CreateFrame("BUTTON", nil, newRow)
-			newRow.AddSpellRowButton.rowNum = numberOfSpellRows
-			newRow.AddSpellRowButton:SetPoint("TOPLEFT", 2, -2)
-			newRow.AddSpellRowButton:SetSize(24,24)
-			--local _atlas = "transmog-icon-remove"
-			local _atlas = "communities-chat-icon-plus"
-
-			newRow.AddSpellRowButton:SetNormalAtlas(_atlas)
-			newRow.AddSpellRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-
-			newRow.AddSpellRowButton.DisabledTex = newRow.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
-			newRow.AddSpellRowButton.DisabledTex:SetAllPoints(true)
-			newRow.AddSpellRowButton.DisabledTex:SetAtlas(_atlas)
-			newRow.AddSpellRowButton.DisabledTex:SetDesaturated(true)
-			newRow.AddSpellRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
-			newRow.AddSpellRowButton:SetDisabledTexture(newRow.AddSpellRowButton.DisabledTex)
-
-			newRow.AddSpellRowButton.PushedTex = newRow.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
-			newRow.AddSpellRowButton.PushedTex:SetAllPoints(true)
-			newRow.AddSpellRowButton.PushedTex:SetAtlas(_atlas)
-			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-			newRow.AddSpellRowButton:SetPushedTexture(newRow.AddSpellRowButton.PushedTex)
-
-			newRow.AddSpellRowButton:SetMotionScriptsWhileDisabled(true)
-			newRow.AddSpellRowButton:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Add a blank row above this one", nil, nil, nil, nil, true)
-					GameTooltip:Show()
-				end)
-			end)
-			newRow.AddSpellRowButton:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
-			newRow.AddSpellRowButton:SetScript("OnClick", function(self)
-				AddSpellRow(self.rowNum)
-			end)
-			newRow.AddSpellRowButton:SetScript("OnShow", function(self)
-				if SCForgeMainFrame.AddRowRow.AddRowButton:IsEnabled() then self:Enable(); else self:Disable(); end
-			end)
-			newRow.AddSpellRowButton:Hide()
-
-		newRow.RemoveSpellRowButton = CreateFrame("BUTTON", nil, newRow)
-			newRow.RemoveSpellRowButton.rowNum = numberOfSpellRows
-			newRow.RemoveSpellRowButton:SetPoint("TOPRIGHT", -11, -1)
-			newRow.RemoveSpellRowButton:SetSize(24,24)
-			--local _atlas = "transmog-icon-remove"
-			local _atlas = "communities-chat-icon-minus"
-
-			newRow.RemoveSpellRowButton:SetNormalAtlas(_atlas)
-			newRow.RemoveSpellRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-
-			newRow.RemoveSpellRowButton.DisabledTex = newRow.RemoveSpellRowButton:CreateTexture(nil, "ARTWORK")
-			newRow.RemoveSpellRowButton.DisabledTex:SetAllPoints(true)
-			newRow.RemoveSpellRowButton.DisabledTex:SetAtlas(_atlas)
-			newRow.RemoveSpellRowButton.DisabledTex:SetDesaturated(true)
-			newRow.RemoveSpellRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
-			newRow.RemoveSpellRowButton:SetDisabledTexture(newRow.RemoveSpellRowButton.DisabledTex)
-
-			newRow.RemoveSpellRowButton.PushedTex = newRow.RemoveSpellRowButton:CreateTexture(nil, "ARTWORK")
-			newRow.RemoveSpellRowButton.PushedTex:SetAllPoints(true)
-			newRow.RemoveSpellRowButton.PushedTex:SetAtlas(_atlas)
-			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-			newRow.RemoveSpellRowButton:SetPushedTexture(newRow.RemoveSpellRowButton.PushedTex)
-
-			newRow.RemoveSpellRowButton:SetMotionScriptsWhileDisabled(true)
-			newRow.RemoveSpellRowButton:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Delete this row", nil, nil, nil, nil, true)
-					GameTooltip:Show()
-				end)
-			end)
-			newRow.RemoveSpellRowButton:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-				--[[
-				if ( not self:GetParent():IsMouseOver() ) then
-					self:Hide()
-				end
-				--]]
-			end)
-			newRow.RemoveSpellRowButton:SetScript("OnClick", function(self)
-				RemoveSpellRow(self.rowNum)
-			end)
-			newRow.RemoveSpellRowButton:SetScript("OnShow", function(self)
-				self:SetScript("OnUpdate", function(self)
-					if not self:GetParent():IsMouseOver() then self:Hide(); end
-				end)
-				newRow.AddSpellRowButton:Show()
-			end)
-			newRow.RemoveSpellRowButton:SetScript("OnHide", function(self)
-				self:SetScript("OnUpdate", nil)
-				newRow.AddSpellRowButton:Hide()
-			end)
-			newRow:SetScript("OnEnter", function(self)
-				self.RemoveSpellRowButton:Show()
-			end)
-			newRow.RemoveSpellRowButton:Hide()
-
-	end
-	-- Make Tab work to switch edit boxes
-
-		newRow.mainDelayBox.nextEditBox = newRow.InputEntryBox 			-- Main Delay -> Input
-		newRow.mainDelayBox.previousEditBox = newRow.mainDelayBox 	-- Main Delay <- Main Delay (Can't reverse past itself, updated later)
-		newRow.InputEntryBox.nextEditBox = newRow.RevertDelayBox		-- Input -> Revert
-		newRow.InputEntryBox.previousEditBox = newRow.mainDelayBox		-- Input <- Main Delay
-		newRow.RevertDelayBox.nextEditBox = newRow.mainDelayBox			-- Revert -> Main Delay (we change it later if needed)
-		newRow.RevertDelayBox.previousEditBox = newRow.InputEntryBox	-- Revert <- Input
-
-	if numberOfSpellRows > 1 then
-		local prevRow = _G["spellRow"..numberOfSpellRows-1]
-		newRow.mainDelayBox.previousEditBox = prevRow.RevertDelayBox 	-- Main Delay <- LAST Revert
-		newRow.RevertDelayBox.nextEditBox = spellRow1.mainDelayBox			-- Revert -> Spell Row 1 Main Delay
-		_G["spellRow"..numberOfSpellRows-1].RevertDelayBox.nextEditBox = newRow.mainDelayBox		-- LAST Revert -> THIS Main Delay
-
-		newRow.mainDelayBox:SetText(prevRow.mainDelayBox:GetText())
-	end
-
-	updateFrameChildScales(SCForgeMainFrame)
-	--if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddSpellRowButton:Disable(); return; end -- hard cap
-	if numberOfSpellRows >= maxNumberOfSpellRows then SCForgeMainFrame.AddRowRow.AddRowButton:Disable(); return; end -- hard cap
-
-	SCForgeMainFrame.AddRowRow:SetPoint("TOPLEFT", "spellRow"..numberOfSpellRows, "BOTTOMLEFT", 0, 0)
-
-	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
-
-	if rowToAdd then
-		for i = numberOfSpellRows, rowToAdd+1, -1 do
-			local theRowToSet = _G["spellRow"..i]
-			local theRowToGrab = _G["spellRow"..i-1]
-
-			for k,v in pairs(theRowToSet.menuList) do
-				v.checked = false
-			end
-
-			UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, UIDropDownMenu_GetSelectedID(theRowToGrab.actionSelectButton.Dropdown))
-			theRowToSet.actionSelectButton.Dropdown.Text:SetText(theRowToGrab.actionSelectButton.Dropdown.Text:GetText())
-			theRowToSet.SelectedAction = theRowToGrab.SelectedAction
-			updateSpellRowOptions(i, theRowToGrab.SelectedAction)
-
-			theRowToSet.mainDelayBox:SetText(theRowToGrab.mainDelayBox:GetText())
-			theRowToSet.SelfCheckbox:SetChecked(theRowToGrab.SelfCheckbox:GetChecked())
-			theRowToSet.InputEntryBox:SetText(theRowToGrab.InputEntryBox:GetText())
-			theRowToSet.RevertDelayBox:SetText(theRowToGrab.RevertDelayBox:GetText())
-		end
-		local theRowToSet = _G["spellRow"..rowToAdd]
-		local prevRow = _G["spellRow"..rowToAdd-1]
-		UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, 0)
-		theRowToSet.actionSelectButton.Dropdown.Text:SetText("Action")
-		updateSpellRowOptions(rowToAdd)
-
-		if prevRow then
-			theRowToSet.mainDelayBox:SetText(prevRow.mainDelayBox:GetText())
-		else
-			theRowToSet.mainDelayBox:SetText("")
-		end
-		theRowToSet.SelfCheckbox:SetChecked(false)
-		theRowToSet.InputEntryBox:SetText("")
-		theRowToSet.RevertDelayBox:SetText("")
-	end
-end
-
-
-SCForgeMainFrame = CreateFrame("Frame", "SCForgeMainFrame", UIParent, "ButtonFrameTemplate")
-SCForgeMainFrame:SetPoint("CENTER")
-SCForgeMainFrame:SetSize(mainFrameSize.x, mainFrameSize.y)
-SCForgeMainFrame:SetMaxResize(mainFrameSize.Xmax, mainFrameSize.Ymax)
-SCForgeMainFrame:SetMinResize(mainFrameSize.Xmin, mainFrameSize.Ymin)
-SCForgeMainFrame:SetMovable(true)
-SCForgeMainFrame:SetResizable(true)
-SCForgeMainFrame:SetToplevel(true);
-SCForgeMainFrame:EnableMouse(true)
-SCForgeMainFrame:SetClampedToScreen(true)
-SCForgeMainFrame:SetClampRectInsets(300, -300, 0, 500)
 SCForgeMainFrame:SetScript("OnShow", function(self)
 	if SpellCreatorMasterTable.Options["showVaultOnShow"] == true then
 		if not SCForgeMainFrame.LoadSpellFrame:IsShown() then
@@ -853,199 +152,14 @@ SCForgeMainFrame:SetScript("OnMouseDown", function(self)
 	self:Raise()
 end)
 
-
-SCForgeMainFrame.TitleBgColor = SCForgeMainFrame:CreateTexture(nil, "BACKGROUND")
-SCForgeMainFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.TitleBg)
-SCForgeMainFrame.TitleBgColor:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.TitleBg)
-SCForgeMainFrame.TitleBgColor:SetColorTexture(0.30,0.10,0.40,0.5)
-
-SCForgeMainFrame.SettingsButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonNoTooltipTemplate")
-SCForgeMainFrame.SettingsButton:SetSize(24,24)
-SCForgeMainFrame.SettingsButton:SetPoint("RIGHT", SCForgeMainFrame.CloseButton, "LEFT", 4, 0)
-SCForgeMainFrame.SettingsButton.icon = SCForgeMainFrame.SettingsButton:CreateTexture(nil, "ARTWORK")
-SCForgeMainFrame.SettingsButton.icon:SetTexture("interface/buttons/ui-optionsbutton")
-SCForgeMainFrame.SettingsButton.icon:SetSize(16,16)
-SCForgeMainFrame.SettingsButton.icon:SetPoint("CENTER")
-SCForgeMainFrame.SettingsButton:SetScript("OnClick", function(self)
-	InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
-	InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
-end)
-SCForgeMainFrame.SettingsButton:SetScript("OnMouseDown", function(self)
-	local point, relativeTo, relativePoint, xOfs, yOfs = self.icon:GetPoint(1)
-	self.icon:SetPoint(point, relativeTo, relativePoint, xOfs+2, yOfs-2)
-end)
-SCForgeMainFrame.SettingsButton:SetScript("OnMouseUp", function(self)
-	local point, relativeTo, relativePoint, xOfs, yOfs = self.icon:GetPoint(1)
-	self.icon:SetPoint(point, relativeTo, relativePoint, xOfs-2, yOfs+2)
-end)
-SCForgeMainFrame.SettingsButton:SetScript("OnDisable", function(self)
-	self.icon:GetDisabledTexture():SetDesaturated(true)
-end)
-SCForgeMainFrame.SettingsButton:SetScript("OnEnable", function(self)
-	self.icon:GetDisabledTexture():SetDesaturated(false)
-end)
-
-
 --NineSliceUtil.ApplyLayout(SCForgeMainFrame, "BFAMissionAlliance") -- You can use this to apply other nine-slice templates to a nine-slice frame. We want a custom Nine-Slice tho so below is my application of it.
 
-local myNineSliceFile_corners = ADDON_PATH.."/assets/frame_border_corners"
-local myNineSliceFile_vert = ADDON_PATH.."/assets/frame_border_vertical"
-local myNineSliceFile_horz = ADDON_PATH.."/assets/frame_border_horizontal"
-local newNineSliceOverride = {
-    TopLeftCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.263672, txb = 0.521484, }, --0.263672, 0.521484, 0.263672, 0.521484
-    --TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.263672, txb = 0.521484, }, -- 0.00195312, 0.259766, 0.263672, 0.521484
-	TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.525391, txb = 0.783203, }, -- 0.00195312, 0.259766, 0.525391, 0.783203 -- this is the double button one in the top right corner.
-    BottomLeftCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.00195312, txb = 0.259766, }, -- 0.00195312, 0.259766, 0.00195312, 0.259766
-    BottomRightCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.00195312, txb = 0.259766, }, -- 0.263672, 0.521484, 0.00195312, 0.259766
-    TopEdge = { tex = myNineSliceFile_horz, txl = 0, txr = 1, txt = 0.263672, txb = 0.521484, }, -- 0, 1, 0.263672, 0.521484
-    BottomEdge = { tex = myNineSliceFile_horz, txl = 0, txr = 1, txt = 0.00195312, txb = 0.259766, }, -- 0, 1, 0.00195312, 0.259766
-    LeftEdge = { tex = myNineSliceFile_vert, txl = 0.00195312, txr = 0.259766, txt = 0, txb = 1, }, -- 0.00195312, 0.259766, 0, 1
-    RightEdge = { tex = myNineSliceFile_vert, txl = 0.263672, txr = 0.521484, txt = 0, txb = 1, }, -- 0.263672, 0.521484, 0, 1
-}
-for k,v in pairs(newNineSliceOverride) do
-	SCForgeMainFrame.NineSlice[k]:SetTexture(v.tex)
-	SCForgeMainFrame.NineSlice[k]:SetTexCoord(v.txl, v.txr, v.txt, v.txb)
-end
+NineSlice.ApplyLayoutByName(SCForgeMainFrame.NineSlice, "ArcanumFrameTemplate")
 
 Portrait.init()
 
-SCForgeMainFrame:SetTitle("Arcanum - Spell Forge")
-
-SCForgeMainFrame.DragBar = CreateFrame("Frame", nil, SCForgeMainFrame)
-local _frame = SCForgeMainFrame.DragBar
-	_frame:SetPoint("TOPLEFT")
-	_frame:SetSize(mainFrameSize.x, 20)
-	_frame:EnableMouse(true)
-	_frame:RegisterForDrag("LeftButton")
-	_frame:SetScript("OnMouseDown", function(self)
-		self:GetParent():Raise()
-	end)
-	_frame:SetScript("OnDragStart", function(self)
-		self:GetParent():StartMoving()
-	end)
-	_frame:SetScript("OnDragStop", function(self)
-		self:GetParent():StopMovingOrSizing()
-	end)
-
--- The top bar Spell Info Boxes - Needs some placement love later..
-SCForgeMainFrame.SpellInfoNameBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
-local _frame = SCForgeMainFrame.SpellInfoNameBox
-	_frame:SetFontObject(ChatFontNormal)
-	_frame:SetMaxBytes(60)
-	_frame.disabledColor = GRAY_FONT_COLOR
-	_frame.enabledColor = HIGHLIGHT_FONT_COLOR
-	_frame.Instructions:SetText(localization.SPELLNAME)
-	_frame.Instructions:SetTextColor(0.5,0.5,0.5)
-	--_frame.Title = _frame:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-	--_frame.Title:SetText(NAME)
-	--_frame.Title:SetPoint("BOTTOM", _frame, "TOP", 0, 0)
-	_frame:SetAutoFocus(false)
-	_frame:SetSize(SCForgeMainFrame:GetWidth()/5,23)
-	_frame:SetPoint("TOPRIGHT", SCForgeMainFrame, "TOP", -3, -20)
-	_frame:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText(localization.SPELLNAME, nil, nil, nil, nil, true)
-			GameTooltip:AddLine("The name of the spell.\rThis can be anything and is only used for identifying the spell in the Vault & Chat Links.\n\rYes, you can have two spells with the same name, but that's annoying..",1,1,1,true)
-			GameTooltip:Show()
-		end)
-	end)
-	_frame:SetScript("OnLeave", function(self)
-		GameTooltip_Hide()
-		self.Timer:Cancel()
-	end)
-
-SCForgeMainFrame.SpellInfoCommandBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
-local _frame = SCForgeMainFrame.SpellInfoCommandBox
-	_frame:SetFontObject(ChatFontNormal)
-	_frame:SetMaxBytes(40)
-	_frame.disabledColor = GRAY_FONT_COLOR
-	_frame.enabledColor = HIGHLIGHT_FONT_COLOR
-	_frame.Instructions:SetText(localization.SPELLCOMM)
-	_frame.Instructions:SetTextColor(0.5,0.5,0.5)
-	--_frame.Title = _frame:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-	--_frame.Title:SetText(COMMAND)
-	--_frame.Title:SetPoint("BOTTOM", _frame, "TOP", 0, 0)
-	_frame:SetAutoFocus(false)
-	--_frame:SetSize(SCForgeMainFrame:GetWidth()/6,23)
-	_frame:SetSize(SCForgeMainFrame:GetWidth()/5,23)
-	_frame:SetPoint("LEFT", SCForgeMainFrame.SpellInfoNameBox, "RIGHT", 6, 0)
-	_frame:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText(localization.SPELLCOMM, nil, nil, nil, nil, true)
-			GameTooltip:AddLine("The slash command trigger (commID) you want to use to call this spell.\n\rCast it using '/arcanum $command' after using Create.",1,1,1,true)
-			GameTooltip:AddLine(" ",1,1,1,true)
-			GameTooltip:AddLine("This must be unique. Saving a spell with the same command ID as another will over-write the old spell.",1,1,1,true)
-			GameTooltip:Show()
-		end)
-	end)
-	_frame:SetScript("OnLeave", function(self)
-		GameTooltip_Hide()
-		self.Timer:Cancel()
-	end)
-	_frame:HookScript("OnTextChanged", function(self)
-		local selfText = self:GetText();
-		if selfText:match(",") then self:SetText(selfText:gsub(",","")) end
-	end)
-	--SCForgeMainFrame.SpellInfoNameBox:SetPoint("RIGHT", SCForgeMainFrame.SpellInfoCommandBox, "LEFT", -10, 0)
-
-SCForgeMainFrame.SpellInfoDescBox = CreateFrame("EditBox", nil, SCForgeMainFrame, "InputBoxInstructionsTemplate")
-local _frame = SCForgeMainFrame.SpellInfoDescBox
-	_frame:SetFontObject(ChatFontNormal)
-	_frame:SetMaxBytes(100)
-	_frame.disabledColor = GRAY_FONT_COLOR
-	_frame.enabledColor = HIGHLIGHT_FONT_COLOR
-	_frame.Instructions:SetText("Description")
-	_frame.Instructions:SetTextColor(0.5,0.5,0.5)
-	--_frame.Title = _frame:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-	--_frame.Title:SetText("Description")
-	--_frame.Title:SetPoint("BOTTOM", _frame, "TOP", 0, 0)
-	_frame:SetAutoFocus(false)
-	_frame:SetSize(SCForgeMainFrame:GetWidth()/2.5,23)
-	_frame:SetPoint("TOPLEFT", SCForgeMainFrame.SpellInfoNameBox, "BOTTOMLEFT", 0, 4)
-	_frame:SetPoint("TOPRIGHT", SCForgeMainFrame.SpellInfoCommandBox, "BOTTOMRIGHT", 0, 4)
-	_frame:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText("Description", nil, nil, nil, nil, true)
-			GameTooltip:AddLine("A short description of the spell.",1,1,1,true)
-			--GameTooltip:AddLine(" ",1,1,1,true)
-			--GameTooltip:AddLine("This is purely cosmetic.",1,1,1,true)
-			GameTooltip:Show()
-		end)
-	end)
-	_frame:SetScript("OnLeave", function(self)
-		GameTooltip_Hide()
-		self.Timer:Cancel()
-	end)
-	--_frame:SetPoint("LEFT", SCForgeMainFrame.SpellInfoCommandBox, "RIGHT", 10, 0)
-
-SCForgeMainFrame.CastBarCheckButton = CreateFrame("CheckButton", nil, SCForgeMainFrame, "UICheckButtonTemplate")
-	_frame = SCForgeMainFrame.CastBarCheckButton
-	_frame:SetSize(20,20)
-	_frame:SetPoint("LEFT", SCForgeMainFrame.SpellInfoCommandBox, "RIGHT", 0, 0)
-	_frame.text:SetText("Castbar")
-	_frame:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText("Castbar", nil, nil, nil, nil, true)
-			GameTooltip:AddLine("Show a casting bar when this spell is cast.\n\rCastbars do not show, even if enabled, if the total spell length is under 0.25 seconds.",1,1,1,true)
-			GameTooltip:Show()
-		end)
-	end)
-	_frame:SetScript("OnLeave", function(self)
-		GameTooltip_Hide()
-		self.Timer:Cancel()
-	end)
-
--- Enable Tabing between editboxes
-SCForgeMainFrame.SpellInfoNameBox.nextEditBox = SCForgeMainFrame.SpellInfoCommandBox
-SCForgeMainFrame.SpellInfoCommandBox.nextEditBox = SCForgeMainFrame.SpellInfoDescBox
-SCForgeMainFrame.SpellInfoDescBox.nextEditBox = SCForgeMainFrame.SpellInfoNameBox
-SCForgeMainFrame.SpellInfoDescBox.previousEditBox = SCForgeMainFrame.SpellInfoCommandBox
-SCForgeMainFrame.SpellInfoCommandBox.previousEditBox = SCForgeMainFrame.SpellInfoNameBox
-SCForgeMainFrame.SpellInfoNameBox.previousEditBox = SCForgeMainFrame.SpellInfoDescBox
+-- The top bar Spell Info Boxes
+Attic.init(SCForgeMainFrame)
 
 local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, save a frame texture
 	background:SetTexture(ADDON_PATH.."/assets/bookbackground_full")
@@ -1102,11 +216,11 @@ end
 	scrollChild:SetHeight(1)
 
 	scrollFrame.ScrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, 18)
-	scrollFrame.ScrollBar.scrollStep = rowHeight
+	scrollFrame.ScrollBar.scrollStep = SpellRow.size.rowHeight
 
 SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame.Inset)
 	SCForgeMainFrame.TitleBar:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 25, -8)
-	SCForgeMainFrame.TitleBar:SetSize(mainFrameSize.x-50, 24)
+	SCForgeMainFrame.TitleBar:SetSize(MainFrame.size.x-50, 24)
 	--SCForgeMainFrame.TitleBar:SetHeight(20)
 
 
@@ -1130,31 +244,31 @@ SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame.Inset)
 		--SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.208,1-0.209,0,1-0)
 
 	SCForgeMainFrame.TitleBar.MainDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-		SCForgeMainFrame.TitleBar.MainDelay:SetWidth(delayColumnWidth)
+		SCForgeMainFrame.TitleBar.MainDelay:SetWidth(SpellRow.size.delayColumnWidth)
 		SCForgeMainFrame.TitleBar.MainDelay:SetJustifyH("CENTER")
 		SCForgeMainFrame.TitleBar.MainDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar, "LEFT", 13+25, 0)
 		SCForgeMainFrame.TitleBar.MainDelay:SetText("Delay")
 
 	SCForgeMainFrame.TitleBar.Action = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-		SCForgeMainFrame.TitleBar.Action:SetWidth(actionColumnWidth+50)
+		SCForgeMainFrame.TitleBar.Action:SetWidth(SpellRow.size.actionColumnWidth+50)
 		SCForgeMainFrame.TitleBar.Action:SetJustifyH("CENTER")
 		SCForgeMainFrame.TitleBar.Action:SetPoint("LEFT", SCForgeMainFrame.TitleBar.MainDelay, "RIGHT", 0, 0)
 		SCForgeMainFrame.TitleBar.Action:SetText("Action")
 
 	SCForgeMainFrame.TitleBar.Self = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-		SCForgeMainFrame.TitleBar.Self:SetWidth(selfColumnWidth+10)
+		SCForgeMainFrame.TitleBar.Self:SetWidth(SpellRow.size.selfColumnWidth+10)
 		SCForgeMainFrame.TitleBar.Self:SetJustifyH("CENTER")
 		SCForgeMainFrame.TitleBar.Self:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Action, "RIGHT", -9, 0)
 		SCForgeMainFrame.TitleBar.Self:SetText("Self")
 
 	SCForgeMainFrame.TitleBar.InputEntry = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-		SCForgeMainFrame.TitleBar.InputEntry:SetWidth(InputEntryColumnWidth)
+		SCForgeMainFrame.TitleBar.InputEntry:SetWidth(SpellRow.size.inputEntryColumnWidth)
 		SCForgeMainFrame.TitleBar.InputEntry:SetJustifyH("CENTER")
 		SCForgeMainFrame.TitleBar.InputEntry:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Self, "RIGHT", 5, 0)
 		SCForgeMainFrame.TitleBar.InputEntry:SetText("Input")
 
 	SCForgeMainFrame.TitleBar.RevertDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-		SCForgeMainFrame.TitleBar.RevertDelay:SetWidth(revertDelayColumnWidth)
+		SCForgeMainFrame.TitleBar.RevertDelay:SetWidth(SpellRow.size.revertDelayColumnWidth)
 		SCForgeMainFrame.TitleBar.RevertDelay:SetJustifyH("CENTER")
 		SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 25, 0)
 		SCForgeMainFrame.TitleBar.RevertDelay:SetText("Revert")
@@ -1162,8 +276,8 @@ SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame.Inset)
 SCForgeMainFrame.AddRowRow = CreateFrame("Frame", nil, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
 local _frame = SCForgeMainFrame.AddRowRow
 	_frame:SetPoint("TOPLEFT", 25, 0)
-	_frame:SetWidth(mainFrameSize.x-50)
-	_frame:SetHeight(rowHeight)
+	_frame:SetWidth(MainFrame.size.x-50)
+	_frame:SetHeight(SpellRow.size.rowHeight)
 
 	_frame.Background = _frame:CreateTexture(nil,"BACKGROUND", nil, 5)
 		_frame.Background:SetAllPoints()
@@ -1213,7 +327,7 @@ local _frame = SCForgeMainFrame.AddRowRow
 			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			self.Timer = C_Timer.NewTimer(0.7,function()
 				GameTooltip:SetText("Add another Action row", nil, nil, nil, nil, true)
-				GameTooltip:AddLine("Max number of Rows: "..maxNumberOfSpellRows,1,1,1,true)
+				GameTooltip:AddLine("Max number of Rows: "..SpellRow.maxNumberOfRows,1,1,1,true)
 				GameTooltip:Show()
 			end)
 		end)
@@ -1222,7 +336,7 @@ local _frame = SCForgeMainFrame.AddRowRow
 			self.Timer:Cancel()
 		end)
 		_frame.AddRowButton:SetScript("OnClick", function(self)
-			AddSpellRow()
+			SpellRow.addRow()
 		end)
 
 
@@ -1262,102 +376,12 @@ SCForgeMainFrame.CloseButton:HookScript("OnMouseUp", function(self, button)
 end)
 
 SCForgeMainFrame:SetScript("OnSizeChanged", function(self)
-	local scale = updateFrameChildScales(self)
+	local scale = MainFrame.updateFrameChildScales(self)
 	local newHeight = self:GetHeight()
-	local ratio = newHeight/mainFrameSize.y
-	SCForgeLoadFrame:SetSize(280*ratio, self:GetHeight())
-	SCForgeMainFrame.SpellInfoCommandBox:SetWidth(SCForgeMainFrame:GetWidth()/5)
-	SCForgeMainFrame.SpellInfoNameBox:SetWidth(SCForgeMainFrame:GetWidth()/5)
-	SCForgeMainFrame.SpellInfoDescBox:SetWidth(SCForgeMainFrame:GetWidth()/2.5)
+	local ratio = newHeight/MainFrame.size.y
+	SCForgeMainFrame.LoadSpellFrame:SetSize(280*ratio, self:GetHeight())
+	Attic.updateSize(SCForgeMainFrame:GetWidth())
 end)
-
---[[ -- Replaced!
-SCForgeMainFrame.AddSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
-	SCForgeMainFrame.AddSpellRowButton:SetPoint("BOTTOMRIGHT", -40, 2)
-	SCForgeMainFrame.AddSpellRowButton:SetSize(24,24)
-
-	--local _atlas = "Garr_Building-AddFollowerPlus"
-	local _atlas = "communities-chat-icon-plus"
-	SCForgeMainFrame.AddSpellRowButton:SetNormalAtlas(_atlas)
-	SCForgeMainFrame.AddSpellRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-
-	SCForgeMainFrame.AddSpellRowButton.DisabledTex = SCForgeMainFrame.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
-	SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetAllPoints(true)
-	SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetAtlas(_atlas)
-	SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetDesaturated(true)
-	SCForgeMainFrame.AddSpellRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
-	SCForgeMainFrame.AddSpellRowButton:SetDisabledTexture(SCForgeMainFrame.AddSpellRowButton.DisabledTex)
-
-	SCForgeMainFrame.AddSpellRowButton.PushedTex = SCForgeMainFrame.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
-	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetAllPoints(true)
-	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetAtlas(_atlas)
-	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-	SCForgeMainFrame.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-	SCForgeMainFrame.AddSpellRowButton:SetPushedTexture(SCForgeMainFrame.AddSpellRowButton.PushedTex)
-
-	SCForgeMainFrame.AddSpellRowButton:SetMotionScriptsWhileDisabled(true)
-	SCForgeMainFrame.AddSpellRowButton:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText("Add another Action row", nil, nil, nil, nil, true)
-			GameTooltip:AddLine("Max number of Rows: "..maxNumberOfSpellRows,1,1,1,true)
-			GameTooltip:Show()
-		end)
-	end)
-	SCForgeMainFrame.AddSpellRowButton:SetScript("OnLeave", function(self)
-		GameTooltip_Hide()
-		self.Timer:Cancel()
-	end)
-	SCForgeMainFrame.AddSpellRowButton:SetScript("OnClick", function(self)
-		AddSpellRow()
-	end)
---]]
-
--- Remove Spell Row Button -- Replaced!
---[[
-SCForgeMainFrame.RemoveSpellRowButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
-SCForgeMainFrame.RemoveSpellRowButton:SetPoint("RIGHT", SCForgeMainFrame.AddSpellRowButton, "LEFT", -5, 0)
-SCForgeMainFrame.RemoveSpellRowButton:SetSize(24,24)
---local _atlas = "transmog-icon-remove"
-local _atlas = "communities-chat-icon-minus"
-
-SCForgeMainFrame.RemoveSpellRowButton:SetNormalAtlas(_atlas)
-SCForgeMainFrame.RemoveSpellRowButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-
-SCForgeMainFrame.RemoveSpellRowButton.DisabledTex = SCForgeMainFrame.RemoveSpellRowButton:CreateTexture(nil, "ARTWORK")
-SCForgeMainFrame.RemoveSpellRowButton.DisabledTex:SetAllPoints(true)
-SCForgeMainFrame.RemoveSpellRowButton.DisabledTex:SetAtlas(_atlas)
-SCForgeMainFrame.RemoveSpellRowButton.DisabledTex:SetDesaturated(true)
-SCForgeMainFrame.RemoveSpellRowButton.DisabledTex:SetVertexColor(.6,.6,.6)
-SCForgeMainFrame.RemoveSpellRowButton:SetDisabledTexture(SCForgeMainFrame.RemoveSpellRowButton.DisabledTex)
-
-SCForgeMainFrame.RemoveSpellRowButton.PushedTex = SCForgeMainFrame.RemoveSpellRowButton:CreateTexture(nil, "ARTWORK")
-SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetAllPoints(true)
-SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetAtlas(_atlas)
-SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-SCForgeMainFrame.RemoveSpellRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-SCForgeMainFrame.RemoveSpellRowButton:SetPushedTexture(SCForgeMainFrame.RemoveSpellRowButton.PushedTex)
-
-SCForgeMainFrame.RemoveSpellRowButton:SetMotionScriptsWhileDisabled(true)
-SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Remove the last Action row", nil, nil, nil, nil, true)
-		GameTooltip:Show()
-	end)
-end)
-SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnLeave", function(self)
-	GameTooltip_Hide()
-	self.Timer:Cancel()
-end)
-SCForgeMainFrame.RemoveSpellRowButton:SetScript("OnClick", function(self)
-	RemoveSpellRow()
-end)
---]]
 
 -- Revert Forge UI Rows Button
 SCForgeMainFrame.ResetUIButton = CreateFrame("BUTTON", nil, SCForgeMainFrame)
@@ -1411,26 +435,33 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnClick", function()
 	Animation.setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
 	local maxDelay = 0
 	local actionsToCommit = {}
-	for i = 1, numberOfSpellRows do
-		local theSpellRow = _G["spellRow"..i]
-		if isNotDefined(tonumber(theSpellRow.mainDelayBox:GetText())) then
-			dprint("Action Row "..i.." Invalid, Delay Not Set")
-		else
-			local actionData = {}
-			actionData.actionType = (theSpellRow.SelectedAction)
-			actionData.delay = tonumber(theSpellRow.mainDelayBox:GetText())
-			if actionData.delay > maxDelay then maxDelay = actionData.delay end
-			actionData.revertDelay = tonumber(theSpellRow.RevertDelayBox:GetText())
-			if actionData.revertDelay and actionData.revertDelay > maxDelay then maxDelay = actionData.revertDelay end
-			actionData.selfOnly = theSpellRow.SelfCheckbox:GetChecked()
-			actionData.vars = theSpellRow.InputEntryBox:GetText()
-			Debug.ddump(actionData)
-			table.insert(actionsToCommit, actionData)
+	for i = 1, SpellRow.getNumActiveRows() do
+		local actionData = SpellRow.getRowAction(i)
+
+		if not actionData then
+			dprint("Action Row " .. i .. " Invalid, Delay Not Set")
+			break
 		end
+
+		if actionData.delay > maxDelay then maxDelay = actionData.delay end
+		if actionData.revertDelay and actionData.revertDelay > maxDelay then maxDelay = actionData.revertDelay end
+
+		table.insert(actionsToCommit, actionData)
 	end
 	C_Timer.After(maxDelay, function() Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25) end)
-	local spellName = SCForgeMainFrame.SpellInfoNameBox:GetText()
-	executeSpell(actionsToCommit, nil, spellName)
+
+	local spellInfo = Attic.getInfo()
+	local spellName = spellInfo.fullName
+	local spellData = {["icon"] = Icons.getFinalIcon(spellInfo.icon)}
+	executeSpell(actionsToCommit, nil, spellName, nil)
+	local castBarStatus = spellInfo.castbar
+	if castBarStatus ~= 0 then
+		if castBarStatus == 1 then
+			Castbar.showCastBar(maxDelay, spellName, spellData, false, nil, nil)
+		elseif castBarStatus == 2 then
+			Castbar.showCastBar(maxDelay, spellName, spellData, true, nil, nil)
+		end
+	end
 end)
 SCForgeMainFrame.ExecuteSpellButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -1448,49 +479,22 @@ SCForgeMainFrame.ExecuteSpellButton:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
-if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then
-	SCForgeMainFrame.ExecuteSpellButton:Disable()
-else
-	SCForgeMainFrame.ExecuteSpellButton:Enable()
-end
 
-local function updateActionDropdownCheckedStates(menuList, actionType, parentItem)
-	for _, menuItem in pairs(menuList) do
-		if menuItem.value == actionType then
-			menuItem.checked = true
-			if parentItem then
-				parentItem.checked = true
-			end
-		else
-			menuItem.checked = false
-			if menuItem.menuList then
-				updateActionDropdownCheckedStates(menuItem.menuList, actionType, menuItem)
-			end
-		end
-	end
-end
+SCForgeMainFrame.ExecuteSpellButton:SetEnabled(Permissions.canExecuteSpells())
 
+---@param spellToLoad VaultSpell
 local function loadSpell(spellToLoad)
 	--dprint("Loading spell.. "..spellToLoad.commID)
 
-	SCForgeMainFrame.SpellInfoCommandBox:SetText(spellToLoad.commID)
-	SCForgeMainFrame.SpellInfoNameBox:SetText(spellToLoad.fullName)
-	if spellToLoad.description then SCForgeMainFrame.SpellInfoDescBox:SetText(spellToLoad.description) end
+	Attic.updateInfo(spellToLoad)
 
 	local spellActions = spellToLoad.actions
+	---@type VaultSpellAction[]
 	local localSpellActions = CopyTable(spellActions)
 	local numberOfActionsToLoad = #localSpellActions
 
 	-- Adjust the number of available Action Rows
-	if numberOfActionsToLoad > numberOfSpellRows then
-		for i = 1, numberOfActionsToLoad-numberOfSpellRows do
-			AddSpellRow()
-		end
-	elseif numberOfActionsToLoad < numberOfSpellRows then
-		for i = 1, numberOfSpellRows-numberOfActionsToLoad do
-			RemoveSpellRow()
-		end
-	end
+	SpellRow.setNumActiveRows(numberOfActionsToLoad)
 
 	if SpellCreatorMasterTable.Options["loadChronologically"] then
 		table.sort(localSpellActions, function (k1, k2) return k1.delay < k2.delay end)
@@ -1499,25 +503,7 @@ local function loadSpell(spellToLoad)
 	-- Loop thru actions & set their data
 	local rowNum, actionData
 	for rowNum, actionData in ipairs(localSpellActions) do
-		local _spellRow = _G["spellRow"..rowNum]
-		if actionData.actionType == "reset" then
-			UIDropDownMenu_SetSelectedID(_spellRow.actionSelectButton.Dropdown, 0)
-			_spellRow.actionSelectButton.Dropdown.Text:SetText("Action")
-			updateSpellRowOptions(rowNum)
-		else
-			updateActionDropdownCheckedStates(_spellRow.menuList, actionData.actionType)
-			_spellRow.actionSelectButton.Dropdown.Text:SetText(actionTypeData[actionData.actionType].name)
-			updateSpellRowOptions(rowNum, actionData.actionType)
-		end
-
-		_spellRow.mainDelayBox:SetText(tonumber(actionData.delay) or "") --delay
-		if actionData.selfOnly then _spellRow.SelfCheckbox:SetChecked(true) else _spellRow.SelfCheckbox:SetChecked(false) end --SelfOnly
-		if actionData.vars then _spellRow.InputEntryBox:SetText(actionData.vars) else _spellRow.InputEntryBox:SetText("") end --Input Entrybox
-		if actionData.revertDelay then
-			_spellRow.RevertDelayBox:SetText(actionData.revertDelay) --revertDelay
-		else
-			_spellRow.RevertDelayBox:SetText("") --revertDelay
-		end
+		SpellRow.setRowAction(rowNum, actionData)
 	end
 end
 
@@ -1537,12 +523,12 @@ SCForgeMainFrame.ResetUIButton:SetScript("OnClick", function(self)
 		UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay,0.1,0.05,0.8)
 		Animation.setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
 		local deleteRowIter = 0
-		for i = numberOfSpellRows, 1, -1 do
+		for i = SpellRow.getNumActiveRows(), 1, -1 do
 			deleteRowIter = deleteRowIter+1
-			C_Timer.After(deleteRowIter/50, function() RemoveSpellRow(i) end)
+			C_Timer.After(deleteRowIter/50, function() SpellRow.removeRow(i) end)
 		end
 
-		C_Timer.After(numberOfSpellRows/50, function()
+		C_Timer.After(SpellRow.getNumActiveRows()/50, function()
 			loadSpell(emptySpell)
 			Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
 			SCForgeMainFrame.ResetUIButton:Enable();
@@ -1553,6 +539,8 @@ end)
 
 local phaseVaultKeys
 
+---@param spellKey CommID
+---@param where VaultType
 local function deleteSpellConf(spellKey, where)
 	local dialog = StaticPopup_Show("SCFORGE_CONFIRM_DELETE", savedSpellFromVault[spellKey].fullName, savedSpellFromVault[spellKey].commID)
 	if dialog then dialog.data = spellKey; dialog.data2 = where end
@@ -1669,7 +657,6 @@ local function deleteSpellFromPhaseVault(commID, callback)
 	end)
 end
 
-local uploadAsPrivateSpell = false
 local function saveSpellToPhaseVault(commID, overwrite)
 	local needToOverwrite = false
 	if not commID then
@@ -1697,7 +684,7 @@ local function saveSpellToPhaseVault(commID, overwrite)
 				for k,v in ipairs(phaseVaultKeys) do
 					if v == commID then
 						if not overwrite then
-							-- phase already has this ID saved.. Handle over-write... ( see saveSpell() to steal the code if we want to change it later.. )
+							-- phase already has this ID saved.. Handle over-write...
 							dprint("Phase already has a spell saved by Command '"..commID.."'. Prompting to confirm over-write.")
 
 							StaticPopupDialogs["SCFORGE_CONFIRM_POVERWRITE"] = {
@@ -1721,7 +708,11 @@ local function saveSpellToPhaseVault(commID, overwrite)
 
 				-- Passed checking for duplicates. NOW we can save it.
 				local _spellData = SpellCreatorSavedSpells[commID]
-				if uploadAsPrivateSpell then _spellData.private = true else _spellData.private = nil end
+				if LoadSpellFrame.getUploadToPhaseVisibility() == SPELL_VISIBILITY.PRIVATE then
+					_spellData.private = true
+				else
+					_spellData.private = nil
+				end
 				local str = serializer.compressForAddonMsg(_spellData)
 
 				local key = "SCFORGE_S_"..commID
@@ -1743,23 +734,6 @@ local function saveSpellToPhaseVault(commID, overwrite)
 		eprint("You must be a member, officer, or owner in order to save spells to the phase.")
 	end
 
-end
-
-local selectedVaultRow
-local function setSelectedVaultRow(rowID)
-	if rowID then
-		selectedVaultRow = rowID
-		if isOfficerPlus() then
-			SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Enable()
-		else
-			SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
-		end
-		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Enable()
-	else
-		selectedVaultRow = nil
-		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:Disable()
-		SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:Disable()
-	end
 end
 
 local spellLoadRows = {}
@@ -1990,7 +964,7 @@ local baseVaultFilterTags = {
 
 local function editVaultTags( tag, spellCommID, vaultType ) --
 	--print(spellCommID, tag)
-	if not tag and not spellComm then return; end
+	if not tag and not spellCommID then return; end
 	if not vaultType then vaultType = 1 end
 	if vaultType == 1 then
 		if not SpellCreatorSavedSpells[spellCommID].tags then SpellCreatorSavedSpells[spellCommID].tags = {} end
@@ -2055,12 +1029,14 @@ end
 local contextDropDownMenu = CreateFrame("BUTTON", "ARCLoadRowContextMenu", UIParent, "UIDropDownMenuTemplate")
 local profileDropDownMenu = CreateFrame("BUTTON", "ARCProfileContextMenu", UIParent, "UIDropDownMenuTemplate")
 
+---@param vault VaultType
+---@param spellCommID CommID
 local function genDropDownContextOptions(vault, spellCommID, callback)
 	local menuList = {}
 	local item
 	local playerName = GetUnitName("player")
 	local _profile
-	if vault == "PHASE" then
+	if vault == VAULT_TYPE.PHASE then
 		menuList = {
 			{text = phaseVault.spells[spellCommID].fullName, notCheckable = true, isTitle=true},
 			{text = "Cast", notCheckable = true, func = function() executeSpell(phaseVault.spells[spellCommID].actions, nil, phaseVault.spells[spellCommID].fullName, phaseVault.spells[spellCommID]) end},
@@ -2079,7 +1055,6 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 			{text = "Transfer", tooltipTitle="Transfer to Phase Vault", tooltipOnButton=true, notCheckable = true, func = function() saveSpellToPhaseVault(spellCommID) end},
 		}
 
-		local interTagTable = {}
 		-- Profiles Menu
 		item = {text = "Profile", notCheckable=true, hasArrow=true, keepShownOnClick=true,
 			menuList = {
@@ -2088,17 +1063,24 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 			},
 		}
 
-				for k,v in pairs(SpellCreatorSavedSpells) do
-					if v.profile then
-						interTagTable[v.profile] = true
-					end
+		local profileNames = SavedVariables.getProfileNames(true, true)
+		sort(profileNames)
+
+		for _, profileName in ipairs(profileNames) do
+			item.menuList[#item.menuList+1] = {
+				text = profileName,
+				isNotRadio = (_profile == profileName),
+				checked = (_profile == profileName),
+				disabled = (_profile == profileName),
+				disablecolor = ((_profile == profileName) and "|cFFCE2EFF" or nil),
+				func = function()
+					setSpellProfile(spellCommID, profileName, 1, callback)
+					CloseDropDownMenus()
 				end
-				for k,v in orderedPairs(interTagTable) do
-					if k ~= "Account" and k ~= playerName then
-						item.menuList[#item.menuList+1] = { text = k, isNotRadio = (_profile==k), checked = (_profile==k), disabled = (_profile==k), disablecolor = ((_profile==k) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, k, 1, callback); CloseDropDownMenus(); end }
-					end
-				end
-				item.menuList[#item.menuList+1] = { text = "Add New", fontObject=GameFontNormalSmallLeft, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end }
+			}
+		end
+
+		item.menuList[#item.menuList+1] = { text = "Add New", fontObject=GameFontNormalSmallLeft, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end }
 
 		tinsert(menuList, item)
 
@@ -2125,7 +1107,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 		if tContains(SpellCreatorMasterTable.quickCastSpells, spellCommID) then
 			menuList[#menuList+1] = {text = "Remove from QuickCast", notCheckable = true, func = function()
 				tDeleteItem(SpellCreatorMasterTable.quickCastSpells, spellCommID);
-				ns.UI.Quickcast.hideCastCuttons()
+				Quickcast.hideCastCuttons()
 			end}
 		else
 			menuList[#menuList+1] = {text = "Add to QuickCast", notCheckable = true, func = function()
@@ -2133,15 +1115,15 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 			end}
 		end
 
+		--[[
 		menuList[#menuList+1] = {text = "Link Hotkey", notCheckable = true, func = function()
-			SELECTED_CHAT_FRAME.editBox:SetFocus();
-			ChatEdit_InsertLink(generateSpellChatLink(spellCommID, vault));
+			ChatLink.linkSpell(savedSpellFromVault[spellCommID], vault)
 		end}
+		--]]
 	end
 
 	menuList[#menuList+1] = {text = "Chatlink", notCheckable = true, func = function()
-		SELECTED_CHAT_FRAME.editBox:SetFocus();
-		ChatEdit_InsertLink(generateSpellChatLink(spellCommID, vault));
+		ChatLink.linkSpell(savedSpellFromVault[spellCommID], vault)
 	end}
 	menuList[#menuList+1] = {text = "Export", notCheckable = true, func = function()
 		local exportData = savedSpellFromVault[spellCommID]
@@ -2164,14 +1146,11 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		spellLoadRows[i]:Hide()
 		spellLoadRows[i]:SetChecked(false)
 	end
-	setSelectedVaultRow(nil)
+	LoadSpellFrame.selectRow(nil)
 	savedSpellFromVault = {}
-	local currentVault
-	local currentVaultTab = PanelTemplates_GetSelectedTab(SCForgeMainFrame.LoadSpellFrame)
+	local currentVault = LoadSpellFrame.getCurrentVault()
 
-	if currentVaultTab == 1 then
-		--personal vault is shown
-		currentVault = "PERSONAL"
+	if currentVault == VAULT_TYPE.PERSONAL then
 		savedSpellFromVault = SpellCreatorSavedSpells
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Hide()
 		SCForgeMainFrame.LoadSpellFrame.profileButton:Show()
@@ -2185,9 +1164,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		else
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("")
 		end
-	elseif currentVaultTab == 2 then
-		--phase vault is shown
-		currentVault = "PHASE"
+	elseif currentVault == VAULT_TYPE.PHASE then
 		SCForgeMainFrame.LoadSpellFrame.profileButton:Hide()
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Disable()
@@ -2222,9 +1199,13 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		realRowNum = realRowNum+1
 		rowNum = realRowNum-numSkippedRows
 		--]]
-		rowNum = rowNum+1
-		if currentVault == "PERSONAL" and not v.profile then savedSpellFromVault[k].profile = "Account"; dprint("Spell '"..k.."' didn't have a profile. Set to 'Account'.") end
-		if currentVault == "PERSONAL" and ((not selectedProfileFilter.showAll) and (not selectedProfileFilter[v.profile])) then
+		rowNum = rowNum + 1
+
+		if currentVault == VAULT_TYPE.PERSONAL then
+			ProfileFilter.ensureProfile(v)
+		end
+
+		if currentVault == VAULT_TYPE.PERSONAL and ProfileFilter.shouldFilterFromPersonalVault(v) then
 			dprint("Load Row Filtered from Personal Vault Profiles (skipped): "..k)
 			rowNum = rowNum-1
 		else
@@ -2293,52 +1274,105 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 
 				-- Make the Spell Name Text
 				thisRow.spellName = thisRow:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
-				thisRow.spellName:SetWidth(columnWidth*2/3)
+				thisRow.spellName:SetWidth((columnWidth*2/3)-15)
 				thisRow.spellName:SetJustifyH("LEFT")
-				thisRow.spellName:SetPoint("LEFT", 10, 0)
+				thisRow.spellName:SetPoint("LEFT", 25, 0)
 				thisRow.spellName:SetText(v.fullName) -- initial text, reset later when it needs updated
 				thisRow.spellName:SetShadowColor(0, 0, 0)
 				thisRow.spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
 				--thisRow.spellNameBackground:SetPoint("RIGHT", thisRow.spellName, "RIGHT", 0, 0) -- move the right edge of the gradient to the right edge of the name
 
+				thisRow.spellIcon = CreateFrame("BUTTON", nil, thisRow)
+				local button = thisRow.spellIcon
+					button.commID = k
+					button:SetPoint("RIGHT", thisRow.spellName, "LEFT", -2, 0)
+					button:SetSize(24,24)
+					button:SetNormalTexture("Interface/Icons/inv_misc_questionmark")
+					button:SetHighlightTexture(ASSETS_PATH .. "/dm-trait-select")
+					button.highlight = button:GetHighlightTexture()
+					button.highlight:SetPoint("TOPLEFT", -3, 3)
+					button.highlight:SetPoint("BOTTOMRIGHT", 3, -3)
+					button.border = button:CreateTexture(nil, "OVERLAY")
+					button.border:SetTexture(ASSETS_PATH .. "/dm-trait-border")
+					button.border:SetPoint("TOPLEFT", -4, 4)
+					button.border:SetPoint("BOTTOMRIGHT", 4, -4)
+					button:SetScript("OnEnter", function(self)
+						GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+						self.Timer = C_Timer.NewTimer(0.7,function()
+							GameTooltip:SetText(savedSpellFromVault[self.commID].fullName, nil, nil, nil, nil, true)
+							if savedSpellFromVault[self.commID].description then
+								GameTooltip:AddLine(savedSpellFromVault[self.commID].description, 1, 1, 1, 1)
+							end
+							GameTooltip:AddLine(" ", 1, 1, 1, 1)
+							--GameTooltip:AddLine("Command: '/sf "..v.commID.."'", 1, 1, 1, 1)
+							GameTooltip:AddLine("Click to cast '"..savedSpellFromVault[self.commID].commID.."'", 1, 1, 1, 1)
+							GameTooltip:AddLine("Actions: "..#savedSpellFromVault[self.commID].actions, 1, 1, 1, 1)
+							GameTooltip:AddLine(" ", 1, 1, 1, 1)
+							GameTooltip:AddLine("Shift-Click to link in chat & share with other players.", 1, 1, 1, 1)
+							GameTooltip:Show()
+						end)
+					end)
+					button:SetScript("OnLeave", function(self)
+						GameTooltip_Hide()
+						self.Timer:Cancel()
+					end)
+					button:SetScript("OnClick", function(self, button)
+						local currentVault = LoadSpellFrame.getCurrentVault()
+						if button == "LeftButton" then
+							if IsModifiedClick("CHATLINK") then
+								ChatLink.linkSpell(savedSpellFromVault[self.commID], currentVault)
+								return;
+							end
+							if currentVault == VAULT_TYPE.PHASE then
+								executeSpell(phaseVault.spells[self.commID].actions, nil, phaseVault.spells[self.commID].fullName, phaseVault.spells[self.commID])
+							else
+								ARC:CAST(self.commID)
+							end
+						elseif button == "RightButton" then
+							--Show & Update Right-Click Context Menu
+							EasyMenu(genDropDownContextOptions(currentVault, self.commID, updateSpellLoadRows), contextDropDownMenu, "cursor", 0 , 0, "MENU");
+						end
+					end)
+					button:RegisterForClicks("LeftButtonUp","RightButtonUp")
+
 				-- Make the delete saved spell button
 				thisRow.deleteButton = CreateFrame("BUTTON", nil, thisRow)
 				local button = thisRow.deleteButton
-				button.commID = k
-				button:SetPoint("RIGHT", 0, 0)
-				button:SetSize(24,24)
-				--button:SetText("x")
+					button.commID = k
+					button:SetPoint("RIGHT", 0, 0)
+					button:SetSize(24,24)
+					--button:SetText("x")
 
-				button:SetNormalTexture(ADDON_PATH.."/assets/icon-x")
-				button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+					button:SetNormalTexture(ADDON_PATH.."/assets/icon-x")
+					button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
 
-				button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
-				button.DisabledTex:SetAllPoints(true)
-				button.DisabledTex:SetTexture(ADDON_PATH.."/assets/icon-x")
-				button.DisabledTex:SetDesaturated(true)
-				button.DisabledTex:SetVertexColor(.6,.6,.6)
-				button:SetDisabledTexture(button.DisabledTex)
+					button.DisabledTex = button:CreateTexture(nil, "ARTWORK")
+					button.DisabledTex:SetAllPoints(true)
+					button.DisabledTex:SetTexture(ADDON_PATH.."/assets/icon-x")
+					button.DisabledTex:SetDesaturated(true)
+					button.DisabledTex:SetVertexColor(.6,.6,.6)
+					button:SetDisabledTexture(button.DisabledTex)
 
-				button.PushedTex = button:CreateTexture(nil, "ARTWORK")
-				button.PushedTex:SetAllPoints(true)
-				button.PushedTex:SetTexture(ADDON_PATH.."/assets/icon-x")
-				button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-				button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-				button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-				button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-				button:SetPushedTexture(button.PushedTex)
+					button.PushedTex = button:CreateTexture(nil, "ARTWORK")
+					button.PushedTex:SetAllPoints(true)
+					button.PushedTex:SetTexture(ADDON_PATH.."/assets/icon-x")
+					button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
+					button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
+					button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
+					button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+					button:SetPushedTexture(button.PushedTex)
 
-				button:SetScript("OnEnter", function(self)
-					GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-					self.Timer = C_Timer.NewTimer(0.7,function()
-						GameTooltip:SetText("Delete '"..savedSpellFromVault[self.commID].commID.."'", nil, nil, nil, nil, true)
-						GameTooltip:Show()
+					button:SetScript("OnEnter", function(self)
+						GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+						self.Timer = C_Timer.NewTimer(0.7,function()
+							GameTooltip:SetText("Delete '"..savedSpellFromVault[self.commID].commID.."'", nil, nil, nil, nil, true)
+							GameTooltip:Show()
+						end)
 					end)
-				end)
-				button:SetScript("OnLeave", function(self)
-					GameTooltip_Hide()
-					self.Timer:Cancel()
-				end)
+					button:SetScript("OnLeave", function(self)
+						GameTooltip_Hide()
+						self.Timer:Cancel()
+					end)
 
 
 				-- Make the load button
@@ -2543,19 +1577,26 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				thisRow.deleteButton.commID = k
 				thisRow.gossipButton.commID = k
 				thisRow.privateIconButton.commID = k
-				thisRow.commID = k -- used in new Transfer to Phase Button
+				thisRow.spellIcon.commID = k
+				thisRow.commID = k -- used in new Transfer to Phase Button - all the other ones should probably move to using this anyways..
 				thisRow.rowID = rowNum
 
+				if v.icon then
+					dprint(nil, Icons.getFinalIcon(v.icon))
+					thisRow.spellIcon:SetNormalTexture(Icons.getFinalIcon(v.icon))
+				else
+					thisRow.spellIcon:SetNormalTexture("Interface/Icons/inv_misc_questionmark")
+				end
 				thisRow.deleteButton:SetScript("OnClick", function(self, button)
 					if button == "LeftButton" then
-						deleteSpellConf(self.commID, currentVault)
+						deleteSpellConf(self.commID, LoadSpellFrame.getCurrentVault())
 					elseif button == "RightButton" then
 
 					end
 				end)
 
 				-- NEED TO UPDATE THE ROWS IF WE ARE IN PHASE VAULT
-				if currentVault == "PERSONAL" then
+				if currentVault == VAULT_TYPE.PERSONAL then
 					--thisRow.loadButton:SetText(EDIT)
 					--thisRow.saveToPhaseButton.commID = k
 					--thisRow.Background:SetVertexColor(0.75,0.70,0.8)
@@ -2577,7 +1618,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					end
 					--]]
 
-				elseif currentVault == "PHASE" then
+				elseif currentVault == VAULT_TYPE.PHASE then
 					--thisRow.loadButton:SetText("Load")
 					--thisRow.saveToPhaseButton:Hide()
 					--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
@@ -2629,18 +1670,18 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					self.Timer:Cancel()
 				end)
 				thisRow:SetScript("OnClick", function(self, button)
+					local currentVault = LoadSpellFrame.getCurrentVault()
 					if button == "LeftButton" then
 						if IsModifiedClick("CHATLINK") then
-							SELECTED_CHAT_FRAME.editBox:SetFocus()
-							ChatEdit_InsertLink(generateSpellChatLink(k, currentVault));
+							ChatLink.linkSpell(savedSpellFromVault[k], currentVault)
 							self:SetChecked(not self:GetChecked());
 							return;
 						end
 						clearSpellLoadRadios(self)
 						if self:GetChecked() then
-							setSelectedVaultRow(self.rowID)
+							LoadSpellFrame.selectRow(self.rowID)
 						else
-							setSelectedVaultRow(nil)
+							LoadSpellFrame.selectRow(nil)
 						end
 					elseif button == "RightButton" then
 						--Show & Update Right-Click Context Menu
@@ -2662,7 +1703,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				end
 			end
 
-			if currentVault=="PHASE" and v.private and not (isOfficerPlus() or SpellCreatorMasterTable.Options["debug"]) then
+			if currentVault == VAULT_TYPE.PHASE and v.private and not (isOfficerPlus() or SpellCreatorMasterTable.Options["debug"]) then
 				thisRow:Hide()
 				numSkippedRows = numSkippedRows+1
 			end
@@ -2673,92 +1714,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			end
 		end
 	end
-	updateFrameChildScales(SCForgeMainFrame)
-end
-
-local function selectProfile(self,arg1,arg2,checked)
-	local profileName
-	if self.value then
-		profileName = self.value
-	else
-		profileName = self
-	end
-	if checked or checked == false then
-		selectedProfileFilter[profileName] = checked
-	else
-		selectedProfileFilter[profileName] = not selectedProfileFilter[profileName]
-	end
-	selectedProfileFilter.showAll = nil
-	updateSpellLoadRows();
-	--print(profileName, checked)
-end
-
-local function setDefaultProfile(self, profile)
-	SpellCreatorMasterTable.Options.defaultProfile = profile
-end
-
-local function genProfileSelectDropDown(changeDefault)
-	local menuList = {}
-	local item
-	local playerName = GetUnitName("player")
-	local isNotAllChecked
-
-	if changeDefault then
-		local currentDefault = SpellCreatorMasterTable.Options.defaultProfile
-		menuList = {
-			{text = "Change Default Profile", notCheckable = true, isTitle=true},
-			{text = "Account", isNotRadio = (currentDefault == "Account"), checked = (currentDefault == "Account"), notClickable = (currentDefault == "Account"), disablecolor = ((currentDefault == "Account") and "|cFFCE2EFF" or nil), arg1="Account", func = setDefaultProfile},
-			{text = "Character", isNotRadio = (currentDefault == "Character"), checked = (currentDefault == "Character"), notClickable = (currentDefault == "Character"), disablecolor = ((currentDefault == "Character") and "|cFFCE2EFF" or nil), arg1="Character", func = setDefaultProfile },
-			{text = "All", isNotRadio = (currentDefault == "All"), checked = (currentDefault == "All"), notClickable = (currentDefault == "All"), arg1="All", disablecolor = ((currentDefault == "All") and "|cFFCE2EFF" or nil), func = setDefaultProfile },
-		}
-		return menuList;
-	end
-	menuList = {
-		{text = "Select Profiles to Show", notCheckable = true, isTitle=true},
-		{text = "Account", isNotRadio=true, checked = (selectedProfileFilter["Account"] or selectedProfileFilter.showAll), keepShownOnClick=true, func = selectProfile},
-		{text = playerName, isNotRadio=true, checked = (selectedProfileFilter[playerName] or selectedProfileFilter.showAll), keepShownOnClick=true, func = selectProfile},
-	}
-
-	local interTagTable = {}
-	-- gen dynamic list of available characters / profiles
-	for k,v in pairs(SpellCreatorSavedSpells) do
-		if v.profile then
-			interTagTable[v.profile] = true
-		end
-	end
-	for k,v in orderedPairs(interTagTable) do
-		if k ~= "Account" and k ~= playerName then
-			if not selectedProfileFilter[k] then isNotAllChecked = true; end
-			menuList[#menuList+1] = { text = k, isNotRadio=true, checked = (selectedProfileFilter[k] or selectedProfileFilter.showAll), keepShownOnClick=true, func = selectProfile }
-		end
-	end
-	menuList[#menuList+1] = { text = "----", notCheckable=true, disabled=true, justifyH = "CENTER",}
-	if isNotAllChecked and (not selectedProfileFilter.showAll) then
-		menuList[#menuList+1] = {text = "Show All", notCheckable = true, fontObject=GameFontNormalSmallLeft, arg1 = interTagTable, func = function(self,arg1)
-			for k,v in pairs(arg1) do
-				selectedProfileFilter[k] = true
-			end
-			selectedProfileFilter["Account"] = true
-			selectedProfileFilter[playerName] = true
-			selectedProfileFilter.showAll = true
-			updateSpellLoadRows();
-		end}
-	else
-		menuList[#menuList+1] = {text = "Reset", notCheckable = true, fontObject=GameFontNormalSmallLeft, arg1 = interTagTable, func = function(self,arg1)
-			for k,v in pairs(selectedProfileFilter) do
-				selectedProfileFilter[k] = nil
-			end
-
-			if SpellCreatorMasterTable.defaultProfile and SpellCreatorMasterTable.defaultProfile ~= "All" then
-				selectedProfileFilter[SpellCreatorMasterTable.defaultProfile] = true
-			else
-				selectedProfileFilter[playerName] = true
-			end
-			updateSpellLoadRows();
-		end}
-	end
-
-	return menuList
+	MainFrame.updateFrameChildScales(SCForgeMainFrame)
 end
 
 local function deleteSpell(spellKey)
@@ -2772,9 +1728,9 @@ StaticPopupDialogs["SCFORGE_CONFIRM_DELETE"] = {
 	button1 = "Delete",
 	button2 = "Cancel",
 	OnAccept = function(self, data, data2)
-		if data2 == "PERSONAL" then
+		if data2 == VAULT_TYPE.PERSONAL then
 			deleteSpell(data)
-		elseif data2 == "PHASE" then
+		elseif data2 == VAULT_TYPE.PHASE then
 			dprint("Deleting '"..data.."' from Phase Vault.")
 			deleteSpellFromPhaseVault(data, updateSpellLoadRows)
 		end
@@ -2795,18 +1751,21 @@ saveSpell = function (mousebutton, fromPhaseVaultID, manualData)
 		newSpellData.fullName = phaseVault.spells[fromPhaseVaultID].fullName
 		newSpellData.description = phaseVault.spells[fromPhaseVaultID].description or nil
 		newSpellData.actions = phaseVault.spells[fromPhaseVaultID].actions
+		newSpellData.castbar = phaseVault.spells[fromPhaseVaultID].castbar
+		newSpellData.icon = phaseVault.spells[fromPhaseVaultID].icon
 		dprint("Saving Spell from Phase Vault, fake commID: "..fromPhaseVaultID..", real commID: "..newSpellData.commID)
 	elseif manualData then
 		newSpellData = manualData
 		Debug.dump(manualData)
 		dprint("Saving Manual Spell Data (Import): "..newSpellData.commID)
 	else
-		newSpellData.commID = SCForgeMainFrame.SpellInfoCommandBox:GetText()
-		newSpellData.fullName = SCForgeMainFrame.SpellInfoNameBox:GetText()
-		newSpellData.description = SCForgeMainFrame.SpellInfoDescBox:GetText()
+		newSpellData = Attic.getInfo()
+		if newSpellData.castbar == 1 then newSpellData.castbar = nil end; -- data space saving - default is castbar, so if it's 1 for castbar, let's save the storage and leave it nil
 		newSpellData.actions = {}
 	end
-	newSpellData.profile = GetUnitName("player")
+
+	ProfileFilter.ensureProfile(newSpellData)
+
 	if isNotDefined(newSpellData.fullName) or isNotDefined(newSpellData.commID) then
 		cprint("Spell Name and/or Spell Command cannot be blank.")
 		return;
@@ -2831,18 +1790,12 @@ saveSpell = function (mousebutton, fromPhaseVaultID, manualData)
 		end
 
 	if not fromPhaseVaultID and not manualData then
-		for i = 1, numberOfSpellRows do
+		for i = 1, SpellRow.getNumActiveRows() do
+			local rowData = SpellRow.getRowAction(i)
 
-			local actionData = {}
-			local theSpellRow = _G["spellRow"..i]
-			actionData.delay = tonumber(theSpellRow.mainDelayBox:GetText())
-			if actionData.delay and actionData.delay >= 0 then
-				actionData.actionType = (theSpellRow.SelectedAction)
-				if actionTypeData[actionData.actionType] then
-					actionData.revertDelay = tonumber(theSpellRow.RevertDelayBox:GetText())
-					actionData.selfOnly = theSpellRow.SelfCheckbox:GetChecked()
-					actionData.vars = theSpellRow.InputEntryBox:GetText()
-					table.insert(newSpellData.actions, actionData)
+			if rowData and rowData.delay >= 0 then
+				if actionTypeData[rowData.actionType] then
+					table.insert(newSpellData.actions, CopyTable(rowData))
 					dprint(false,"Action Row "..i.." Captured successfully.. pending final save to data..")
 				else
 					dprint(false,"Action Row "..i.." Failed to save - invalid Action Type.")
@@ -2906,7 +1859,7 @@ StaticPopupDialogs["SCFORGE_IMPORT_SPELL"] = {
 		if text and rest and rest ~= "" then
 			spellData = serializer.decompressForImport(rest)
 		elseif text ~= "" then
-			spellData = serializer.decompressForImport(test)
+			spellData = serializer.decompressForImport(text)
 		else
 			dprint("Invalid ArcSpell data. Try again."); return;
 		end
@@ -2916,18 +1869,18 @@ StaticPopupDialogs["SCFORGE_IMPORT_SPELL"] = {
 	whileDead = true,
 }
 
-SCForgeMainFrame.LoadSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
-SCForgeMainFrame.LoadSpellButton:SetPoint("LEFT", SCForgeMainFrame.SaveSpellButton, "RIGHT", 0, 0)
-SCForgeMainFrame.LoadSpellButton:SetSize(24*4,24)
-SCForgeMainFrame.LoadSpellButton:SetText("Vault")
-SCForgeMainFrame.LoadSpellButton:SetScript("OnClick", function()
+SCForgeMainFrame.OpenVaultButton = CreateFrame("BUTTON", nil, SCForgeMainFrame, "UIPanelButtonTemplate")
+SCForgeMainFrame.OpenVaultButton:SetPoint("LEFT", SCForgeMainFrame.SaveSpellButton, "RIGHT", 0, 0)
+SCForgeMainFrame.OpenVaultButton:SetSize(24*4,24)
+SCForgeMainFrame.OpenVaultButton:SetText("Vault")
+SCForgeMainFrame.OpenVaultButton:SetScript("OnClick", function()
 	if SCForgeMainFrame.LoadSpellFrame:IsShown() then
 		SCForgeMainFrame.LoadSpellFrame:Hide()
 	else
 		SCForgeMainFrame.LoadSpellFrame:Show()
 	end
 end)
-SCForgeMainFrame.LoadSpellButton:SetScript("OnEnter", function(self)
+SCForgeMainFrame.OpenVaultButton:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	self.Timer = C_Timer.NewTimer(0.7,function()
 		GameTooltip:SetText("Access your Vaults", nil, nil, nil, nil, true)
@@ -2935,262 +1888,24 @@ SCForgeMainFrame.LoadSpellButton:SetScript("OnEnter", function(self)
 		GameTooltip:Show()
 	end)
 end)
-SCForgeMainFrame.LoadSpellButton:SetScript("OnLeave", function(self)
+SCForgeMainFrame.OpenVaultButton:SetScript("OnLeave", function(self)
 	GameTooltip_Hide()
 	self.Timer:Cancel()
 end)
 
 --------- Load Spell Frame - aka the Vault
 
-SCForgeMainFrame.LoadSpellFrame = CreateFrame("Frame", "SCForgeLoadFrame", SCForgeMainFrame, "ButtonFrameTemplate")
-ButtonFrameTemplate_HidePortrait(SCForgeMainFrame.LoadSpellFrame)
-SCForgeMainFrame.LoadSpellFrame:SetIgnoreParentScale()
 
-local newNineSliceOverride = {
-    TopLeftCorner = { tex = myNineSliceFile_corners, txl = 0.525391, txr = 0.783203, txt = 0.00195312, txb = 0.259766, }, --0.525391, 0.783203, 0.00195312, 0.259766
-    TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.263672, txb = 0.521484, }, -- 0.00195312, 0.259766, 0.263672, 0.521484
-	--TopRightCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.525391, txb = 0.783203, }, -- 0.00195312, 0.259766, 0.525391, 0.783203 -- this is the double one
-    BottomLeftCorner =  { tex = myNineSliceFile_corners, txl = 0.00195312, txr = 0.259766, txt = 0.00195312, txb = 0.259766, }, -- 0.00195312, 0.259766, 0.00195312, 0.259766
-    BottomRightCorner = { tex = myNineSliceFile_corners, txl = 0.263672, txr = 0.521484, txt = 0.00195312, txb = 0.259766, }, -- 0.263672, 0.521484, 0.00195312, 0.259766
-    TopEdge = { tex = myNineSliceFile_horz, txl = 0, txr = 1, txt = 0.263672, txb = 0.521484, }, -- 0, 1, 0.263672, 0.521484
-    BottomEdge = { tex = myNineSliceFile_horz, txl = 0, txr = 1, txt = 0.00195312, txb = 0.259766, }, -- 0, 1, 0.00195312, 0.259766
-    LeftEdge = { tex = myNineSliceFile_vert, txl = 0.00195312, txr = 0.259766, txt = 0, txb = 1, }, -- 0.00195312, 0.259766, 0, 1
-    RightEdge = { tex = myNineSliceFile_vert, txl = 0.263672, txr = 0.521484, txt = 0, txb = 1, }, -- 0.263672, 0.521484, 0, 1
-}
-
-for k,v in pairs(newNineSliceOverride) do
-	SCForgeMainFrame.LoadSpellFrame.NineSlice[k]:SetTexture(v.tex)
-	SCForgeMainFrame.LoadSpellFrame.NineSlice[k]:SetTexCoord(v.txl, v.txr, v.txt, v.txb)
-end
-
-
-SCForgeMainFrame.LoadSpellFrame:SetPoint("TOPLEFT", SCForgeMainFrame, "TOPRIGHT", 0, 0)
-SCForgeMainFrame.LoadSpellFrame:SetSize(280,SCForgeMainFrame:GetHeight())
-SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("MEDIUM")
---setResizeWithMainFrame(SCForgeMainFrame.LoadSpellFrame.Inset)
-
---[[ -- Old pop-up vault style
-SCForgeMainFrame.LoadSpellFrame:SetPoint("CENTER", UIParent, 0, 100)
-SCForgeMainFrame.LoadSpellFrame:SetSize(500,250)
-SCForgeMainFrame.LoadSpellFrame:SetFrameStrata("DIALOG")
---]]
-do
-	SCForgeMainFrame.LoadSpellFrame.Inset.Bg2 = SCForgeMainFrame.LoadSpellFrame.Inset:CreateTexture(nil, "BACKGROUND")
-	local background = SCForgeMainFrame.LoadSpellFrame.Inset.Bg2
-	background:SetTexture(ADDON_PATH.."/assets/SpellForgeVaultBG")
-	background:SetVertTile(false)
-	background:SetHorizTile(false)
-	background:SetTexCoord(0.0546875,1-0.0546875,0.228515625,1-0.228515625)
-	background:SetPoint("TOPLEFT")
-	background:SetPoint("BOTTOMRIGHT",-19,0)
-end
-
-SCForgeMainFrame.LoadSpellFrame:SetTitle("Spell Vault")
-SCForgeMainFrame.LoadSpellFrame.TitleBgColor = SCForgeMainFrame.LoadSpellFrame:CreateTexture(nil, "BACKGROUND")
-	SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("TOPLEFT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
-	SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetPoint("BOTTOMRIGHT", SCForgeMainFrame.LoadSpellFrame.TitleBg)
-	SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
-
-SCForgeMainFrame.LoadSpellFrame.ImportSpellButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame)
-	local button = SCForgeMainFrame.LoadSpellFrame.ImportSpellButton
-	button:SetPoint("BOTTOMLEFT", 3, 3)
-	button:SetSize(24,24)
-	button:SetText("Import")
-	button:SetMotionScriptsWhileDisabled(true)
-	button:SetScript("OnClick", showImportMenu);
-
-
-	button:SetNormalTexture("interface/buttons/ui-microstream-yellow")
-	button.NormalTex = button:GetNormalTexture();
-	button.NormalTex:SetTexCoord(0,1,1,0)
-	button:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
-
-	button.PushedTex = button:CreateTexture(nil, "ARTWORK")
-	button.PushedTex:SetAllPoints(true)
-	button.PushedTex:SetTexture("interface/buttons/ui-microstream-green")
-	button.PushedTex:SetTexCoord(0,1,1,0)
-	button.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-	button.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-	button.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-	button.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-	button:SetPushedTexture(button.PushedTex)
-
---	button.backIcon = button:CreateTexture(nil, "BACKGROUND")
---	button.backIcon:SetAllPoints(true)
---	button.backIcon:SetAtlas("poi-workorders")
-
-	button:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText("Import an ArcSpell", nil, nil, nil, nil, true)
-			GameTooltip:AddLine("Paste an ArcSpell export code into the UI to save it to your Personal Vault.",1,1,1,true)
-			GameTooltip:Show()
-		end)
-	end)
-	button:SetScript("OnLeave", function(self)
-		GameTooltip_Hide()
-		self.Timer:Cancel()
-	end)
-
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelButtonNoTooltipTemplate")
-	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetPoint("BOTTOM", 0, 3)
-	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetSize(24*5,24)
-	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetText("    Phase Vault")
-	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetMotionScriptsWhileDisabled(true)
-
-	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon = SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:CreateTexture(nil, "ARTWORK")
-		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexture(ADDON_PATH.."/assets/icon-transfer")
-		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetTexCoord(0,1,1,0)
-		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetPoint("TOPLEFT", 5, 0)
-		SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton.icon:SetSize(24,24)
-
-	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnClick", function(self, button)
-		if selectedVaultRow then
-			local commID = spellLoadRows[selectedVaultRow].commID
-			saveSpellToPhaseVault(commID, IsShiftKeyDown())
-		end
-	end)
-
-	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnDisable", function(self)
-		self.icon:SetDesaturated(true)
-	end)
-	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnable", function(self)
-		self.icon:SetDesaturated(false)
-	end)
-
-	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		self.Timer = C_Timer.NewTimer(0.7,function()
-			GameTooltip:SetText("Transfer to Phase Vault", nil, nil, nil, nil, true)
-			if self:IsEnabled() then
-				GameTooltip:AddLine("Transfer the spell to the Phase Vault.\n\rShift-Click to automatically over-write any spell with the same command ID in the Phase Vault.",1,1,1,true)
-			else
-				if (not isOfficerPlus()) then
-					GameTooltip:AddLine("You do not currently have permissions to upload to this phase's vault.\n\rIf you were just given officer, rejoin the phase.",1,1,1,true)
-				else
-					GameTooltip:AddLine("Select a spell above to transfer it.",1,1,1,true)
-				end
-			end
-			GameTooltip:Show()
-		end)
-	end)
-	SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnLeave", function(self)
-		GameTooltip_Hide()
-		self.Timer:Cancel()
-	end)
-
-
-------------
-SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle = CreateFrame("CHECKBUTTON", nil, SCForgeMainFrame.LoadSpellFrame)
-local _frame = SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle
-_frame:SetPoint("LEFT", SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton, "RIGHT", 6, 0)
-_frame:SetSize(20,20)
---_frame.text:SetText("Private")
-
-_frame:SetNormalTexture(ADDON_PATH.."/assets/icon_visible_32")
-_frame.NormalTexture = _frame:GetNormalTexture()
-_frame.NormalTexture:SetVertexColor(0.9,0.65,0)
-
-_frame:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight", "ADD")
-
-_frame:SetCheckedTexture(ADDON_PATH.."/assets/icon_hidden_32")
-_frame.CheckedTexture = _frame:GetCheckedTexture()
-_frame.CheckedTexture:SetBlendMode("BLEND")
-_frame.CheckedTexture:SetVertexColor(0.6,0.6,0.6)
-
-_frame.updateTooltip = function(self)
-	if self:GetChecked() then
-		GameTooltip:SetText("Uploading as: Private Spell", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Click to switch to Public Visibility",1,1,1,true)
-	else
-		GameTooltip:SetText("Uploading as: Public Spell", nil, nil, nil, nil, true)
-		GameTooltip:AddLine("Click to switch to Private Visibility",1,1,1,true)
-	end
-	GameTooltip:AddLine("\nWhen uploaded as a private spell, only Officers+ will be able to see it in the Phase Vault - however, it can still be used by anyone (i.e., via Gossip integration).\n\rThe main use of this is to reduce clutter for normal players if you have specific ArcSpells for background use, like an NPC Gossip.",1,1,1,true)
-	GameTooltip:Show()
-end
-
-_frame:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	self.Timer = C_Timer.NewTimer(0.7,function()
-		self:updateTooltip()
-	end)
-end)
-_frame:SetScript("OnLeave", function(self)
-	GameTooltip_Hide()
-	self.Timer:Cancel()
-end)
-_frame:SetScript("OnClick", function(self)
-	uploadAsPrivateSpell = not uploadAsPrivateSpell
-	self:updateTooltip()
-	if self:GetChecked() then
-		self:SetNormalTexture("")
-	else
-		self:SetNormalTexture(ADDON_PATH.."/assets/icon_visible_32")
-	end
-end)
-
-----------
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnShow", function(self)
-	if not selectedVaultRow then self:Disable(); end
-	SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle:Show()
-end)
-SCForgeMainFrame.LoadSpellFrame.UploadToPhaseButton:SetScript("OnHide", function(self)
-	SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle:Hide()
-end)
-
-------------
-
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton = CreateFrame("BUTTON", nil, SCForgeMainFrame.LoadSpellFrame, "UIPanelButtonNoTooltipTemplate")
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetPoint("BOTTOM", 0, 3)
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetSize(24*5.5,24)
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetText("     Personal Vault")
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetMotionScriptsWhileDisabled(true)
-
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon = SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:CreateTexture(nil, "ARTWORK")
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetTexture(ADDON_PATH.."/assets/icon-transfer")
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetTexCoord(0,1,1,0)
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetPoint("TOPLEFT", 5, 0)
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton.icon:SetSize(24,24)
-
-
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnClick", function(self)
-	if selectedVaultRow then
-		local commID = spellLoadRows[selectedVaultRow].commID
+SCForgeMainFrame.LoadSpellFrame = LoadSpellFrame.init({
+	import = showImportMenu,
+	upload = function(commID)
+		saveSpellToPhaseVault(commID, IsShiftKeyDown())
+	end,
+	downloadToPersonal = function (commID)
 		Debug.ddump(phaseVault.spells[commID]) -- Dump the table of the phase vault spell for debug
 		saveSpell(nil, commID)
 	end
-end)
-
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnDisable", function(self)
-	self.icon:SetDesaturated(true)
-end)
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnEnable", function(self)
-	self.icon:SetDesaturated(false)
-end)
-
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	self.Timer = C_Timer.NewTimer(0.7,function()
-		GameTooltip:SetText("Transfer to Personal Vault", nil, nil, nil, nil, true)
-		if self:IsEnabled() then
-			GameTooltip:AddLine("Transfer the spell to your Personal Vault.",1,1,1,true)
-		else
-			GameTooltip:AddLine("Select a spell above to transfer it.",1,1,1,true)
-		end
-		GameTooltip:Show()
-	end)
-end)
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnLeave", function(self)
-	GameTooltip_Hide()
-	self.Timer:Cancel()
-end)
-SCForgeMainFrame.LoadSpellFrame.DownloadToPersonalButton:SetScript("OnShow", function(self)
-	if not selectedVaultRow then self:Disable(); end
-end)
-
----------
-
+})
 
 SCForgeMainFrame.LoadSpellFrame:Hide()
 SCForgeMainFrame.LoadSpellFrame.Rows = {}
@@ -3199,32 +1914,9 @@ SCForgeMainFrame.LoadSpellFrame:HookScript("OnShow", function()
 	updateSpellLoadRows(phaseVault.isLoaded)
 end)
 
--- Spell Vault Scroll Frame
-	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame = CreateFrame("ScrollFrame", nil, SCForgeMainFrame.LoadSpellFrame.Inset, "UIPanelScrollFrameTemplate")
-	local scrollFrame = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame
-	setResizeWithMainFrame(SCForgeMainFrame.LoadSpellFrame.spellVaultFrame)
-	scrollFrame:SetPoint("TOPLEFT", 0, -3)
-	scrollFrame:SetPoint("BOTTOMRIGHT", -24, 0)
-	scrollFrame.ScrollBar.scrollStep = loadRowHeight+5
+SCForgeMainFrame.LoadSpellFrame.spellVaultFrame = SpellVaultFrame.init(SCForgeMainFrame.LoadSpellFrame)
 
-	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetPoint("TOP", 0, -100)
-	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Loading...")
-
-	SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.scrollChild = CreateFrame("Frame")
-	local scrollChild = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.scrollChild
-	scrollFrame:SetScrollChild(scrollChild)
-	scrollChild:SetWidth(SCForgeMainFrame.LoadSpellFrame.Inset:GetWidth()-12)
-	scrollChild:SetHeight(1)
-
-local function SpellForgeLoadFrame_Update()
-	local selectedTab = PanelTemplates_GetSelectedTab(SCForgeMainFrame.LoadSpellFrame)
-	if (selectedTab == 1) then
-		updateSpellLoadRows()
-	elseif (selectedTab == 2) then
-		updateSpellLoadRows()
-	end
-end
+MainFrame.setResizeWithMainFrame(SCForgeMainFrame.LoadSpellFrame.spellVaultFrame)
 
 SCForgeMainFrame.LoadSpellFrame.TabButton1 = CreateFrame("BUTTON", "$parentTab1", SCForgeMainFrame.LoadSpellFrame, "TabButtonTemplate")
 local button = SCForgeMainFrame.LoadSpellFrame.TabButton1
@@ -3332,9 +2024,9 @@ SCForgeMainFrame.LoadSpellFrame.profileButton = CreateFrame("BUTTON", nil, SCFor
 
 	_button:SetScript("OnClick", function(self, button)
 		if button == "LeftButton" then
-			EasyMenu(genProfileSelectDropDown(), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
+			EasyMenu(ProfileFilterMenu.genProfileSelectDropDown(updateSpellLoadRows), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
 		elseif button == "RightButton" then
-			EasyMenu(genProfileSelectDropDown(true), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
+			EasyMenu(ProfileFilterMenu.genChangeDefaultProfileDropDown(), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
 		end
 	end)
 	_button:RegisterForClicks("LeftButtonUp","RightButtonUp")
@@ -3351,111 +2043,6 @@ SCForgeMainFrame.LoadSpellFrame.profileButton = CreateFrame("BUTTON", nil, SCFor
 		GameTooltip_Hide()
 		self.Timer:Cancel()
 	end)
-
--------------------------------------------------------------------------------
--- Custom Chat Link Stuff
--------------------------------------------------------------------------------
-
-local function requestSpellFromPlayer(playerName, commID)
-	AceComm:SendCommMessage(addonMsgPrefix.."REQ", commID, "WHISPER", playerName)
-	dprint("Request Spell '"..commID.."' from "..playerName)
-end
-
-local function sendSpellToPlayer(playerName, commID)
-	dprint("Sending Spell '"..commID.."' to "..playerName)
-	if SpellCreatorSavedSpells[commID] then
-		local message = serializer.compressForAddonMsg(SpellCreatorSavedSpells[commID])
-		AceComm:SendCommMessage(addonMsgPrefix.."SPELL", message, "WHISPER", playerName)
-	end
-end
-
-local function savedReceivedSpell(msg, charName)
-	SpellCreatorSavedSpells[msg.commID] = msg
-	cprint("Saved Spell from "..charName..": "..msg.commID)
-	updateSpellLoadRows()
-end
-
-local function receiveSpellData(msg, charName)
-	msg = serializer.decompressForAddonMsg(msg)
-	msg.profile = "From: "..charName
-	dprint("Received Arcanum Spell '"..msg.commID.."' from "..charName)
-	if msg.commID then
-		if SpellCreatorSavedSpells[msg.commID] then
-			dprint("The spell already exists, prompting to confirm over-write.")
-			StaticPopupDialogs["SCFORGE_CONFIRM_OVERWRITE"] = {
-				text = "Spell '"..msg.commID.."' Already exists.\n\rDo you want to overwrite the spell ("..msg.fullName..")".."?",
-				OnAccept = function() savedReceivedSpell(msg, charName) end,
-				button1 = "Overwrite",
-				button2 = "Cancel",
-				hideOnEscape = true,
-				whileDead = true,
-			}
-			StaticPopup_Show("SCFORGE_CONFIRM_OVERWRITE")
-			return;
-		end
-		savedReceivedSpell(msg, charName)
-	end
-end
-
-local _ChatFrame_OnHyperlinkShow = ChatFrame_OnHyperlinkShow
-function ChatFrame_OnHyperlinkShow(...)
-	pcall(_ChatFrame_OnHyperlinkShow, ...)
-	if IsModifiedClick() then return end
-	local linkType, linkData, displayText = LinkUtil.ExtractLink(select(3, ...))
-	if linkType == "arcSpell" then
-		local spellComm, charOrPhase, spellName, numActions, spellDesc = strsplit(":", linkData)
-		if not spellDesc then spellDesc = numActions; numActions = spellName end -- legacy support for old link types
-		local spellName = displayText:gsub("%[(.+)%]","%1")
-		local spellIconPath = ADDON_PATH.."/assets/BookIcon"
-		local spellIconSize = 24
-		local spellIconSequence = "|T"..spellIconPath..":"..spellIconSize.."|t "
-		local tooltipTitle = spellIconSequence..ADDON_COLOR..spellName
-		--local tooltipTitle = ADDON_COLOR..spellName
-		GameTooltip_SetTitle(ItemRefTooltip, tooltipTitle)
-		--ItemRefTooltip:AddTexture(spellIconPath, {width=spellIconSize, height=spellIconSize, anchor=ItemRefTooltip.LeftTop })
-		ItemRefTooltip:AddLine(spellDesc, nil, nil, nil, true)
-		ItemRefTooltip:AddLine(" ")
-		ItemRefTooltip:AddDoubleLine("Command: "..spellComm, "Actions: "..numActions, 1, 1, 1, 1, 1, 1)
-		ItemRefTooltip:AddDoubleLine( "Arcanum Spell", charOrPhase, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75 )
-		--ItemRefTooltip:AddLine("Actions: "..numActions, 1, 1, 1, 1 )
-		--ItemRefTooltip:AddLine(" ")
-			C_Timer.After(0, function()
-				local button
-				if tonumber(charOrPhase) then -- is a phase, not a character
-					if charOrPhase == "169" then
-						ItemRefTooltip:AddLine(" ")
-						ItemRefTooltip:AddLine("Get it from the Main Phase Vault")
-					else
-						ItemRefTooltip:AddLine(" ")
-						ItemRefTooltip:AddLine("Get it from Phase "..charOrPhase.."'s Vault")
-					end
-				elseif charOrPhase == UnitName("player") then
-					ItemRefTooltip:AddLine(" ")
-					ItemRefTooltip:AddLine("This is your spell.")
-				else
-					if SCForgeSpellRefTooltipButton then
-						button = SCForgeSpellRefTooltipButton
-					else
-						button = CreateFrame("BUTTON", "SCForgeSpellRefTooltipButton", ItemRefTooltip, "UIPanelButtonTemplate")
-						button:SetScript("OnClick", function(self)
-							requestSpellFromPlayer(self.playerName, self.commID)
-						end)
-						button:SetText("Request Spell")
-					end
-					button:SetHeight(GameTooltip_InsertFrame(ItemRefTooltip, button))
-					button:SetPoint("RIGHT", -10, 0)
-					button.playerName = charOrPhase
-					button.commID = spellComm
-				end
-				--
-				ItemRefTooltip:Show()
-				if ItemRefTooltipTextLeft1:GetRight() > ItemRefCloseButton:GetLeft() then
-					ItemRefTooltip:SetPadding(16, 0)
-				end
-			end)
-
-	end
-end
 
 -------------------------------------------------------------------------------
 -- Mini-Map Icon
@@ -3538,12 +2125,12 @@ function CreateSpellCreatorInterfaceOptions()
 	scrollChild:SetWidth(InterfaceOptionsFramePanelContainer:GetWidth()-75)
 	scrollChild:SetHeight(1)
 	scrollFrame:SetScrollChild(scrollChild)
-	scrollChild:SetScript("OnHyperlinkClick", HTML_HyperlinkClick_Copy)
+	scrollChild:SetScript("OnHyperlinkClick", HTML.copyLink)
 	scrollChild:SetFontObject("p", GameFontHighlight);
 	scrollChild:SetFontObject("h1", GameFontNormalHuge2);
 	scrollChild:SetFontObject("h2", GameFontNormalLarge);
 	scrollChild:SetFontObject("h3", GameFontNormalMed2);
-	scrollChild:SetText(stringtoHTML(ns.ChangelogText));
+	scrollChild:SetText(HTML.stringToHTML(ns.ChangelogText));
 	-- Add widgets to the scrolling child frame as desired
 
 
@@ -3687,15 +2274,16 @@ function CreateSpellCreatorInterfaceOptions()
 
 	-- Debug Checkbox
 	local SpellCreatorInterfaceOptionsDebug = CreateFrame("CHECKBUTTON", "SC_DebugToggleOption", SpellCreatorInterfaceOptions.panel, "OptionsSmallCheckButtonTemplate")
-	SC_DebugToggleOption:SetPoint("BOTTOMRIGHT", 0, 0)
-	SC_DebugToggleOption:SetHitRectInsets(-35,0,0,0)
-	SC_DebugToggleOptionText:SetTextColor(1,1,1,1)
-	SC_DebugToggleOptionText:SetText("Debug")
-	SC_DebugToggleOptionText:SetPoint("LEFT", -30, 0)
-	SC_DebugToggleOption:SetScript("OnShow", function(self)
-		if SpellCreatorMasterTable.Options["debug"] == true then SC_DebugToggleOption:SetChecked(true) else SC_DebugToggleOption:SetChecked(false) end
+	SpellCreatorInterfaceOptionsDebug:SetPoint("BOTTOMRIGHT", 0, 0)
+	SpellCreatorInterfaceOptionsDebug:SetHitRectInsets(-35,0,0,0)
+	SpellCreatorInterfaceOptionsDebug.Text = SC_DebugToggleOptionText -- This is defined by $parentText and is never made a child by the template, smfh
+	SpellCreatorInterfaceOptionsDebug.Text:SetTextColor(1,1,1,1)
+	SpellCreatorInterfaceOptionsDebug.Text:SetText("Debug")
+	SpellCreatorInterfaceOptionsDebug.Text:SetPoint("LEFT", -30, 0)
+	SpellCreatorInterfaceOptionsDebug:SetScript("OnShow", function(self)
+		if SpellCreatorMasterTable.Options["debug"] == true then SpellCreatorInterfaceOptionsDebug:SetChecked(true) else SpellCreatorInterfaceOptionsDebug:SetChecked(false) end
 	end)
-	SC_DebugToggleOption:SetScript("OnClick", function(self)
+	SpellCreatorInterfaceOptionsDebug:SetScript("OnClick", function(self)
 		SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
 		if SpellCreatorMasterTable.Options["debug"] then
 			cprint("Toggled Debug (VERBOSE) Mode")
@@ -3703,7 +2291,7 @@ function CreateSpellCreatorInterfaceOptions()
 	end)
 
 	InterfaceOptions_AddCategory(SpellCreatorInterfaceOptions.panel);
-	if SpellCreatorMasterTable.Options["debug"] == true then SC_DebugToggleOption:SetChecked(true) else SC_DebugToggleOption:SetChecked(false) end
+	if SpellCreatorMasterTable.Options["debug"] == true then SpellCreatorInterfaceOptionsDebug:SetChecked(true) else SpellCreatorInterfaceOptionsDebug:SetChecked(false) end
 end
 
 -------------------------------------------------------------------------------
@@ -3713,9 +2301,9 @@ local lockTimer
 local function onCommReceived(prefix, message, channel, sender)
 	if sender == GetUnitName("player") then dprint("onCommReceived bypassed because we're talking to ourselves."); return; end
 	if prefix == addonMsgPrefix.."REQ" then
-		sendSpellToPlayer(sender, message)
+		Comms.sendSpellToPlayer(sender, message)
 	elseif prefix == addonMsgPrefix.."SPELL" then
-		receiveSpellData(message, sender)
+		Comms.receiveSpellData(message, sender, updateSpellLoadRows)
 	elseif prefix == addonMsgPrefix.."_PLOCK" then
 		local phaseID = C_Epsilon.GetPhaseId()
 		if message == phaseID then
@@ -3729,7 +2317,7 @@ local function onCommReceived(prefix, message, channel, sender)
 			phaseVault.isSavingOrLoadingAddonData = false
 			dprint("Phase Vault IO for Phase "..phaseID.." was unlocked by Addon Message")
 			lockTimer:Cancel()
-			if phaseVault.isLoaded then getSpellForgePhaseVault((SCForgeLoadFrame:IsShown() and updateSpellLoadRows or nil)) end
+			if phaseVault.isLoaded then getSpellForgePhaseVault((SCForgeMainFrame.LoadSpellFrame:IsShown() and updateSpellLoadRows or nil)) end
 		end
 	end
 end
@@ -3826,6 +2414,7 @@ end
 local SC_Addon_Listener = CreateFrame("frame");
 SC_Addon_Listener:RegisterEvent("ADDON_LOADED");
 SC_Addon_Listener:RegisterEvent("SCENARIO_UPDATE")
+SC_Addon_Listener:RegisterEvent("PLAYER_ENTERING_WORLD")
 SC_Addon_Listener:RegisterEvent("UI_ERROR_MESSAGE");
 SC_Addon_Listener:RegisterEvent("GOSSIP_SHOW");
 SC_Addon_Listener:RegisterEvent("GOSSIP_CLOSED");
@@ -3837,7 +2426,7 @@ end
 if not C_Epsilon.IsDM then C_Epsilon.IsDM = false end
 SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 	-- Phase Change Listener
-	if event == "SCENARIO_UPDATE" then -- SCENARIO_UPDATE fires whenever a phase change occurs. Lucky us.
+	if event == "SCENARIO_UPDATE" or (event == "PLAYER_ENTERING_WORLD" and not name) then -- SCENARIO_UPDATE fires whenever a phase change occurs. Lucky us.
 		--dprint("Caught Phase Change - Refreshing Load Rows & Checking for Main Phase / Start") -- Commented out for performance.
 		phaseVault.isSavingOrLoadingAddonData = false
 		phaseVault.isLoaded = false
@@ -3845,19 +2434,16 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		C_Epsilon.IsDM = false
 		updateSpellLoadRows();
 
-		getSpellForgePhaseVault(SCForgeLoadFrame:IsShown() and updateSpellLoadRows or nil);
+		getSpellForgePhaseVault(SCForgeMainFrame.LoadSpellFrame:IsShown() and updateSpellLoadRows or nil);
 
-		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then
-			SCForgeMainFrame.ExecuteSpellButton:Disable()
-		else
-			SCForgeMainFrame.ExecuteSpellButton:Enable()
-		end
+		SCForgeMainFrame.ExecuteSpellButton:SetEnabled(Permissions.canExecuteSpells())
 
 		return;
 
 	-- Addon Loaded Handler
 	elseif event == "ADDON_LOADED" and (name == addonName) then
-		SC_loadMasterTable();
+		local hadUpdate = SavedVariables.init()
+		ProfileFilter.init()
 		LoadMinimapPosition();
 		aceCommInit()
 
@@ -3889,18 +2475,13 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		CreateSpellCreatorInterfaceOptions()
 
 		-- Gen the first few spell rows
-		AddSpellRow()
-		AddSpellRow()
-		AddSpellRow()
+		SpellRow.addRow()
+		SpellRow.addRow()
+		SpellRow.addRow()
 
-		if tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley" and not isOfficerPlus() then
-			SCForgeMainFrame.ExecuteSpellButton:Disable()
-		else
-			SCForgeMainFrame.ExecuteSpellButton:Enable()
-		end
+		SCForgeMainFrame.ExecuteSpellButton:SetEnabled(Permissions.canExecuteSpells())
 
-		if addonVersion ~= lastAddonVersion then
-			addonUpdated = true
+		if hadUpdate then
 			RaidNotice_AddMessage(RaidWarningFrame, "\n\r"..ADDON_COLOR.."Arcanum - Updated to v"..addonVersion.."\n\rCheck-out the Changelog by right-clicking the Mini-map Icon!|r", ChatTypeInfo["RAID_WARNING"])
 --			InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
 --			InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
@@ -3926,7 +2507,6 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 		gossipOptionPayload = nil
 		gossipGreetPayload = nil
 		currGossipText = GetGossipText();
-		local needToHookLateForImmersion = false
 
 		local gossipGreetingText = GossipGreetingText:GetText()
 		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then
@@ -4024,7 +2604,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 					end
 					modifiedGossips[i] = titleButton
 					--]]
-					local function _newOnClickHook() gossipTags.option[mainTag].script(strArg) end
+					local function _newOnClickHook() gossipTags.option[mainTag].script(strArg); dprint("Hooked gossip clicked for <"..mainTag..":"..strArg..">") end
 
 					if extTags then
 						if extTags:match("auto") then -- legacy auto support - hard coded to avoid breaking gossipText
@@ -4054,7 +2634,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 					if ImmersionFrame then
 						if not titleButton.isHookedByArc then
 							titleButton:HookScript("OnClick", _newOnClickHook)
-							needToHookLateForImmersion=true
+							titleButton.isHookedByArc = true
 						end
 					else
 						titleButton:HookScript("OnClick", _newOnClickHook)
@@ -4073,9 +2653,6 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 				end
 				titleButtonText = titleButton:GetText();
 				dprint("Saw an option tag | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
-			end
-			if needToHookLateForImmersion then
-				titleButton.isHookedByArc = true
 			end
 
 			GossipResize(titleButton) -- Fix the size if the gossip option changed number of lines.

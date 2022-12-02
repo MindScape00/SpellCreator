@@ -2,6 +2,8 @@ local addonName = ...
 ---@class ns
 local ns = select(2, ...)
 
+local isNotDefined = ns.Utils.Data.isNotDefined
+
 local addonPath = "Interface/AddOns/"..tostring(addonName)
 local arcaneGemPath = addonPath.."/assets/gem-icons/Gem"
 local addonIcon = arcaneGemPath.."Violet"
@@ -83,7 +85,8 @@ local function genNewCastBar()
     castStatusBar:SetHeight(13)
 
     castStatusBar:Hide()
-    castStatusBar.Icon:SetPoint("RIGHT", castStatusBar, "LEFT", -5, 3)
+    castStatusBar.Icon:SetPoint("RIGHT", castStatusBar, "LEFT", 0, 4)
+    castStatusBar.Icon:SetSize(20,20)
     --castStatusBar.BorderShield:SetVertexColor(0.35,0.7,0.85)
     castStatusBar.BorderShield:SetVertexColor(0.35,0.9,0.95)
     castStatusBar.Border:SetVertexColor(0.5,1,1)
@@ -154,21 +157,22 @@ local function getFreeCastBar()
 end
 
 local function showCastBar(length, text, spellData, channeled, showIcon, showShield)
-
+    length = tonumber(length) -- somehow we got a string one time and it was weird.. might've been a me being dumb but..
     if length < 0.25 then return end; -- hard limit for no cast bars under 0.25 cuz it looks terrible
 
     local self = getFreeCastBar()
     local notInterruptible = false
     local startColor
 
-    self.showShield = showShield or true
-    if (not showIcon and not self.showShield) then showIcon = false else showIcon = true end
+    if isNotDefined(showShield) then showShield = true end
+    if isNotDefined(showIcon) or showShield == true then showIcon = true end
+    self.showShield = showShield
 
     if not text or text == "" then text = "Arcanum Spell" end
     local castIcon = addonIcon -- default icon, change it below if needed
 
     if spellData then
-        -- do stuff here to give more UI info, like setting the icon
+        if not ns.Utils.Data.isNotDefined(spellData.icon) then castIcon = ns.UI.Icons.getFinalIcon(spellData.icon) end
     end
 
     startColor = CastingBarFrame_GetEffectiveStartColor(self, channeled, notInterruptible);
@@ -217,7 +221,7 @@ local function showCastBar(length, text, spellData, channeled, showIcon, showShi
         self.IconBG:Show();
         if ( self.Border ) then
             self.Border:Hide();
-            self.Icon:SetPoint("RIGHT", self, "LEFT", -2.5, 4)
+            self.Icon:SetPoint("RIGHT", self, "LEFT", 0, 4)
         end
     else
         self.BorderShield:Hide();

@@ -1,13 +1,8 @@
 ---@class ns
 local ns = select(2, ...)
 
-local LibDeflate
-local AceSerializer
-
-if LibStub then
-	LibDeflate = LibStub:GetLibrary("LibDeflate")
-	AceSerializer = LibStub:GetLibrary("AceSerializer-3.0")
-end
+local LibDeflate = ns.Libs.LibDeflate
+local AceSerializer = ns.Libs.AceSerializer
 
 local function compressForAddonMsg(str)
 	str = AceSerializer:Serialize(str)

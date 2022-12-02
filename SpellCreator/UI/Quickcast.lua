@@ -232,8 +232,8 @@ local function genQuickCastButtons(self)
 			button.tooltipText = "Cast '"..spellData.commID.."' ("..#spellData.actions.." actions).\n|cffAA6F6FRight-Click to remove.|r"
 			button.commID = spellData.commID
 			if spellData.icon then
-				--button.icon:SetTexture(ns.UI.Icons.getIcon(spellData.icon))
-				button:SetNormalTexture(ns.UI.Icons.getIcon(spellData.icon))
+				--button.icon:SetTexture(ns.UI.Icons.getFinalIcon(spellData.icon))
+				button:SetNormalTexture(ns.UI.Icons.getFinalIcon(spellData.icon))
 			else
 				local iconNum = ((i-1) % (#ns.UI.Gems.arcaneGemIcons)) + 1
 				--button.icon:SetTexture(ns.UI.Gems.gemPath(ns.UI.Gems.arcaneGemIcons[iconNum]))

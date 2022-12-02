@@ -15,8 +15,17 @@ local function isMemberPlus()
 	if C_Epsilon.IsMember() or C_Epsilon.IsOfficer() or C_Epsilon.IsOwner() then return true; else return false; end
 end
 
+local function isStart()
+	return tonumber(C_Epsilon.GetPhaseId()) == 169 and GetRealZoneText() == "Dranosh Valley"
+end
+
+local function canExecuteSpells()
+	return not isStart() or isOfficerPlus()
+end
+
 ns.Permissions = {
-    isDMEnabled = isDMEnabled,
+	isDMEnabled = isDMEnabled,
     isOfficerPlus = isOfficerPlus,
     isMemberPlus = isMemberPlus,
+	canExecuteSpells = canExecuteSpells,
 }
