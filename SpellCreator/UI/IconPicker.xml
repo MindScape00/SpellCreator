@@ -38,7 +38,7 @@
 
       <!-- Search/filter box. -->
       <EditBox parentKey="search" inherits="SearchBoxTemplate">
-        <Size x="242" y="8" />
+        <Size x="242" y="12" />
         <Anchors>
           <Anchor point="BOTTOMLEFT" x="10" y="10" />
 		  <Anchor point="BOTTOMRIGHT" x="-4" y="10" />

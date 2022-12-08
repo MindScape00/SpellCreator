@@ -2,6 +2,7 @@
 local ns = select(2, ...)
 
 local Constants = ns.Constants
+local DataUtils = ns.Utils.Data
 local Localization = ns.Localization
 local Tooltip = ns.Utils.Tooltip
 
@@ -9,12 +10,15 @@ local IconPicker = ns.UI.IconPicker
 local Icons = ns.UI.Icons
 
 local ASSETS_PATH = Constants.ASSETS_PATH
+local isNotDefined = DataUtils.isNotDefined
 
 local nameBox
 local commandBox
 local descBox
 local castbarCheckButton
 local profile -- to be replaced with actual select
+local author
+local editCommID
 local iconButton
 
 ---@param mainFrame SCForgeMainFrame
@@ -89,8 +93,12 @@ local function createInfoDescBox(mainFrame)
 	--infoDescBox.Title:SetPoint("BOTTOM", infoDescBox, "TOP", 0, 0)
 	descBox:SetAutoFocus(false)
 	descBox:SetSize(mainFrame:GetWidth()/2.5,23)
-	descBox:SetPoint("TOPLEFT", nameBox, "BOTTOMLEFT", 0, 4)
-	descBox:SetPoint("TOPRIGHT", commandBox, "BOTTOMRIGHT", 0, 4)
+	descBox.SetRelativePoints = function(self)
+		self:ClearAllPoints()
+		self:SetPoint("TOPLEFT", nameBox, "BOTTOMLEFT", 0, 4)
+		self:SetPoint("TOPRIGHT", commandBox, "BOTTOMRIGHT", 0, 4)
+	end
+	descBox:SetRelativePoints()
 
 	Tooltip.set(descBox, "Description", "A short description of the spell.")
 
@@ -170,18 +178,18 @@ end
 ---@param mainFrame SCForgeMainFrame
 local function createIconButton(mainFrame)
 	iconButton = CreateFrame("BUTTON", nil, mainFrame)
-	iconButton:SetSize(32,32)
+	iconButton:SetSize(34,34)
 	iconButton:SetPoint("TOPRIGHT", nameBox, "TOPLEFT", -22, -6)
 	iconButton:SetNormalTexture("Interface/Icons/inv_misc_questionmark")
 	iconButton.highlight = iconButton:CreateTexture(nil, "OVERLAY")
 	iconButton.highlight:SetTexture(ASSETS_PATH .. "/dm-trait-select")
-	iconButton.highlight:SetSize(48,48)
-	iconButton.highlight:SetPoint("CENTER")
+	iconButton.highlight:SetPoint("TOPLEFT", -4, 4)
+	iconButton.highlight:SetPoint("BOTTOMRIGHT", 4, -4)
 	iconButton.highlight:Hide()
 	iconButton.border = iconButton:CreateTexture(nil, "BORDER")
 	iconButton.border:SetTexture(ASSETS_PATH .. "/dm-trait-border")
-	iconButton.border:SetSize(48,48)
-	iconButton.border:SetPoint("CENTER")
+	iconButton.border:SetPoint("TOPLEFT", -6, 6)
+	iconButton.border:SetPoint("BOTTOMRIGHT", 6, -6)
 
 	iconButton.SetSelected = function(self, selected)
 		if (selected == nil) then
@@ -217,12 +225,27 @@ local function createIconButton(mainFrame)
 			self.highlight:Hide()
 		end
 	end)
-	iconButton:SetScript("OnClick", function(self)
+	iconButton:SetScript("OnClick", function(self, button)
+		if button == "RightButton" then
+			self:ResetTex()
+			return
+		end
 		IconPicker.IconPicker_Open(self)
 		self:SetSelected(true)
 	end)
+	iconButton:RegisterForClicks("RightButtonUp", "LeftButtonUp")
+
+	Tooltip.set(iconButton, "Select an Icon", "Click to select an icon for your ArcSpell. This will be shown in the vault, castbar, and Quickcast when used.\n\rRight Click to remove the icon. You should probably select an icon tho..")
 
 	return iconButton
+end
+
+local function getEditCommId()
+	return editCommID
+end
+
+local function setEditCommId(commID)
+	editCommID = commID
 end
 
 ---@return VaultSpell
@@ -235,6 +258,7 @@ local function getInfo()
 	newSpellData.castbar = castbarCheckButton:GetCheckState()
 	newSpellData.icon = iconButton:GetSelectedTexID()
 	newSpellData.profile = profile
+	newSpellData.author = author
 
 	return newSpellData
 end
@@ -249,6 +273,12 @@ local function updateInfo(spell)
 		descBox:SetText(spell.description)
 	end
 	profile = spell.profile
+	editCommID = spell.commID
+end
+
+local function isInfoValid()
+	local spellInfo = getInfo()
+	return not (isNotDefined(spellInfo.fullName) or isNotDefined(spellInfo.commID))
 end
 
 ---@param mainFrameWidth integer
@@ -256,6 +286,16 @@ local function updateSize(mainFrameWidth)
 	commandBox:SetWidth(mainFrameWidth / 5)
 	nameBox:SetWidth(mainFrameWidth / 4)
 	descBox:SetWidth(mainFrameWidth / 2.5)
+end
+
+---@param callback fun()
+local function onNameChange(callback)
+	nameBox:HookScript("OnTextChanged", callback)
+end
+
+---@param callback fun()
+local function onCommandChange(callback)
+	commandBox:HookScript("OnTextChanged", callback)
 end
 
 ---@param mainFrame SCForgeMainFrame
@@ -275,10 +315,30 @@ local function init(mainFrame)
 	mainFrame.SpellInfoNameBox.previousEditBox = mainFrame.SpellInfoDescBox
 end
 
+SCForgeMainFrame.ExpandAttic = function(self)
+	FrameTemplate_SetAtticHeight(self, 90)
+	descBox:SetMultiLine(true)
+	descBox:SetRelativePoints()
+	descBox:SetPoint("BOTTOM", SCForgeMainFrame.Inset, "TOP")
+	-- need to finish fixing the descBox to be expandable..
+end
+
+SCForgeMainFrame.CloseAttic = function(self)
+	FrameTemplate_SetAtticHeight(self, 60)
+	descBox:SetMultiLine(false)
+	descBox:SetRelativePoints()
+	descBox:SetSize(SCForgeMainFrame:GetWidth()/2.5,23)
+end
+
 ---@class UI_Attic
 ns.UI.Attic = {
 	init = init,
 	getInfo = getInfo,
 	updateInfo = updateInfo,
+	isInfoValid = isInfoValid,
+	getEditCommId = getEditCommId,
+	setEditCommId = setEditCommId,
 	updateSize = updateSize,
+	onNameChange = onNameChange,
+	onCommandChange = onCommandChange,
 }

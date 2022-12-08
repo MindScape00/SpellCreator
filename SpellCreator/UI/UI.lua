@@ -4,6 +4,7 @@ local ns = select(2, ...)
 ---@class UI
 ---@field Animation UI_Animation
 ---@field Attic UI_Attic
+---@field Basement UI_Basement
 ---@field Castbar UI_Castbar
 ---@field ChatLink UI_ChatLink
 ---@field Gems UI_Gems

@@ -4,12 +4,15 @@ local ns = select(2, ...)
 local C_Timer = C_Timer
 local pairs = pairs
 
+local Constants = ns.Constants
 local Permissions = ns.Permissions
+local Vault = ns.Vault
 
 local actionTypeData = ns.Actions.Data.actionTypeData
 local cmd = ns.Cmd.cmd
 local cprint = ns.Logging.cprint
 local eprint = ns.Logging.eprint
+local START_ZONE_NAME = Constants.START_ZONE_NAME
 
 local sfCmd_ReplacerChar = "@N@"
 
@@ -89,11 +92,15 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	end
 end
 
+---@param actionsToCommit VaultSpellAction
+---@param bypassCheck boolean | nil
+---@param spellName string
+---@param spellData VaultSpell?
 local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 	local longestDelay = 0
 	if ((not bypassCheck) and (not SpellCreatorMasterTable.Options["debug"])) then
 		if not Permissions.canExecuteSpells() then
-			cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than Dranosh Valley.")
+			cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than " .. START_ZONE_NAME.. ".")
 			return
 		end
 	end
@@ -119,6 +126,16 @@ local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 	end
 end
 
+---@param commID CommID
+local function executePhaseSpell(commID)
+	local spell = Vault.phase.findSpellByID(commID)
+	if spell then
+		executeSpell(spell.actions, true, spell.fullName, spell);
+	else
+		cprint("No spell with command ".. commID .." found in the Phase Vault (or vault was not loaded). Please let a phase officer know.")
+	end
+end
+
 hooksecurefunc("ToggleGameMenu", function()
 	if stopRunningActions() then HideUIPanel(GameMenuFrame); end
 end)
@@ -126,5 +143,6 @@ end)
 ---@class Actions_Execute
 ns.Actions.Execute = {
 	executeSpell = executeSpell,
+	executePhaseSpell = executePhaseSpell,
 	stopRunningActions = stopRunningActions,
 }

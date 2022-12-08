@@ -5,6 +5,8 @@ local ActionsData = ns.Actions.Data
 local Constants = ns.Constants
 local DataUtils = ns.Utils.Data
 local Debug = ns.Utils.Debug
+local UIHelpers = ns.Utils.UIHelpers
+local Tooltip = ns.Utils.Tooltip
 
 local MainFrame = ns.UI.MainFrame
 
@@ -136,6 +138,21 @@ local function initActionDropdownItems(dataList, flatMenuList, menuList, parentI
 				menuItem.text = data.name
 				menuItem.tooltipTitle = data.name
 				menuItem.tooltipText = data.description
+
+				if data.selfAble then
+					menuItem.tooltipText = menuItem.tooltipText .. "\n\r" .. "Enable the 'Self' checkbox to always apply to yourself."
+				end
+
+				if data.example then
+					menuItem.tooltipText = menuItem.tooltipText .. "\n\r" .. (Tooltip.genTooltipText("example", data.example))
+				end
+
+				if data.revert and data.revertDesc then
+					menuItem.tooltipText = menuItem.tooltipText .. "\n\r" .. (Tooltip.genTooltipText("revert", data.revertDesc))
+				elseif data.revert == nil and data.revertAlternative then
+					menuItem.tooltipText = menuItem.tooltipText .. "\n\r" .. (Tooltip.genTooltipText("norevert", "Cannot be reverted directly, use " .. data.revertAlternative .. "."))
+				end
+
 				menuItem.tooltipOnButton = true
 				menuItem.value = key
 				menuItem.arg1 = numActiveRows
@@ -331,18 +348,7 @@ local function addRow(rowToAdd)
 					self:SetTextColor(1,0,0,1)
 				end
 			end)
-			newRow.mainDelayBox:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Main Action Delay", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("How long after 'casting' the ArcSpell this action triggers.\rCan be '0' for instant.",1,1,1,true)
-					GameTooltip:Show()
-				end)
-			end)
-			newRow.mainDelayBox:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
+			Tooltip.set(newRow.mainDelayBox, "Main Action Delay", "How long after 'casting' the ArcSpell this action triggers.\rCan be '0' for instant.")
 
 		-- Action Dropdown Menu
 		newRow.menuList = {} -- tree structure
@@ -360,18 +366,7 @@ local function addRow(rowToAdd)
 			newRow.SelfCheckbox:SetPoint("LEFT", newRow.actionSelectButton, "RIGHT", -5, 1)
 			newRow.SelfCheckbox:Disable()
 			newRow.SelfCheckbox:SetMotionScriptsWhileDisabled(true)
-			newRow.SelfCheckbox:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Cast on Self", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("Enable to use the 'Self' flag for Cast & Aura actions.", 1,1,1,true)
-					GameTooltip:Show()
-				end)
-			end)
-			newRow.SelfCheckbox:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
+			Tooltip.set(newRow.SelfCheckbox, "Cast on Self", "Enable to use the 'Self' flag for Cast & Aura actions.")
 
 		-- ID Entry Box (Input)
 		if SpellCreatorMasterTable.Options["biggerInputBox"] == true then
@@ -398,6 +393,7 @@ local function addRow(rowToAdd)
 			newRow.InputEntryBox:SetAutoFocus(false)
 			newRow.InputEntryBox:Disable()
 
+			-- TOOLTIP UPDATE NEEDED
 			newRow.InputEntryBox:SetScript("OnEnter", function(self)
 				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				local row = self.rowNumber
@@ -409,6 +405,10 @@ local function addRow(rowToAdd)
 							GameTooltip:AddLine(" ")
 							GameTooltip:AddLine(actionData.inputDescription, 1, 1, 1, true)
 							--GameTooltip:AddLine(" ")
+						end
+						if actionData.example then
+							GameTooltip:AddLine(" ")
+							GameTooltip:AddLine(Tooltip.genTooltipText("example", actionData.example), 1, 1, 1, true)
 						end
 						GameTooltip:Show()
 					end
@@ -444,23 +444,26 @@ local function addRow(rowToAdd)
 					self:SetTextColor(1,0,0,1)
 				end
 			end)
-			newRow.RevertDelayBox:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Revert Delay", nil, nil, nil, nil, true)
-					GameTooltip:AddLine("How long after the initial action before reverting.\n\rNote: This is RELATIVE to this lines main action delay.",1,1,1,true)
-					GameTooltip:AddLine("\n\rEx: Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting..",1,1,1,true)
-					GameTooltip:Show()
-				end)
+
+			Tooltip.set(newRow.RevertDelayBox,
+				"Revert Delay",
+				{
+					"How long after the initial action before reverting.",
+					"\nNote: This is RELATIVE to this lines main action delay",
+					"\nEx: Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting.."
+				}
+			)
+
+			newRow.RevertDelayBox:HookScript("OnDisable", function(self)
+				self.Instructions:SetText("n/a")
 			end)
-			newRow.RevertDelayBox:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
+			newRow.RevertDelayBox:HookScript("OnEnable", function(self)
+				self.Instructions:SetText("Revert Delay")
 			end)
 
 		newRow.AddSpellRowButton = CreateFrame("BUTTON", nil, newRow)
 			newRow.AddSpellRowButton.rowNum = numActiveRows
-			newRow.AddSpellRowButton:SetPoint("TOPLEFT", 2, -2)
+			newRow.AddSpellRowButton:SetPoint("TOPLEFT", 2, -3)
 			newRow.AddSpellRowButton:SetSize(24,24)
 			--local _atlas = "transmog-icon-remove"
 			local _atlas = "communities-chat-icon-plus"
@@ -478,24 +481,13 @@ local function addRow(rowToAdd)
 			newRow.AddSpellRowButton.PushedTex = newRow.AddSpellRowButton:CreateTexture(nil, "ARTWORK")
 			newRow.AddSpellRowButton.PushedTex:SetAllPoints(true)
 			newRow.AddSpellRowButton.PushedTex:SetAtlas(_atlas)
-			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-			newRow.AddSpellRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+			UIHelpers.setTextureOffset(newRow.AddSpellRowButton.PushedTex, 1, -1)
 			newRow.AddSpellRowButton:SetPushedTexture(newRow.AddSpellRowButton.PushedTex)
 
 			newRow.AddSpellRowButton:SetMotionScriptsWhileDisabled(true)
-			newRow.AddSpellRowButton:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Add a blank row above this one", nil, nil, nil, nil, true)
-					GameTooltip:Show()
-				end)
-			end)
-			newRow.AddSpellRowButton:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
+
+			Tooltip.set(newRow.AddSpellRowButton, "Add a new, blank row above this one")
+
 			newRow.AddSpellRowButton:SetScript("OnClick", function(self)
 				addRow(self.rowNum)
 			end)
@@ -524,29 +516,12 @@ local function addRow(rowToAdd)
 			newRow.RemoveSpellRowButton.PushedTex = newRow.RemoveSpellRowButton:CreateTexture(nil, "ARTWORK")
 			newRow.RemoveSpellRowButton.PushedTex:SetAllPoints(true)
 			newRow.RemoveSpellRowButton.PushedTex:SetAtlas(_atlas)
-			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-			newRow.RemoveSpellRowButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
+			UIHelpers.setTextureOffset(newRow.RemoveSpellRowButton.PushedTex, 1, -1)
 			newRow.RemoveSpellRowButton:SetPushedTexture(newRow.RemoveSpellRowButton.PushedTex)
 
 			newRow.RemoveSpellRowButton:SetMotionScriptsWhileDisabled(true)
-			newRow.RemoveSpellRowButton:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					GameTooltip:SetText("Delete this row", nil, nil, nil, nil, true)
-					GameTooltip:Show()
-				end)
-			end)
-			newRow.RemoveSpellRowButton:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-				--[[
-				if ( not self:GetParent():IsMouseOver() ) then
-					self:Hide()
-				end
-				--]]
-			end)
+			Tooltip.set(newRow.RemoveSpellRowButton, "Delete this row")
+
 			newRow.RemoveSpellRowButton:SetScript("OnClick", function(self)
 				removeRow(self.rowNum)
 			end)

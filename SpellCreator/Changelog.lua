@@ -1,6 +1,6 @@
-local addonName, addonTable = ...
+local addonName, ns = ...
 --[[                                                                                      ]]-- Max Length of a line is within the brackets.
-addonTable.ChangelogText = [[
+ns.ChangelogText = [[
 
 {h3:c} See the User Guide for more help on how to use Arcanum.{/h3}
 {h3:c} [Link - Builder's Haven Discord Guide](https://discord.com/channels/718813797611208788/1031832007031930880/1032773498600439898) - [Link - Epsilon Forums Guide](https://forums.epsilonwow.net/topic/3413-addon-arcanum-spell-forge-user-guide/) {/h3}
@@ -33,7 +33,7 @@ addonTable.ChangelogText = [[
             This should help make it easier if you have lots of ArcSpells in your vault!
 
             - Assign a Profile: Right-Click the ArcSpell in the Vault!
-            - Change Profile Filter: Left-Click the double-head icon in the top right. 
+            - Change Profile Filter: Left-Click the double-head icon in the top right.
             - Change Default Filter: Right-Click the double-head icon in the top right.
 
         - You can now Import & Export ArcSpells from the game, to share externally.
@@ -45,7 +45,7 @@ addonTable.ChangelogText = [[
             - Private spells will only show in the vault for Officers+. Players
               will still be able to use private spells linked from Gossip menus.
 
-        - Spell visibility (Private vs Public) is represented by the eye-con on 
+        - Spell visibility (Private vs Public) is represented by the eye-con on
             each spell row in the Phase Vault. Spells must be re-uploaded to change
             their visibility.
 
@@ -64,13 +64,13 @@ addonTable.ChangelogText = [[
         - Just use that instead of learning this stuff!
     - NEW/CHANGED: You can now add Gossip tags to Gossip Text to run those actions
           automatically. This replaces '_auto' tags in gossip options.
-    - CHANGED: Gossip tags can be shortened to <arc_ for text limit purposes. 
+    - CHANGED: Gossip tags can be shortened to <arc_ for text limit purposes.
           Both "<arc_ ... >" and "<arcanum_ ... >" will work.
     - CHANGED: <arcanum_auto> & <arcanum_toggle> are now just <arcanum_show>.
           Auto vs On Click now depend on if you use it in Text or Option.
     - CHANGED: Auto tag removed as a tag extension. See above 'NEW' also.
         - Old tags will still function for legacy, but you should be
-          using <arcanum_cast_(hide):spell> in '.ph fo np go text add' 
+          using <arcanum_cast_(hide):spell> in '.ph fo np go text add'
           instead now. I cannot gaurantee new tags with _auto will work..
 
     - VALID TAGS:
@@ -128,7 +128,7 @@ addonTable.ChangelogText = [[
 
 
       NOTE: ArcVars exist in a global table, "ARC.VAR". You can access them directly if you
-            understand Lua & know what you're doing. 
+            understand Lua & know what you're doing.
 
             ArcVars are |cffED4245NOT SAVED|r between sessions. Persistent Vars may come in the
             future if the need is there, but they won't be secure. If you think of a good use
@@ -147,17 +147,18 @@ addonTable.ChangelogText = [[
 {h2:c} __________________________________________________________ {/h2}
 ##v1.0.0 (October 20th, 2022)
 
-- Released! 
+- Released!
 
 {h2:c} __________________________________________________________ {/h2}
 {h1:c} Credits {/h1}
-Artwork by T ( |cff5865F2AJT#0715|r )
+Artwork, Assets, Ideas, and Inspiration by 'T' ( |cff5865F2AJT#0715|r )
 Code by MindScape ( |cff5865F2MindScape#0332|r )
-Code Support by Iyadriel ( |cff5865F2Haleth#0001|r )
+Code by Iyadriel ( |cff5865F2Haleth#0001|r )
+IconPicker borrowed from DiceMaster (Thank you Skylar! |cff5865F2sunkencastles#1807|r )
 
 Thank you to Azarchius & Razmatas for Epsilon Core, Executable, and Server support
 
-### |cff57F287And thank YOU, the players of Epsilon, for being the drive behind this server, community, and the amazing things you have, and will, create.|r 
+### |cff57F287And thank YOU, the players of Epsilon, for being the drive behind this server, community, and the amazing things you have, and will, create.|r
 {h2:c} __________________________________________________________ {/h2}
 ]]
 

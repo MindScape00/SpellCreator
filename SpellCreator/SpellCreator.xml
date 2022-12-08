@@ -59,13 +59,17 @@
 	<Script file="Localization.lua"/>
 	<Script file="Logging.lua"/>
 	<Script file="Permissions.lua"/>
+	<Script file="Serializer.lua"/>
+	<Script file="Vault.lua"/>
 
 	<Script file="Utils/Utils.lua"/>
 	<Script file="Utils/Aura.lua"/>
+	<Script file="Utils/ChatLinkCache.lua"/>
 	<Script file="Utils/Data.lua"/>
 	<Script file="Utils/Debug.lua"/>
 	<Script file="Utils/HTML.lua"/>
 	<Script file="Utils/NineSlice.lua"/>
+	<Script file="Utils/UIHelpers.lua"/>
 	<Script file="Utils/Tooltip.lua"/>
 
 	<Script file="Changelog.lua"/>
@@ -75,11 +79,10 @@
 	<Script file="Actions/Actions.lua"/>
 	<Script file="Actions/Data.lua"/>
 	<Script file="Actions/Execute.lua"/>
+	<Script file="Actions/Hotkeys.lua"/>
 
 	<Script file="SavedVariables.lua"/>
 	<Script file="ProfileFilter.lua"/>
-	<Script file="Serializer.lua"/>
-	<Script file="Vault.lua"/>
 
 	<Script file="UI/UI.lua"/>
 	<Script file="UI/NineSliceTemplates.lua"/>
@@ -93,6 +96,7 @@
 	<Script file="UI/MainFrame.lua"/>
 	<Include file="UI/IconPicker.xml" />
 	<Script file="UI/MainFrame_Attic.lua"/>
+	<Script file="UI/MainFrame_Basement.lua"/>
 	<Script file="UI/Models.lua"/>
 	<Script file="UI/MinimapButton.lua"/>
 	<Script file="UI/Portrait.lua"/>
@@ -100,6 +104,7 @@
 	<Script file="UI/Quickcast.lua"/>
 	<Script file="UI/SpellRow.lua"/>
 	<Script file="UI/SpellVaultFrame.lua"/>
+	<Script file="UI/Options.lua"/>
 
 	<Script file="SpellCreator.lua"/>
 	<Script file="API.lua"/>

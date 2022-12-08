@@ -5,6 +5,7 @@ local Constants = ns.Constants
 local NineSlice = ns.Utils.NineSlice
 local Permissions = ns.Permissions
 local Tooltip = ns.Utils.Tooltip
+local UIHelpers = ns.Utils.UIHelpers
 
 local ASSETS_PATH = Constants.ASSETS_PATH
 local SPELL_VISIBILITY = Constants.SPELL_VISIBILITY
@@ -63,24 +64,19 @@ local function createImportButton(frame, import)
 	importButton:SetText("Import")
 	importButton:SetMotionScriptsWhileDisabled(true)
 
-	importButton:SetNormalTexture("interface/buttons/ui-microstream-yellow")
-	importButton.NormalTex = importButton:GetNormalTexture();
-	importButton.NormalTex:SetTexCoord(0,1,1,0)
-	importButton:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight")
+	UIHelpers.setupCoherentButtonTextures(importButton, "interface/buttons/ui-microstream-yellow")
 
-	importButton.PushedTex = importButton:CreateTexture(nil, "ARTWORK")
-	importButton.PushedTex:SetAllPoints(true)
-	importButton.PushedTex:SetTexture("interface/buttons/ui-microstream-green")
-	importButton.PushedTex:SetTexCoord(0,1,1,0)
-	importButton.PushedTex:SetVertexOffset(UPPER_LEFT_VERTEX, 1, -1)
-	importButton.PushedTex:SetVertexOffset(UPPER_RIGHT_VERTEX, 1, -1)
-	importButton.PushedTex:SetVertexOffset(LOWER_LEFT_VERTEX, 1, -1)
-	importButton.PushedTex:SetVertexOffset(LOWER_RIGHT_VERTEX, 1, -1)
-	importButton:SetPushedTexture(importButton.PushedTex)
+	-- overrides to flip the texture to point up & change pushed to the green arrow
+	importButton.NormalTexture:SetTexCoord(0,1,1,0)
+	importButton.HighlightTexture:SetTexCoord(0,1,1,0)
+	importButton.PushedTexture:SetTexture("interface/buttons/ui-microstream-green")
+	importButton.PushedTexture:SetTexCoord(0,1,1,0)
 
---	button.backIcon = button:CreateTexture(nil, "BACKGROUND")
---	button.backIcon:SetAllPoints(true)
---	button.backIcon:SetAtlas("poi-workorders")
+	--[[
+	importButton.backIcon = importButton:CreateTexture(nil, "BACKGROUND")
+	importButton.backIcon:SetAllPoints(true)
+	importButton.backIcon:SetAtlas("poi-workorders")
+	--]]
 
 	importButton:SetScript("OnClick", import)
 
@@ -122,15 +118,15 @@ local function createUploadToPhaseButton(frame, upload)
 	end)
 
 	Tooltip.set(uploadButton,
-		"Transfer to Phase Vault",
+		"Copy to Phase Vault",
 		function(self)
 			if self:IsEnabled() then
-				return "Transfer the spell to the Phase Vault.\n\rShift-Click to automatically over-write any spell with the same command ID in the Phase Vault."
+				return "Copy the spell to the Phase Vault.\n\rShift-Click to automatically over-write any spell with the same command ID in the Phase Vault."
 			elseif (not Permissions.isOfficerPlus()) then
 				return "You do not currently have permissions to upload to this phase's vault.\n\rIf you were just given officer, rejoin the phase."
 			end
 
-			return "Select a spell above to transfer it."
+			return "Select a spell above to copy it to the Phase Vault."
 		end
 	)
 
@@ -144,23 +140,33 @@ local function createPrivateUploadToggle(frame)
 	privateUploadToggle:SetSize(20,20)
 	--privateUploadToggle.text:SetText("Private")
 
-	privateUploadToggle:SetNormalTexture(ASSETS_PATH .. "/icon_visible_32")
-	privateUploadToggle.NormalTexture = privateUploadToggle:GetNormalTexture()
+	UIHelpers.setupCoherentButtonTextures(privateUploadToggle, ASSETS_PATH .. "/icon_visible_32", false)
+	privateUploadToggle.HighlightTexture:SetAlpha(0.2) -- override, 0.33 is still too bright
+
 	privateUploadToggle.NormalTexture:SetVertexColor(0.9,0.65,0)
+	privateUploadToggle.PushedTexture:SetVertexColor(0.9,0.65,0)
+	privateUploadToggle:SetCheckedTexture("")
 
-	privateUploadToggle:SetHighlightTexture("interface/buttons/ui-panel-minimizebutton-highlight", "ADD")
-
-	privateUploadToggle:SetCheckedTexture(ASSETS_PATH .. "/icon_hidden_32")
-	privateUploadToggle.CheckedTexture = privateUploadToggle:GetCheckedTexture()
-	privateUploadToggle.CheckedTexture:SetBlendMode("BLEND")
-	privateUploadToggle.CheckedTexture:SetVertexColor(0.6,0.6,0.6)
-
-	privateUploadToggle:SetScript("OnClick", function(self)
+	privateUploadToggle.updateTex = function(self)
 		if self:GetChecked() then
-			self:SetNormalTexture("")
+			self:SetNormalTexture(ASSETS_PATH .. "/icon_hidden_32")
+			self:GetNormalTexture():SetVertexColor(0.6,0.6,0.6)
+			self:SetPushedTexture(ASSETS_PATH .. "/icon_hidden_32")
+			self.HighlightTexture:SetTexture(ASSETS_PATH .. "/icon_hidden_32")
 		else
 			self:SetNormalTexture(ASSETS_PATH .. "/icon_visible_32")
+			self:GetNormalTexture():SetVertexColor(0.9,0.65,0)
+			self:SetPushedTexture(ASSETS_PATH .. "/icon_visible_32")
+			self.HighlightTexture:SetTexture(ASSETS_PATH .. "/icon_visible_32")
 		end
+		self.PushedTexture:SetVertexColor(self:GetNormalTexture():GetVertexColor())
+	end
+
+	privateUploadToggle:SetScript("OnClick", function(self)
+		self:updateTex()
+	end)
+	privateUploadToggle:SetScript("OnShow", function(self)
+		self:updateTex()
 	end)
 
 	Tooltip.set(privateUploadToggle,

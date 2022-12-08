@@ -44,7 +44,7 @@ local arcCommands = {
 	cmd = {
 		cmd = "cmd $command",
 		desc = "Runs the server $command specified (i.e., 'cheat fly').",
-		fn = "COMM",
+		fn = "CMD",
 		numArgs = 1,
 	},
 	["if"] = {

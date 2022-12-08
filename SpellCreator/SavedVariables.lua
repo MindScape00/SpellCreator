@@ -29,7 +29,8 @@ local function init()
 
 	if isNotDefined(SpellCreatorMasterTable.Options) then SpellCreatorMasterTable.Options = {} end
 	if isNotDefined(SpellCreatorMasterTable.quickCastSpells) then SpellCreatorMasterTable.quickCastSpells = {} end
-	if isNotDefined(SpellCreatorMasterTable.quickCastHotkeys) then SpellCreatorMasterTable.quickCastHotkeys = {} end
+	if isNotDefined(SpellCreatorMasterTable.hotkeys) then SpellCreatorMasterTable.hotkeys = {} end
+	ns.Actions.Hotkeys.retargetHotkeysCache(SpellCreatorMasterTable.hotkeys)
 
 	if isNotDefined(SpellCreatorMasterTable.Options["debug"]) then SpellCreatorMasterTable.Options["debug"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["locked"]) then SpellCreatorMasterTable.Options["locked"] = false end
@@ -40,6 +41,8 @@ local function init()
 	if isNotDefined(SpellCreatorMasterTable.Options["clearRowOnRemove"]) then SpellCreatorMasterTable.Options["clearRowOnRemove"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["loadChronologically"]) then SpellCreatorMasterTable.Options["loadChronologically"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["minimapIcon"]) then SpellCreatorMasterTable.Options["minimapIcon"] = true end
+	if isNotDefined(SpellCreatorMasterTable.Options["quickcastToggle"]) then SpellCreatorMasterTable.Options["quickcastToggle"] = true end
+
 
 	lastAddonVersion = SpellCreatorMasterTable.Options["lastAddonVersion"] or "0"
     hadUpdate = (addonVersion ~= lastAddonVersion)

@@ -1,18 +1,19 @@
 ---@class ns
 local ns = select(2, ...)
 
+local Execute = ns.Actions.Execute
 local HTML = ns.Utils.HTML
+local Vault = ns.Vault
 
-local executeSpell = ns.Actions.Execute.executeSpell
 local cmdWithDotCheck = ns.Cmd.cmdWithDotCheck
 local ADDON_COLOR = ns.Constants.ADDON_COLOR
 local cprint, dprint, eprint = ns.Logging.cprint, ns.Logging.dprint, ns.Logging.eprint
-local phaseVault = ns.Vault.phase
+local executeSpell, executePhaseSpell = Execute.executeSpell, Execute.executePhaseSpell
 
 ARC = {}
 ARC.VAR = {}
 
--- SYNTAX: ARC:COMM("command here") - i.e., ARC:COMM("cheat fly")
+-- SYNTAX: ARC:COMM("command here") - i.e., ARC:COMM("cheat fly") -- KEPT THIS VERSION FOR LEGACY SUPPORT
 function ARC:COMM(text)
 	if text and text ~= "" then
 		cmdWithDotCheck(text)
@@ -20,6 +21,17 @@ function ARC:COMM(text)
 		cprint('ARC:API SYNTAX - COMM - Sends a Command to the Server.')
 		print(ADDON_COLOR..'Function: |cffFFAAAAARC:COMM("command here")|r')
 		print(ADDON_COLOR..'Example: |cffFFAAAAARC:COMM("cheat fly")')
+	end
+end
+
+-- SYNTAX: ARC:CMD("command here") - i.e., ARC:CMD("cheat fly")
+function ARC:CMD(text)
+	if text and text ~= "" then
+		cmdWithDotCheck(text)
+	else
+		cprint('ARC:API SYNTAX - CMD - Sends a Command to the Server.')
+		print(ADDON_COLOR..'Function: |cffFFAAAAARC:CMD("command here")|r')
+		print(ADDON_COLOR..'Example: |cffFFAAAAARC:CMD("cheat fly")')
 	end
 end
 
@@ -69,15 +81,9 @@ end
 -- SYNTAX: ARC:CASTP("commID") - i.e., ARC:CASTP("teleportEffectsSpell") -- Casts an ArcSpell from Phase Vault
 function ARC:CASTP(text)
 	if text and text ~= "" then
-		local spellRanSuccessfully
-		if phaseVault.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
-		for k,v in pairs(phaseVault.spells) do
-			if v.commID == text then
-				executeSpell(v.actions, true, v.fullName, v);
-				spellRanSuccessfully = true
-			end
-		end
-		if not spellRanSuccessfully then cprint("No spell with command "..text.." found in the Phase Vault (or vault was not loaded). Please let a phase officer know.") end
+		if Vault.phase.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
+
+		executePhaseSpell(text)
 	else
 		cprint('ARC:API SYNTAX - CASTP - Casts a Spell from the Phase Vault.')
 		print(ADDON_COLOR..'Function: |cffFFAAAAARC:CASTP("commID")|r')
