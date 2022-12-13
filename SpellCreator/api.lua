@@ -1,13 +1,17 @@
 ---@class ns
 local ns = select(2, ...)
 
+local Cmd = ns.Cmd
+local Constants = ns.Constants
 local Execute = ns.Actions.Execute
 local HTML = ns.Utils.HTML
+local Logging = ns.Logging
 local Vault = ns.Vault
 
-local cmdWithDotCheck = ns.Cmd.cmdWithDotCheck
-local ADDON_COLOR = ns.Constants.ADDON_COLOR
-local cprint, dprint, eprint = ns.Logging.cprint, ns.Logging.dprint, ns.Logging.eprint
+local cmdWithDotCheck = Cmd.cmdWithDotCheck
+local ADDON_COLORS = Constants.ADDON_COLORS
+local ADDON_COLOR = Constants.ADDON_COLOR
+local cprint, dprint, eprint = Logging.cprint, Logging.dprint, Logging.eprint
 local executeSpell, executePhaseSpell = Execute.executeSpell, Execute.executePhaseSpell
 
 ARC = {}
@@ -19,8 +23,8 @@ function ARC:COMM(text)
 		cmdWithDotCheck(text)
 	else
 		cprint('ARC:API SYNTAX - COMM - Sends a Command to the Server.')
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:COMM("command here")|r')
-		print(ADDON_COLOR..'Example: |cffFFAAAAARC:COMM("cheat fly")')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:COMM("command here")|r')
+		print(ADDON_COLOR..'Example: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:COMM("cheat fly")')
 	end
 end
 
@@ -30,8 +34,8 @@ function ARC:CMD(text)
 		cmdWithDotCheck(text)
 	else
 		cprint('ARC:API SYNTAX - CMD - Sends a Command to the Server.')
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:CMD("command here")|r')
-		print(ADDON_COLOR..'Example: |cffFFAAAAARC:CMD("cheat fly")')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:CMD("command here")|r')
+		print(ADDON_COLOR..'Example: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:CMD("cheat fly")')
 	end
 end
 
@@ -41,8 +45,8 @@ function ARC:COPY(text)
 		HTML.copyLink(nil, text)
 	else
 		cprint('ARC:API SYNTAX - COPY - Opens a Dialog to copy the given text.')
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:COPY("text to copy, like a URL")|r')
-		print(ADDON_COLOR..'Example: |cffFFAAAAARC:COPY("https://discord.gg/C8DZ7AxxcG")')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:COPY("text to copy, like a URL")|r')
+		print(ADDON_COLOR..'Example: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:COPY("https://discord.gg/C8DZ7AxxcG")')
 	end
 end
 
@@ -65,15 +69,16 @@ end
 -- SYNTAX: ARC:CAST("commID") - i.e., ARC:CAST("teleportEffectsSpell") -- Casts an ArcSpell from Personal Vault
 function ARC:CAST(text)
 	if text and text ~= "" then
-		if SpellCreatorSavedSpells[text] then
-			executeSpell(SpellCreatorSavedSpells[text].actions, nil, SpellCreatorSavedSpells[text].fullName, SpellCreatorSavedSpells[text])
+		local spell = Vault.personal.findSpellByID(text)
+		if spell then
+			executeSpell(spell.actions, nil, spell.fullName, spell)
 		else
 			cprint("No spell found with commID '"..text.."' in your Personal Vault.")
 		end
 	else
 		cprint('ARC:API SYNTAX - CAST - Casts a Spell from your Personal Vault.')
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:CAST("commID")|r')
-		print(ADDON_COLOR..'Example: |cffFFAAAAARC:CAST("teleportEffectsSpell")')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:CAST("commID")|r')
+		print(ADDON_COLOR..'Example: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:CAST("teleportEffectsSpell")')
 		print(ADDON_COLOR..'Silently Fails if there is no spell by that commID in your personal vault.')
 	end
 end
@@ -86,8 +91,8 @@ function ARC:CASTP(text)
 		executePhaseSpell(text)
 	else
 		cprint('ARC:API SYNTAX - CASTP - Casts a Spell from the Phase Vault.')
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:CASTP("commID")|r')
-		print(ADDON_COLOR..'Example: |cffFFAAAAARC:CASTP("teleportEffectsSpell")')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:CASTP("commID")|r')
+		print(ADDON_COLOR..'Example: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:CASTP("teleportEffectsSpell")')
 		print(ADDON_COLOR..'Silently Fails if there is no spell by that commID in the vault.')
 	end
 end
@@ -108,9 +113,9 @@ function ARC:IF(tag, command1, command2, var1, var2)
 		end
 	else
 		cprint('ARC:API SYNTAX - IF - Checks if "tag" is true, and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands.')
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:IF("tag", "CommandTrue", "CommandFalse", "Var1")|r')
-		print(ADDON_COLOR..'Example 1: |cffFFAAAAARC:IF("ToggleLight","aura 243893", "unau 243893")|r')
-		print(ADDON_COLOR..'Example 2: |cffFFAAAAARC:IF("ToggleLight","aura", "unau", "243893")|r')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:IF("tag", "CommandTrue", "CommandFalse", "Var1")|r')
+		print(ADDON_COLOR..'Example 1: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:IF("ToggleLight","aura 243893", "unau 243893")|r')
+		print(ADDON_COLOR..'Example 2: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:IF("ToggleLight","aura", "unau", "243893")|r')
 		print(ADDON_COLOR.."Both of these will result in the same outcome - If ToggleLight is true, then apply the aura, else unaura.|r")
 	end
 end
@@ -131,8 +136,8 @@ function ARC:IFS(tag, toEqual, command1, command2, var1, var2)
 		end
 	else
 		cprint('ARC:API SYNTAX - IFS - Checks if "tag" is equal to "valueToEqual", and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands, the same as ARC:IF.')
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:IFS("tag", "valueToEqual", "CommandTrue", "CommandFalse", "Var1")|r')
-		print(ADDON_COLOR..'Example 1: |cffFFAAAAARC:IFS("WhatFruit", "apple", "aura 243893", "unau 243893")|r')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:IFS("tag", "valueToEqual", "CommandTrue", "CommandFalse", "Var1")|r')
+		print(ADDON_COLOR..'Example: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:IFS("WhatFruit", "apple", "aura 243893", "unau 243893")|r')
 		print(ADDON_COLOR..'This example will check if WhatFruit is "apple" and will apply the aura if so.|r')
 	end
 end
@@ -144,8 +149,8 @@ function ARC:TOG(tag)
 		dprint(false, tag, "= "..tostring(ARC.VAR[tag]))
 	else
 		cprint('ARC:API SYNTAX - TOG - Toggles an ArcTag (ARC.VAR) between true and false.')
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:TOG("tag")|r')
-		print(ADDON_COLOR..'Example: |cffFFAAAAARC:TOG("ToggleLight")|r')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:TOG("tag")|r')
+		print(ADDON_COLOR..'Example: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:TOG("ToggleLight")|r')
 		print(ADDON_COLOR.."Use alongside ARC:IF to make toggle spells.|r")
 	end
 end
@@ -159,9 +164,9 @@ function ARC:SET(tag, str)
 		dprint(false, tag, "= "..tostring(ARC.VAR[tag]))
 	else
 		cprint('ARC:API SYNTAX - SET - Set an ArcTag (ARC.VAR) to a specific value.')
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:SET("tag", "value")|r')
-		print(ADDON_COLOR..'Example 1: |cffFFAAAAARC:SET("ToggleLight","2")|r')
-		print(ADDON_COLOR..'Example 2: |cffFFAAAAARC:SET("ToggleLight","3")|r')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:SET("tag", "value")|r')
+		print(ADDON_COLOR..'Example 1: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:SET("ToggleLight","2")|r')
+		print(ADDON_COLOR..'Example 2: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:SET("ToggleLight","3")|r')
 		print(ADDON_COLOR.."This is likely only useful for power-users and super specific spells.|r")
 	end
 end
@@ -171,8 +176,8 @@ function ARC:GET(tag)
 		return ARC.VAR[tag];
 	else
 		cprint("ARC:API SYNTAX - GET - Get the value of an ArcTag (ARC.VAR).")
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:GET("tag")|r')
-		print(ADDON_COLOR..'Example 1: |cffFFAAAAARC:GET("ToggleLight")|r')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:GET("tag")|r')
+		print(ADDON_COLOR..'Example: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:GET("ToggleLight")|r')
 	end
 end
 
@@ -181,7 +186,7 @@ function ARC:RAND(...)
 		return (select(random(select("#", ...)), ...));
 	else
 		cprint("ARC:API SYNTAX - RAND - Return a random variable.")
-		print(ADDON_COLOR..'Function: |cffFFAAAAARC:RAND(...)|r')
-		print(ADDON_COLOR..'Example 1: |cffFFAAAAARC:RAND("Apple","Banana","Cherry")|r')
+		print(ADDON_COLOR..'Function: '..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()..'ARC:RAND(...)|r')
+		print(ADDON_COLOR..'Example: '..ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup()..'ARC:RAND("Apple","Banana","Cherry")|r')
 	end
 end

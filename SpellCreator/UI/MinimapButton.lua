@@ -3,6 +3,7 @@ local addonName = ...
 local ns = select(2, ...)
 
 local Animation = ns.UI.Animation
+local ADDON_COLORS = ns.Constants.ADDON_COLORS
 local ADDON_TITLE = ns.Constants.ADDON_TITLE
 local ASSETS_PATH = ns.Constants.ASSETS_PATH
 local Gems, Models = ns.UI.Gems, ns.UI.Models
@@ -191,8 +192,8 @@ minimapButton:SetScript("OnEnter", function(self)
 	GameTooltip:AddLine("/arcanum - Toggle UI",1,1,1,true)
 	GameTooltip:AddLine("/sf - Shortcut Command!",1,1,1,true)
 	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("|cffFFD700Left-Click|r to toggle the main UI!",1,1,1,true)
-	GameTooltip:AddLine("|cffFFD700Right-Click|r for Options.",1,1,1,true)
+	GameTooltip:AddLine(""..ADDON_COLORS.GAME_GOLD:GenerateHexColorMarkup().."Left-Click|r to toggle the main UI!",1,1,1,true)
+	GameTooltip:AddLine(""..ADDON_COLORS.GAME_GOLD:GenerateHexColorMarkup().."Right-Click|r for Options.",1,1,1,true)
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine("Mouse over most UI Elements to see tooltips for help! (Like this one!)",0.9,0.75,0.75,true)
 	GameTooltip:AddDoubleLine(" ", ADDON_TITLE.." v"..addonVersion, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8);

@@ -4,6 +4,7 @@ local ns = select(2, ...)
 local Comms = ns.Comms
 local Constants = ns.Constants
 local Logging = ns.Logging
+local Vault = ns.Vault
 
 local dprint = Logging.dprint
 local eprint = Logging.eprint
@@ -111,7 +112,7 @@ local function showSpellTooltip(commID, spellName, charOrPhase, linkData, manual
 	if manualSpellData then
 		theSpell = manualSpellData
 	elseif charOrPhase == UnitName("player") then
-		theSpell = SpellCreatorSavedSpells[commID]
+		theSpell = Vault.personal.findSpellByID(commID)
 	else
 		theSpell = ns.Utils.ChatLinkCache.getSpellFromCache(commID, charOrPhase)
 	end

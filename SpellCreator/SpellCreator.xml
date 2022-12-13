@@ -81,6 +81,7 @@
 	<Script file="Actions/Execute.lua"/>
 	<Script file="Actions/Hotkeys.lua"/>
 
+	<Script file="Gossip.lua"/>
 	<Script file="SavedVariables.lua"/>
 	<Script file="ProfileFilter.lua"/>
 
@@ -92,6 +93,7 @@
 	<Script file="UI/ChatLink.lua"/>
 	<Script file="UI/Gems.lua"/>
 	<Script file="UI/Icons.lua"/>
+	<Script file="UI/ImportExport.lua"/>
 	<Script file="UI/LoadSpellFrame.lua"/>
 	<Script file="UI/MainFrame.lua"/>
 	<Include file="UI/IconPicker.xml" />
@@ -99,6 +101,7 @@
 	<Script file="UI/MainFrame_Basement.lua"/>
 	<Script file="UI/Models.lua"/>
 	<Script file="UI/MinimapButton.lua"/>
+	<Script file="UI/Popups.lua"/>
 	<Script file="UI/Portrait.lua"/>
 	<Script file="UI/ProfileFilterMenu.lua"/>
 	<Script file="UI/Quickcast.lua"/>
@@ -109,4 +112,6 @@
 	<Script file="SpellCreator.lua"/>
 	<Script file="API.lua"/>
 	<Script file="Slash.lua"/>
+
+	<Script file="Integrations/OPie.lua"/>
 </Ui>

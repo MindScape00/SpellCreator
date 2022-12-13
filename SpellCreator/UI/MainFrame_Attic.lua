@@ -5,6 +5,8 @@ local Constants = ns.Constants
 local DataUtils = ns.Utils.Data
 local Localization = ns.Localization
 local Tooltip = ns.Utils.Tooltip
+local ADDON_COLORS = Constants.ADDON_COLORS
+local SavedVariables = ns.SavedVariables
 
 local IconPicker = ns.UI.IconPicker
 local Icons = ns.UI.Icons
@@ -25,7 +27,7 @@ local iconButton
 local function createNameBox(mainFrame)
 	nameBox = CreateFrame("EditBox", nil, mainFrame, "InputBoxInstructionsTemplate")
 	nameBox:SetFontObject(ChatFontNormal)
-	nameBox:SetMaxBytes(60)
+	nameBox:SetMaxBytes(100)
 	nameBox.disabledColor = GRAY_FONT_COLOR
 	nameBox.enabledColor = HIGHLIGHT_FONT_COLOR
 	nameBox.Instructions:SetText(Localization.SPELLNAME)
@@ -83,7 +85,7 @@ end
 local function createInfoDescBox(mainFrame)
 	descBox = CreateFrame("EditBox", nil, mainFrame, "InputBoxInstructionsTemplate")
 	descBox:SetFontObject(ChatFontNormal)
-	descBox:SetMaxBytes(100)
+	--descBox:SetMaxBytes(100) -- we needed this before to limit the length for chatlinks, but we removed description from chatlinks so woo..
 	descBox.disabledColor = GRAY_FONT_COLOR
 	descBox.enabledColor = HIGHLIGHT_FONT_COLOR
 	descBox.Instructions:SetText("Description")
@@ -100,7 +102,7 @@ local function createInfoDescBox(mainFrame)
 	end
 	descBox:SetRelativePoints()
 
-	Tooltip.set(descBox, "Description", "A short description of the spell.")
+	Tooltip.set(descBox, "Description", "A description of the spell. This will show up in tooltips.")
 
 	return descBox
 end
@@ -166,7 +168,7 @@ local function createCastbarCheckButton(mainFrame)
 
 			return {
 				"Toggle the casting bar between:\rCast, Channel, or None.\n\rCastbars do not show, even if enabled, if the total spell length is under 0.25 seconds.",
-				"\nCurrent: |cffAAAAFF" .. castingStateText .. "|r",
+				"\nCurrent: "..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup().."" .. castingStateText .. "|r",
 			}
 		end,
 		{ updateOnClick = true }
@@ -235,9 +237,63 @@ local function createIconButton(mainFrame)
 	end)
 	iconButton:RegisterForClicks("RightButtonUp", "LeftButtonUp")
 
-	Tooltip.set(iconButton, "Select an Icon", "Click to select an icon for your ArcSpell. This will be shown in the vault, castbar, and Quickcast when used.\n\rRight Click to remove the icon. You should probably select an icon tho..")
+	Tooltip.set(iconButton, "Select an Icon", "Select an icon for your ArcSpell. This will be shown across the addon to represent the spell (i.e., in the vault, castbar, Quickcast, chatlinks).\n\r"..Tooltip.genContrastText("Right-Click").." to remove the icon. You should probably select an icon tho..")
 
 	return iconButton
+end
+
+local function selectEditorProfile(profileName, dropdown)
+	if profileName then
+		profile = profileName
+		dropdown.Text:SetText(profileName)
+	else
+		profile = nil
+		dropdown.Text:SetText("Profile")
+	end
+end
+
+local function genEditorProfileSelectMenu(button)
+	local _profile = profile
+	local dropdown = button:GetParent()
+	local playerName = GetUnitName("player")
+
+	local menuList = {
+		{ text = "Select a Profile", notCheckable=true, isTitle=true},
+		{ text = "Account", isNotRadio = (_profile=="Account"), checked = (_profile=="Account"), disabled = (_profile=="Account"), disablecolor = ((_profile=="Account") and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil), func = function() selectEditorProfile("Account", dropdown); CloseDropDownMenus(); end },
+		{ text = playerName, isNotRadio = (_profile==playerName), checked = (_profile==playerName), disabled = (_profile==playerName), disablecolor = ((_profile==playerName) and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil), func = function() selectEditorProfile(playerName, dropdown); CloseDropDownMenus(); end },
+	}
+
+	local profileNames = SavedVariables.getProfileNames(true, true)
+	sort(profileNames)
+
+	for _, profileName in ipairs(profileNames) do
+		menuList[#menuList+1] = {
+			text = profileName,
+			isNotRadio = (_profile == profileName),
+			checked = (_profile == profileName),
+			disabled = (_profile == profileName),
+			disablecolor = ((_profile == profileName) and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
+			func = function()
+				selectEditorProfile(profileName, dropdown)
+				CloseDropDownMenus()
+			end
+		}
+	end
+
+	--menuList[#menuList+1] = { text = "Add New", fontObject=GameFontNormalSmallLeft, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end }
+
+	return menuList
+end
+
+---@param mainFrame SCForgeMainFrame
+local function createProfileDrownDown(mainFrame)
+
+	local _button = ns.UI.SpellRow.genStaticDropdownChild( mainFrame, "SCForgeAtticProfileButton", genEditorProfileSelectMenu, "Profile", 75)
+	_button:SetPoint("BOTTOMRIGHT", mainFrame.Inset, "TOPRIGHT", 16, 0)
+
+	Tooltip.set(_button.Button, "Assign Profile", "Assign this spell to the selected profile when created or saved.", {delay = 0.3})
+
+	return _button
 end
 
 local function getEditCommId()
@@ -272,7 +328,8 @@ local function updateInfo(spell)
 	if spell.description then
 		descBox:SetText(spell.description)
 	end
-	profile = spell.profile
+	selectEditorProfile(spell.profile, SCForgeMainFrame.ProfileSelectMenu)
+	--profile = spell.profile
 	editCommID = spell.commID
 end
 
@@ -305,6 +362,7 @@ local function init(mainFrame)
 	mainFrame.SpellInfoDescBox = createInfoDescBox(mainFrame)
 	mainFrame.CastBarCheckButton = createCastbarCheckButton(mainFrame)
 	mainFrame.IconButton = createIconButton(mainFrame)
+	mainFrame.ProfileSelectMenu = createProfileDrownDown(mainFrame)
 
 	-- Enable Tabbing between editboxes
 	mainFrame.SpellInfoNameBox.nextEditBox = mainFrame.SpellInfoCommandBox
@@ -323,7 +381,7 @@ SCForgeMainFrame.ExpandAttic = function(self)
 	-- need to finish fixing the descBox to be expandable..
 end
 
-SCForgeMainFrame.CloseAttic = function(self)
+SCForgeMainFrame.CollapseAttic = function(self)
 	FrameTemplate_SetAtticHeight(self, 60)
 	descBox:SetMultiLine(false)
 	descBox:SetRelativePoints()

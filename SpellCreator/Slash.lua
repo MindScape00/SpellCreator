@@ -3,6 +3,7 @@ local ns = select(2, ...)
 
 local cmdWithDotCheck = ns.Cmd.cmdWithDotCheck
 local ADDON_COLOR = ns.Constants.ADDON_COLOR
+local ADDON_COLORS = ns.Constants.ADDON_COLORS
 local cprint = ns.Logging.cprint
 
 local AceConsole = ns.Libs.AceConsole
@@ -144,7 +145,7 @@ local function printArcCmd(command)
 	end
 
 	if fn then
-		print("               Direct Function: |cffFFAAAA/run ARC:" .. fn .. "()|r")
+		print("               Direct Function: "..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup().."/run ARC:" .. fn .. "()|r")
 	end
 end
 

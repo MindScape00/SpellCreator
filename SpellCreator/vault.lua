@@ -1,7 +1,42 @@
 ---@class ns
 local ns = select(2, ...)
 
----@type VaultSpell[]
+--#region Personal
+
+---@return table<CommID, VaultSpell>
+local function getPersonalSpells()
+	return SpellCreatorSavedSpells
+end
+
+---@return CommID[]
+local function getPersonalSpellIDs()
+	local keys = {}
+	for key in pairs(SpellCreatorSavedSpells) do
+		table.insert(keys, key)
+	end
+	return keys
+end
+
+---@param commID CommID
+---@return VaultSpell?
+local function findPersonalSpellByID(commID)
+	return SpellCreatorSavedSpells[commID]
+end
+
+---@param spell VaultSpell
+local function savePersonalSpell(spell)
+	SpellCreatorSavedSpells[spell.commID] = spell
+end
+
+---@param commID CommID
+local function deletePersonalSpell(commID)
+	SpellCreatorSavedSpells[commID] = nil
+end
+
+--#endregion
+--#region Phase
+
+---@type table<integer, VaultSpell>
 local phaseSpells = {}
 
 ---@param commID CommID
@@ -30,7 +65,7 @@ local function getPhaseSpellByIndex(index)
 	return phaseSpells[index]
 end
 
----@return VaultSpell[]
+---@return table<integer, VaultSpell>
 local function getPhaseSpells()
 	return phaseSpells
 end
@@ -44,8 +79,17 @@ local function clearPhaseSpells()
 	phaseSpells = {}
 end
 
+--#endregion
+
 ns.Vault = {
-    phase = {
+	personal = {
+		getSpells = getPersonalSpells,
+		getIDs = getPersonalSpellIDs,
+		findSpellByID = findPersonalSpellByID,
+		saveSpell = savePersonalSpell,
+		deleteSpell = deletePersonalSpell,
+	},
+	phase = {
 		isLoaded = false,
 		isSavingOrLoadingAddonData = false,
 		getSpellByIndex = getPhaseSpellByIndex,

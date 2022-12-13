@@ -1,19 +1,27 @@
 ---@class ns
 local ns = select(2, ...)
 
+local Actions = ns.Actions
+local Logging = ns.Logging
+local Vault = ns.Vault
+
 local pairs = pairs
 
-local eprint = ns.Logging.eprint
-local dprint = ns.Logging.dprint
+local eprint = Logging.eprint
+local dprint = Logging.dprint
 
+---@alias Hotkey string
+
+---@type table<Hotkey, CommID>
 local hotkeysCache = {}
 
 local hotKeyListenerButton = CreateFrame("Button", "SCForgeHotkeyButton")	-- Call this with SCForgeHotkeyButton:Click(commID) to cast that spell - Frame must remain named in the global space for Blizzard's Binding to work..
-hotKeyListenerButton:SetScript("OnClick", function(self, button)
-	if SpellCreatorSavedSpells[button] then
-		ns.Actions.Execute.executeSpell(SpellCreatorSavedSpells[button].actions, nil, SpellCreatorSavedSpells[button].fullName, SpellCreatorSavedSpells[button])
+hotKeyListenerButton:SetScript("OnClick", function(self, commID)
+	local spell = Vault.personal.findSpellByID(commID)
+	if spell then
+		Actions.Execute.executeSpell(spell.actions, nil, spell.fullName, spell)
 	else
-		eprint("No Spell '"..button.."' found in your vault. Seems your binding is an orphan, how sad. Use '/sfdebug clearbinding "..button.."' to clear it.")
+		eprint("No Spell '"..commID.."' found in your vault. Seems your binding is an orphan, how sad. Use '/sfdebug clearbinding "..commID.."' to clear it.")
 	end
 end)
 
@@ -28,24 +36,35 @@ local function updateHotkeys(requireVaultRefresh)
 	end
 end
 
+---@param commID CommID
+---@return Hotkey?
 local function getHotkeyByCommID(commID)
-	for k,v in pairs(hotkeysCache) do
+	for k, v in pairs(hotkeysCache) do
 		if v == commID then return k end
 	end
 	return nil
 end
 
+---@param key Hotkey
 local function deregisterHotkeyByKey(key)
 	hotkeysCache[key] = nil
 	updateHotkeys(true)
 end
 
+---@param commID CommID
 local function deregisterHotkeyByComm(commID)
-	for k,v in pairs(hotkeysCache) do
-		if v == commID then hotkeysCache[k] = nil; updateHotkeys(true); dprint("Deregistered hotkey for "..commID) return end
+	for k, v in pairs(hotkeysCache) do
+		if v == commID then
+			hotkeysCache[k] = nil
+			updateHotkeys(true)
+			dprint("Deregistered hotkey for "..commID)
+			return
+		end
 	end
 end
 
+---@param key Hotkey
+---@param commID CommID
 local function registerHotkey(key, commID)
 	local oldBinding = getHotkeyByCommID(commID)
 	if oldBinding ~= nil then
@@ -60,13 +79,14 @@ local function getHotkeys()
 	return hotkeysCache
 end
 
+---@param key Hotkey
 local function getHotkeyByKey(key)
 	return hotkeysCache[key]
 end
 
 local function deregisterOrphanedCommIDs()
 	for k,v in pairs(hotkeysCache) do
-		if not SpellCreatorSavedSpells[v] then
+		if not Vault.personal.findSpellByID(v) then
 			hotkeysCache[k] = nil
 		end
 	end

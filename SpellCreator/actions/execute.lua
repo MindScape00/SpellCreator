@@ -92,7 +92,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	end
 end
 
----@param actionsToCommit VaultSpellAction
+---@param actionsToCommit VaultSpellAction[]
 ---@param bypassCheck boolean | nil
 ---@param spellName string
 ---@param spellData VaultSpell?

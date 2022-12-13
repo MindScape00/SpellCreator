@@ -1,15 +1,19 @@
 ---@class ns
 local ns = select(2, ...)
 
-local executeSpell = ns.Actions.Execute.executeSpell
-local cmdWithDotCheck = ns.Cmd.cmdWithDotCheck
-local ADDON_COLOR = ns.Constants.ADDON_COLOR
-local ASSETS_PATH = ns.Constants.ASSETS_PATH
-local ADDON_TITLE = ns.Constants.ADDON_TITLE
-local cprint, dprint, eprint = ns.Logging.cprint, ns.Logging.dprint, ns.Logging.eprint
-local phaseVault = ns.Vault.phase
-local UIHelpers = ns.Utils.UIHelpers
+local Constants = ns.Constants
+local Execute = ns.Actions.Execute
 local Tooltip = ns.Utils.Tooltip
+local UIHelpers = ns.Utils.UIHelpers
+local Vault = ns.Vault
+
+local Gems = ns.UI.Gems
+local Icons = ns.UI.Icons
+
+local executeSpell = Execute.executeSpell
+local ADDON_COLORS = Constants.ADDON_COLORS
+local ASSETS_PATH = Constants.ASSETS_PATH
+local ADDON_TITLE = Constants.ADDON_TITLE
 
 local function getCursorDistanceFromFrame(frame)
 	local uiScale, x1, y1 = UIParent:GetEffectiveScale(), GetCursorPosition()
@@ -135,7 +139,7 @@ local function genQuickCastButtons(self)
 	self.radius = radius
 	for i = 1, #quickCastSpells do
 		local v = quickCastSpells[i]
-		local spellData = SpellCreatorSavedSpells[v]
+		local spellData = Vault.personal.findSpellByID(v)
 		if not self.castButtons[i] then
 			self.castButtons[i] = CreateFrame("Button", "$parentButton"..i, self)
 			local button = self.castButtons[i]
@@ -144,7 +148,7 @@ local function genQuickCastButtons(self)
 			button.index = i
 			--button.icon = button:CreateTexture(nil, "ARTWORK")
 			--button.icon:SetAllPoints()
-			local someIcon = ns.UI.Gems.randomGem()
+			local someIcon = Gems.randomGem()
 			--SetPortraitToTexture(button.icon, someIcon)
 			button:SetNormalTexture(someIcon)
 			button:SetPushedTexture(someIcon)
@@ -251,15 +255,15 @@ local function genQuickCastButtons(self)
 			end)
 		else
 			button.tooltipTitle = spellData.fullName
-			button.tooltipText = "Cast '"..spellData.commID.."' ("..#spellData.actions.." actions).\n|cffAA6F6FShift+Right-Click to remove.|r"
+			button.tooltipText = "Cast '"..spellData.commID.."' ("..#spellData.actions.." actions).\n"..ADDON_COLORS.QC_DARKRED:GenerateHexColorMarkup().."Shift+Right-Click to remove.|r"
 			button.commID = spellData.commID
 			if spellData.icon then
-				--button.icon:SetTexture(ns.UI.Icons.getFinalIcon(spellData.icon))
-				button:SetNormalTexture(ns.UI.Icons.getFinalIcon(spellData.icon))
+				--button.icon:SetTexture(Icons.getFinalIcon(spellData.icon))
+				button:SetNormalTexture(Icons.getFinalIcon(spellData.icon))
 			else
-				local iconNum = ((i-1) % (#ns.UI.Gems.arcaneGemIcons)) + 1
-				--button.icon:SetTexture(ns.UI.Gems.gemPath(ns.UI.Gems.arcaneGemIcons[iconNum]))
-				button:SetNormalTexture(ns.UI.Gems.gemPath(ns.UI.Gems.arcaneGemIcons[iconNum]))
+				local iconNum = ((i-1) % (#Gems.arcaneGemIcons)) + 1
+				--button.icon:SetTexture(Gems.gemPath(Gems.arcaneGemIcons[iconNum]))
+				button:SetNormalTexture(Gems.gemPath(Gems.arcaneGemIcons[iconNum]))
 			end
 			button:SetScript("OnClick", function(self, button)
 				if button == "RightButton" and IsShiftKeyDown() then

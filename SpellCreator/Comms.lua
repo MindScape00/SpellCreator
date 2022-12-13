@@ -23,20 +23,18 @@ end
 ---@param commID CommID
 local function sendSpellToPlayer(playerName, commID)
 	dprint("Sending Spell '"..commID.."' to "..playerName)
-	if SpellCreatorSavedSpells[commID] then
-		local message = Serializer.compressForAddonMsg(SpellCreatorSavedSpells[commID])
+	local spell = Vault.personal.findSpellByID(commID)
+	if spell then
+		local message = Serializer.compressForAddonMsg(spell)
 		AceComm:SendCommMessage(PREFIX.."SPELL", message, "WHISPER", playerName)
 	end
 end
 
 local function sendSpellForCache(commID, charOrPhase, chatType, target)
 	dprint("Sending Spell '"..commID.."', from "..charOrPhase.."'s vault, to Cache Message, via "..chatType)
-	local theSpell
-	if tonumber(charOrPhase) then
-		theSpell = Vault.phase.findSpellByID(commID)
-	else
-		theSpell = SpellCreatorSavedSpells[commID]
-	end
+	local vault = tonumber(charOrPhase) and Vault.phase or Vault.personal
+	local theSpell = vault.findSpellByID(commID)
+
 	if theSpell then
 		local data = charOrPhase..":"..Serializer.compressForAddonMsg(theSpell)
 		if chatType == "EPSI_ANNOUNCE" then
@@ -56,9 +54,11 @@ local function sendSpellForCache(commID, charOrPhase, chatType, target)
 	end
 end
 
-local function saveReceivedSpell(data, charName)
-	SpellCreatorSavedSpells[data.commID] = data
-	cprint("Saved Spell from "..charName..": "..data.commID)
+---@param spell VaultSpell
+---@param charName string
+local function saveReceivedSpell(spell, charName)
+	Vault.personal.saveSpell(spell)
+	cprint("Saved Spell from "..charName..": "..spell.commID)
 end
 
 ---@param data table
@@ -66,21 +66,10 @@ end
 ---@param callback fun()
 local function tryToSaveReceivedSpell(data, charName, callback)
 	if data.commID then
-		if SpellCreatorSavedSpells[data.commID] then
+		if Vault.personal.findSpellByID(data.commID) then
 			dprint("The spell already exists, prompting to confirm over-write.")
-			StaticPopupDialogs["SCFORGE_CONFIRM_OVERWRITE"] = {
-				text = "Spell '"..data.commID.."' Already exists.\n\rDo you want to overwrite the spell ("..data.fullName..")".."?",
-				OnAccept = function()
-					saveReceivedSpell(data, charName)
-					if callback then callback() end
-				end,
-				button1 = "Overwrite",
-				button2 = "Cancel",
-				hideOnEscape = true,
-				whileDead = true,
-			}
-			StaticPopup_Show("SCFORGE_CONFIRM_OVERWRITE")
-			return;
+			ns.UI.Popups.showCommOverwritePopup(data, charName, callback)
+			return
 		end
 		saveReceivedSpell(data, charName)
 		if callback then callback() end
@@ -138,6 +127,7 @@ ns.Comms = {
     requestSpellFromPlayer = requestSpellFromPlayer,
 	receiveSpellData = receiveSpellData,
 	tryToSaveReceivedSpell = tryToSaveReceivedSpell,
+	saveReceivedSpell = saveReceivedSpell,
 	sendSpellToPlayer = sendSpellToPlayer,
 	sendSpellForCache = sendSpellForCache,
 	receiveSpellCache = receiveSpellCache,

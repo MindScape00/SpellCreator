@@ -192,13 +192,14 @@ local function createSpellCreatorInterfaceOptions()
 
 	local buttonData = {
 		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.loadChronologicallyToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -3,},
-		["title"] = "Fast Reset the Forge UI",
-		["tooltipTitle"] = "Fast Reset",
-		["tooltipText"] = "Skip the Animation of Resetting the UI, and instantly reset it, when you use the Clear & Reset button.",
-		["optionKey"] = "fastReset",
+		["title"] = "A future option",
+		["tooltipTitle"] = "Something later",
+		["tooltipText"] = "This used to the the fast reset toggle, but it was already fast enough, so we got rid of it. TBD what we add here next!",
+		["optionKey"] = "idkyet",
 		["onClickHandler"] = nil,
 		}
 	SpellCreatorInterfaceOptions.panel.fastResetToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+	SpellCreatorInterfaceOptions.panel.fastResetToggle:Disable()
 
 	local buttonData = {
 		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.fastResetToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -3,},
@@ -209,7 +210,6 @@ local function createSpellCreatorInterfaceOptions()
 		["onClickHandler"] = nil,
 		}
 	SpellCreatorInterfaceOptions.panel.showTooltipsToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
-	SpellCreatorInterfaceOptions.panel.showTooltipsToggle:Disable()
 
 	-- UAC Control - Not in line with the rest, in the bottom left
 	local buttonData = {

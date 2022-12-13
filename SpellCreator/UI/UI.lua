@@ -10,10 +10,12 @@ local ns = select(2, ...)
 ---@field Gems UI_Gems
 ---@field IconPicker UI_IconPicker
 ---@field Icons UI_Icons
+---@field ImportExport UI_ImportExport
 ---@field LoadSpellFrame UI_LoadSpellFrame
 ---@field MainFrame UI_MainFrame
 ---@field MinimapButton UI_MinimapButton
 ---@field Models UI_Models
+---@field Popups UI_Popups
 ---@field Portrait UI_Portrait
 ---@field ProfileFilterMenu UI_ProfileFilterMenu
 ---@field Quickcast UI_Quickcast

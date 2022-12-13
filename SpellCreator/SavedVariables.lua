@@ -3,6 +3,7 @@ local addonName = ...
 local ns = select(2, ...)
 
 local DataUtils = ns.Utils.Data
+local Vault = ns.Vault
 
 local isNotDefined = DataUtils.isNotDefined
 
@@ -67,7 +68,7 @@ local function getProfileNames(filterAccount, filterPlayer)
     local profileNames = {}
     local profilesMap = {}
 
-	for _, v in pairs(SpellCreatorSavedSpells) do
+	for _, v in pairs(Vault.personal.getSpells()) do
 		if v.profile
 			and (not filterAccount or v.profile ~= "Account")
 			and (not filterPlayer or v.profile ~= GetUnitName("player")) then

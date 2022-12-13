@@ -140,7 +140,7 @@ local function initActionDropdownItems(dataList, flatMenuList, menuList, parentI
 				menuItem.tooltipText = data.description
 
 				if data.selfAble then
-					menuItem.tooltipText = menuItem.tooltipText .. "\n\r" .. "Enable the 'Self' checkbox to always apply to yourself."
+					menuItem.tooltipText = menuItem.tooltipText .. "\n\r" .. "Enable the "..Tooltip.genContrastText("Self").." checkbox to always apply to yourself."
 				end
 
 				if data.example then
@@ -166,7 +166,7 @@ local function initActionDropdownItems(dataList, flatMenuList, menuList, parentI
 						parentItem.checked = true
 					end
 
-					UIDropDownMenu_SetText(SCForgeMainFrame.spellRows[arg1].actionSelectButton.Dropdown, menuItem.text)
+					UIDropDownMenu_SetText(SCForgeMainFrame.spellRows[arg1].actionSelectButton, menuItem.text)
 					Debug.ddump(self)
 					updateSpellRowOptions(arg1, menuItem.value)
 
@@ -198,22 +198,30 @@ local function genStaticDropdownChild( parent, dropdownName, menuList, title, wi
 	if not title then title = "Select" end
 	if not width then width = 55 end
 	local newDropdown = CreateFrame("Frame", dropdownName, parent, "UIDropDownMenuTemplate")
-	parent.Dropdown = newDropdown
+	--parent.Dropdown = newDropdown
 	newDropdown:SetPoint("CENTER")
 
-	local function newDropdown_Initialize(_, level, subMenu )
-		local list = menuList
-		if subMenu then list = subMenu end
-		for index = 1, #list do
-			local value = list[index]
-			if (value.text) then
-				value.index = index;
-				UIDropDownMenu_AddButton( value, level );
+	if type(menuList) == "table" then
+		local function newDropdown_Initialize(_, level, subMenu )
+			local list = menuList
+			if subMenu then list = subMenu end
+			for index = 1, #list do
+				local value = list[index]
+				if (value.text) then
+					value.index = index;
+					UIDropDownMenu_AddButton( value, level );
+				end
 			end
 		end
+
+		UIDropDownMenu_Initialize(newDropdown, newDropdown_Initialize, "nope", nil, menuList)
+
+	elseif type(menuList) == "function" then
+		newDropdown.Button:SetScript("OnClick", function(self)
+			EasyMenu(menuList(self), ARCProfileContextMenu, self, 0, 0, "DROPDOWN")
+		end)
 	end
 
-	UIDropDownMenu_Initialize(newDropdown, newDropdown_Initialize, "nope", nil, menuList)
 	UIDropDownMenu_SetWidth(newDropdown, width);
 	UIDropDownMenu_SetButtonWidth(newDropdown, width+15)
 	UIDropDownMenu_SetSelectedID(newDropdown, 0)
@@ -222,10 +230,12 @@ local function genStaticDropdownChild( parent, dropdownName, menuList, title, wi
 	_G[dropdownName.."Text"]:SetFontObject("GameFontWhiteTiny2")
 	_G[dropdownName.."Text"]:SetWidth(width-15)
 	-- local fontName,fontHeight,fontFlags = _G[dropdownName.."Text"]:GetFont()
---	_G[dropdownName.."Text"]:SetFont(fontName, 10)
+	-- _G[dropdownName.."Text"]:SetFont(fontName, 10)
 
-	newDropdown:GetParent():SetWidth(newDropdown:GetWidth())
-	newDropdown:GetParent():SetHeight(newDropdown:GetHeight())
+	--newDropdown:GetParent():SetWidth(newDropdown:GetWidth())
+	--newDropdown:GetParent():SetHeight(newDropdown:GetHeight())
+
+	return newDropdown
 end
 
 ---@param rowToRemove number?
@@ -236,8 +246,8 @@ local function removeRow(rowToRemove)
 		for k,v in pairs(theSpellRow.menuList) do
 			v.checked = false
 		end
-		UIDropDownMenu_SetSelectedID(theSpellRow.actionSelectButton.Dropdown, 0)
-		theSpellRow.actionSelectButton.Dropdown.Text:SetText("Action")
+		UIDropDownMenu_SetSelectedID(theSpellRow.actionSelectButton, 0)
+		theSpellRow.actionSelectButton.Text:SetText("Action")
 		updateSpellRowOptions(numActiveRows, nil)
 
 		theSpellRow.SelfCheckbox:SetChecked(false)
@@ -257,8 +267,8 @@ local function removeRow(rowToRemove)
 
 			-- theRowToSet.actionSelectButton.Dropdown
 			-- theRowToGrab.actionSelectButton.Dropdown
-			UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, UIDropDownMenu_GetSelectedID(theRowToGrab.actionSelectButton.Dropdown))
-			theRowToSet.actionSelectButton.Dropdown.Text:SetText(theRowToGrab.actionSelectButton.Dropdown.Text:GetText())
+			UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton, UIDropDownMenu_GetSelectedID(theRowToGrab.actionSelectButton))
+			theRowToSet.actionSelectButton.Text:SetText(theRowToGrab.actionSelectButton.Text:GetText())
 			theRowToSet.SelectedAction = theRowToGrab.SelectedAction
 			updateSpellRowOptions(i, theRowToGrab.SelectedAction)
 
@@ -280,8 +290,8 @@ local function removeRow(rowToRemove)
 			v.checked = false
 		end
 		-- theSpellRow.actionSelectButton.Dropdown
-		UIDropDownMenu_SetSelectedID(theSpellRow.actionSelectButton.Dropdown, 0)
-		theSpellRow.actionSelectButton.Dropdown.Text:SetText("Action")
+		UIDropDownMenu_SetSelectedID(theSpellRow.actionSelectButton, 0)
+		theSpellRow.actionSelectButton.Text:SetText("Action")
 		updateSpellRowOptions(numActiveRows, nil)
 
 		theSpellRow.SelfCheckbox:SetChecked(false)
@@ -300,6 +310,10 @@ local function removeRow(rowToRemove)
 	SCForgeMainFrame.Inset.scrollFrame:UpdateScrollChildRect()
 
 	SCForgeMainFrame.AddRowRow:SetPoint("TOPLEFT", SCForgeMainFrame.spellRows[numActiveRows], "BOTTOMLEFT", 0, 0)
+end
+
+local function getRowActionTypeData(rowNum)
+	if SCForgeMainFrame.spellRows[rowNum].SelectedAction and actionTypeData[SCForgeMainFrame.spellRows[rowNum].SelectedAction].dataName then return actionTypeData[SCForgeMainFrame.spellRows[rowNum].SelectedAction] end
 end
 
 ---@param rowToAdd number?
@@ -357,9 +371,10 @@ local function addRow(rowToAdd)
 
 		initActionDropdownItems(actionTypeDataList, newRow.flatMenuList, menuList)
 
-		newRow.actionSelectButton = CreateFrame("Frame", nil, newRow)
+		--newRow.actionSelectButton = CreateFrame("Frame", nil, newRow)
+		--newRow.actionSelectButton:SetPoint("LEFT", newRow.mainDelayBox, "RIGHT", 0, -2)
+		newRow.actionSelectButton = genStaticDropdownChild( newRow, "SCForgeMainFrameSpellRow"..numActiveRows.."ActionSelectButton", menuList, "Action", actionColumnWidth)
 		newRow.actionSelectButton:SetPoint("LEFT", newRow.mainDelayBox, "RIGHT", 0, -2)
-		genStaticDropdownChild( newRow.actionSelectButton, "SCForgeMainFrameSpellRow"..numActiveRows.."ActionSelectButton", menuList, "Action", actionColumnWidth)
 
 		-- Self Checkbox
 		newRow.SelfCheckbox = CreateFrame("CHECKBUTTON", nil, newRow, "UICheckButtonTemplate")
@@ -393,31 +408,31 @@ local function addRow(rowToAdd)
 			newRow.InputEntryBox:SetAutoFocus(false)
 			newRow.InputEntryBox:Disable()
 
-			-- TOOLTIP UPDATE NEEDED
-			newRow.InputEntryBox:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-				local row = self.rowNumber
-				self.Timer = C_Timer.NewTimer(0.7,function()
-					if SCForgeMainFrame.spellRows[row].SelectedAction and actionTypeData[SCForgeMainFrame.spellRows[row].SelectedAction].dataName then
-						local actionData = actionTypeData[SCForgeMainFrame.spellRows[row].SelectedAction]
-						GameTooltip:SetText(actionData.dataName, nil, nil, nil, nil, true)
-						if actionData.inputDescription then
-							GameTooltip:AddLine(" ")
-							GameTooltip:AddLine(actionData.inputDescription, 1, 1, 1, true)
-							--GameTooltip:AddLine(" ")
-						end
-						if actionData.example then
-							GameTooltip:AddLine(" ")
-							GameTooltip:AddLine(Tooltip.genTooltipText("example", actionData.example), 1, 1, 1, true)
-						end
-						GameTooltip:Show()
+			Tooltip.set(newRow.InputEntryBox,
+				function(self) -- title
+					local _actionTypeData = getRowActionTypeData(self.rowNumber)
+					if _actionTypeData then
+						return _actionTypeData.dataName
+					else
+						return nil
 					end
-				end)
-			end)
-			newRow.InputEntryBox:SetScript("OnLeave", function(self)
-				GameTooltip_Hide()
-				self.Timer:Cancel()
-			end)
+				end,
+				function(self) -- body
+					local _actionTypeData = getRowActionTypeData(self.rowNumber)
+					local strings = {}
+
+					if _actionTypeData.inputDescription then
+						tinsert(strings, " ")
+						tinsert(strings, _actionTypeData.inputDescription)
+					end
+					if _actionTypeData.example then
+						tinsert(strings, " ")
+						tinsert(strings, _actionTypeData.example)
+					end
+
+					return strings
+				end
+			)
 
 		-- Revert Delay Box
 
@@ -448,9 +463,9 @@ local function addRow(rowToAdd)
 			Tooltip.set(newRow.RevertDelayBox,
 				"Revert Delay",
 				{
-					"How long after the initial action before reverting.",
-					"\nNote: This is RELATIVE to this lines main action delay",
-					"\nEx: Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting.."
+					"How long after the initial action before reverting.\n",
+					"Note: This is RELATIVE to this lines main action delay\n",
+					Tooltip.genTooltipText("example", "Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting.."),
 				}
 			)
 
@@ -576,8 +591,8 @@ local function addRow(rowToAdd)
 				v.checked = false
 			end
 
-			UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, UIDropDownMenu_GetSelectedID(theRowToGrab.actionSelectButton.Dropdown))
-			theRowToSet.actionSelectButton.Dropdown.Text:SetText(theRowToGrab.actionSelectButton.Dropdown.Text:GetText())
+			UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton, UIDropDownMenu_GetSelectedID(theRowToGrab.actionSelectButton))
+			theRowToSet.actionSelectButton.Text:SetText(theRowToGrab.actionSelectButton.Text:GetText())
 			theRowToSet.SelectedAction = theRowToGrab.SelectedAction
 			updateSpellRowOptions(i, theRowToGrab.SelectedAction)
 
@@ -588,8 +603,8 @@ local function addRow(rowToAdd)
 		end
 		local theRowToSet = SCForgeMainFrame.spellRows[rowToAdd]
 		local prevRow = SCForgeMainFrame.spellRows[rowToAdd-1]
-		UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton.Dropdown, 0)
-		theRowToSet.actionSelectButton.Dropdown.Text:SetText("Action")
+		UIDropDownMenu_SetSelectedID(theRowToSet.actionSelectButton, 0)
+		theRowToSet.actionSelectButton.Text:SetText("Action")
 		updateSpellRowOptions(rowToAdd)
 
 		if prevRow then
@@ -645,12 +660,12 @@ end
 local function setRowAction(rowNum, actionData)
 	local _spellRow = SCForgeMainFrame.spellRows[rowNum]
 	if actionData.actionType == "reset" then
-		UIDropDownMenu_SetSelectedID(_spellRow.actionSelectButton.Dropdown, 0)
-		_spellRow.actionSelectButton.Dropdown.Text:SetText("Action")
+		UIDropDownMenu_SetSelectedID(_spellRow.actionSelectButton, 0)
+		_spellRow.actionSelectButton.Text:SetText("Action")
 		updateSpellRowOptions(rowNum)
 	else
 		updateActionDropdownCheckedStates(_spellRow.menuList, actionData.actionType)
-		_spellRow.actionSelectButton.Dropdown.Text:SetText(actionTypeData[actionData.actionType].name)
+		_spellRow.actionSelectButton.Text:SetText(actionTypeData[actionData.actionType].name)
 		updateSpellRowOptions(rowNum, actionData.actionType)
 	end
 
@@ -683,4 +698,5 @@ ns.UI.SpellRow = {
 	setNumActiveRows = setNumActiveRows,
 	getRowAction = getRowAction,
 	setRowAction = setRowAction,
+	genStaticDropdownChild = genStaticDropdownChild,
 }

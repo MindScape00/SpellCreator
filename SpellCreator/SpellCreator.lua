@@ -4,13 +4,14 @@ local ns = select(2, ...)
 
 local ActionsData = ns.Actions.Data
 local actionTypeData = ActionsData.actionTypeData
-local cmd, cmdWithDotCheck = ns.Cmd.cmd, ns.Cmd.cmdWithDotCheck
-local runMacroText = ns.Cmd.runMacroText
+local cmd = ns.Cmd.cmd
 local cprint, dprint, eprint = ns.Logging.cprint, ns.Logging.dprint, ns.Logging.eprint
+local ADDON_COLORS = ns.Constants.ADDON_COLORS
 
 local Comms = ns.Comms
 local Constants = ns.Constants
 local Execute = ns.Actions.Execute
+local Gossip = ns.Gossip
 local Permissions = ns.Permissions
 local ProfileFilter = ns.ProfileFilter
 local SavedVariables = ns.SavedVariables
@@ -20,7 +21,6 @@ local Hotkeys = ns.Actions.Hotkeys
 
 local DataUtils = ns.Utils.Data
 local Debug = ns.Utils.Debug
-local HTML = ns.Utils.HTML
 local NineSlice = ns.Utils.NineSlice
 local UIHelpers = ns.Utils.UIHelpers
 local Tooltip = ns.Utils.Tooltip
@@ -30,11 +30,13 @@ local Attic = ns.UI.Attic
 local Basement = ns.UI.Basement
 local ChatLink = ns.UI.ChatLink
 local Icons = ns.UI.Icons
+local ImportExport = ns.UI.ImportExport
 local Models, Portrait = ns.UI.Models, ns.UI.Portrait
 local LoadSpellFrame = ns.UI.LoadSpellFrame
 local MainFrame = ns.UI.MainFrame
 local MinimapButton = ns.UI.MinimapButton
 local Options = ns.UI.Options
+local Popups = ns.UI.Popups
 local ProfileFilterMenu = ns.UI.ProfileFilterMenu
 local Quickcast = ns.UI.Quickcast
 local SpellRow = ns.UI.SpellRow
@@ -45,18 +47,17 @@ local ADDON_COLOR, ADDON_PATH, ADDON_TITLE = Constants.ADDON_COLOR, Constants.AD
 local ASSETS_PATH = Constants.ASSETS_PATH
 local SPELL_VISIBILITY = Constants.SPELL_VISIBILITY
 local VAULT_TYPE = Constants.VAULT_TYPE
-local executeSpell, executePhaseSpell = Execute.executeSpell, Execute.executePhaseSpell
-local isDMEnabled, isOfficerPlus, isMemberPlus = Permissions.isDMEnabled, Permissions.isOfficerPlus, Permissions.isMemberPlus
+local executeSpell = Execute.executeSpell
+local isOfficerPlus, isMemberPlus = Permissions.isOfficerPlus, Permissions.isMemberPlus
 local phaseVault = Vault.phase
 local isNotDefined = DataUtils.isNotDefined
+local orderedPairs = DataUtils.orderedPairs
 
 local addonVersion = GetAddOnMetadata(addonName, "Version")
 
 ---@type table<CommID, VaultSpell>
 local savedSpellFromVault = {}
 
-local modifiedGossips = {}
-local isGossipLoaded
 local saveSpell
 
 -- localized frequent functions for speed
@@ -64,7 +65,7 @@ local C_Timer = C_Timer
 local print = print
 local SendChatMessage = SendChatMessage
 local _G = _G
-local pairs, ipairs = pairs, ipairs
+local ipairs = ipairs
 --local tContains = tContains
 --
 -- local curDate = date("*t") -- Current Date for surprise launch - disabled since it's over anyways
@@ -80,43 +81,15 @@ local sfCmd_ReplacerChar = "@N@"
 
 -- local main = Epsilon.main
 
--- Deprecated Functions Wrapper
-local CloseGossip = CloseGossip or C_GossipInfo.CloseGossip;
-local GetNumGossipOptions = GetNumGossipOptions or C_GossipInfo.GetNumOptions;
-local SelectGossipOption = SelectGossipOption or C_GossipInfo.SelectOption;
-local GetGossipText = GetGossipText or C_GossipInfo.GetText;
-
 local C_Epsilon = C_Epsilon
 
 -------------------------------------------------------------------------------
 -- Simple Chat & Helper Functions
 -------------------------------------------------------------------------------
 
-local function sendChat(text)
+--[[ local function sendChat(text)
   SendChatMessage(text, "SAY");
-end
-
-local function get_keys(t)
-	local keys={}
-	for key,_ in pairs(t) do
-		table.insert(keys, key)
-	end
-	return keys
-end
-
-local function orderedPairs (t, f) -- get keys & sort them - default sort is alphabetically
-	local keys = {}
-	for k in pairs(t) do keys[#keys+1] = k end
-	table.sort(keys, f)
-	local i = 0      -- iterator variable
-	local iter = function ()   -- iterator function
-		i = i + 1
-		if keys[i] == nil then return nil
-		else return keys[i], t[keys[i]]
-		end
-	end
-	return iter
-end
+end ]]
 
 -- Frame Listeners
 local phaseAddonDataListener = CreateFrame("Frame")
@@ -380,9 +353,8 @@ local function loadSpell(spellToLoad)
 
 	Attic.updateInfo(spellToLoad)
 
-	local spellActions = spellToLoad.actions
 	---@type VaultSpellAction[]
-	local localSpellActions = CopyTable(spellActions)
+	local localSpellActions = CopyTable(spellToLoad.actions)
 	local numberOfActionsToLoad = #localSpellActions
 
 	-- Adjust the number of available Action Rows
@@ -430,26 +402,22 @@ Basement.init(SCForgeMainFrame, {
 
 		resetButton:Disable()
 
-		if SpellCreatorMasterTable.Options["fastReset"] then
-			UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay,0.2,0.05,0.8)
-			C_Timer.After(0.2, function() UIFrameFadeOut(SCForgeMainFrame.Inset.Bg.Overlay,0.2,0.8,0.05); resetButton:Enable(); end)
-			loadSpell(emptySpell)
-		else
-			UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay,0.1,0.05,0.8)
-			Animation.setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
-			local deleteRowIter = 0
-			for i = SpellRow.getNumActiveRows(), 1, -1 do
-				deleteRowIter = deleteRowIter+1
-				C_Timer.After(deleteRowIter/50, function() SpellRow.removeRow(i) end)
-			end
-
-			C_Timer.After(SpellRow.getNumActiveRows()/50, function()
-				loadSpell(emptySpell)
-				Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
-				resetButton:Enable();
-			end)
+		UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay,0.1,0.05,0.8)
+		Animation.setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
+		local numActiveRows = SpellRow.getNumActiveRows()
+		local resetTime = min(numActiveRows/40, 0.5)
+		local resetPerRowTime = resetTime / numActiveRows
+		local deleteRowIter = 0
+		for i = numActiveRows, 1, -1 do
+			deleteRowIter = deleteRowIter+1
+			C_Timer.After(resetPerRowTime*deleteRowIter, function() SpellRow.removeRow(i) end)
 		end
 
+		C_Timer.After(resetTime, function()
+			loadSpell(emptySpell)
+			Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
+			resetButton:Enable();
+		end)
 	end,
 })
 
@@ -632,7 +600,7 @@ local function saveSpellToPhaseVault(commID, overwrite, fromPhase, forcePrivate)
 				if fromPhase then
 					_spellData = Vault.phase.getSpellByIndex(phaseVaultIndex)
 				else
-					_spellData = SpellCreatorSavedSpells[commID]
+					_spellData = Vault.personal.findSpellByID(commID)
 				end
 				if LoadSpellFrame.getUploadToPhaseVisibility() == SPELL_VISIBILITY.PRIVATE then
 					_spellData.private = true
@@ -797,42 +765,8 @@ gossipAddMenuInsert.RadioSave:SetScript("OnClick", function(self)
 end)
 
 ------------------------
-local exportMenuFrame = CreateFrame("Frame")
-exportMenuFrame:SetSize(350,120)
-exportMenuFrame.ScrollFrame = CreateFrame("ScrollFrame", nil, exportMenuFrame, "InputScrollFrameTemplate")
-exportMenuFrame.ScrollFrame.CharCount:Hide()
-exportMenuFrame.ScrollFrame:SetSize(350,100)
-exportMenuFrame.ScrollFrame:SetPoint("CENTER")
-exportMenuFrame.ScrollFrame.EditBox:SetWidth(exportMenuFrame.ScrollFrame:GetWidth()-18)
-exportMenuFrame.ScrollFrame.EditBox:SetScript("OnEscapePressed", function(self) self:GetParent():GetParent():GetParent():Hide(); end)
-exportMenuFrame:Hide();
 
-StaticPopupDialogs["SCFORGE_EXPORT_SPELL"] = {
-	text = "ArcSpell Export: %s",
-	subText = "CTRL+C to Copy",
-	closeButton = true,
-	enterClicksFirstButton = true,
-	button1 = DONE,
-	hideOnEscape = true,
-	whileDead = true,
-}
-
--- Import Menu table moved below SaveSpell...
-
-local function showExportMenu(spellName, data)
-	local dialog = StaticPopup_Show("SCFORGE_EXPORT_SPELL", spellName, nil, nil, exportMenuFrame)
-	dialog.insertedFrame.ScrollFrame.EditBox:SetText(data);
-	dialog.insertedFrame.ScrollFrame.EditBox:SetFocus();
-	dialog.insertedFrame.ScrollFrame.EditBox:HighlightText();
-end
-
-local function showImportMenu()
-	local dialog = StaticPopup_Show("SCFORGE_IMPORT_SPELL", nil, nil, nil, exportMenuFrame)
-	dialog.insertedFrame.ScrollFrame.EditBox:SetText("");
-	dialog.insertedFrame.ScrollFrame.EditBox:SetFocus();
-end
-
-local baseVaultFilterTags = {
+--[[ local baseVaultFilterTags = {
 	"Macro", "Utility", "Morph", "Animation", "Teleport", "Quest", "Fun", "Officer+", "Gossip", "Spell",
 }
 
@@ -841,11 +775,12 @@ local function editVaultTags( tag, spellCommID, vaultType ) --
 	if not tag and not spellCommID then return; end
 	if not vaultType then vaultType = 1 end
 	if vaultType == 1 then
-		if not SpellCreatorSavedSpells[spellCommID].tags then SpellCreatorSavedSpells[spellCommID].tags = {} end
-		if SpellCreatorSavedSpells[spellCommID].tags[tag] then SpellCreatorSavedSpells[spellCommID].tags[tag] = nil else SpellCreatorSavedSpells[spellCommID].tags[tag] = true end
-		--print(SpellCreatorSavedSpells[spellCommID].tags[tag])
+		local spell = Vault.personal.findSpellByID(spellCommID)
+		if not spell.tags then spell.tags = {} end
+		if spell.tags[tag] then spell.tags[tag] = nil else spell.tags[tag] = true end
+		--print(spell.tags[tag])
 	end
-end
+end ]]
 
 local function setSpellProfile(spellCommID, profileName, vaultType, callback)
 	if not vaultType then vaultType = 1 end
@@ -893,7 +828,7 @@ local function setSpellProfile(spellCommID, profileName, vaultType, callback)
 		return;
 	end
 	if vaultType == 1 then
-		SpellCreatorSavedSpells[spellCommID].profile = profileName
+		Vault.personal.findSpellByID(spellCommID).profile = profileName
 	end
 	if callback then
 		callback()
@@ -920,12 +855,17 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 			{text = "Transfer", tooltipTitle="Copy to Personal Vault", tooltipOnButton=true, notCheckable = true, func = function() saveSpell(nil, spellCommID) end},
 		}
 		item = {text = "Add to Gossip", notCheckable = true, func = function() _G["scForgeLoadRow"..spellCommID].gossipButton:Click() end}
-		if not isGossipLoaded then item.disabled = true; item.text = "(Open a Gossip Menu)"; end
+		if not Gossip.isLoaded() then item.disabled = true; item.text = "(Open a Gossip Menu)"; end
 		tinsert(menuList, item)
 	else
-		_profile = SpellCreatorSavedSpells[spellCommID].profile
+		---@cast spellCommID CommID
+		local spell = Vault.personal.findSpellByID(spellCommID)
+
+		if not spell then return end
+
+		_profile = spell.profile
 		menuList = {
-			{text = SpellCreatorSavedSpells[spellCommID].fullName, notCheckable = true, isTitle=true},
+			{text = spell.fullName, notCheckable = true, isTitle=true},
 			{text = "Cast", notCheckable = true, func = function() ARC:CAST(spellCommID) end},
 			{text = "Edit", notCheckable = true, func = function() loadSpell(savedSpellFromVault[spellCommID]) end},
 			{text = "Transfer", tooltipTitle="Copy to Phase Vault", tooltipOnButton=true, notCheckable = true, func = function() saveSpellToPhaseVault(spellCommID) end},
@@ -934,8 +874,8 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 		-- Profiles Menu
 		item = {text = "Profile", notCheckable=true, hasArrow=true, keepShownOnClick=true,
 			menuList = {
-				{ text = "Account", isNotRadio = (_profile=="Account"), checked = (_profile=="Account"), disabled = (_profile=="Account"), disablecolor = ((_profile=="Account") and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, "Account", 1, callback); CloseDropDownMenus(); end },
-				{ text = playerName, isNotRadio = (_profile==playerName), checked = (_profile==playerName), disabled = (_profile==playerName), disablecolor = ((_profile==playerName) and "|cFFCE2EFF" or nil), func = function() setSpellProfile(spellCommID, playerName, 1, callback); CloseDropDownMenus(); end },
+				{ text = "Account", isNotRadio = (_profile=="Account"), checked = (_profile=="Account"), disabled = (_profile=="Account"), disablecolor = ((_profile=="Account") and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil), func = function() setSpellProfile(spellCommID, "Account", 1, callback); CloseDropDownMenus(); end },
+				{ text = playerName, isNotRadio = (_profile==playerName), checked = (_profile==playerName), disabled = (_profile==playerName), disablecolor = ((_profile==playerName) and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil), func = function() setSpellProfile(spellCommID, playerName, 1, callback); CloseDropDownMenus(); end },
 			},
 		}
 
@@ -948,7 +888,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 				isNotRadio = (_profile == profileName),
 				checked = (_profile == profileName),
 				disabled = (_profile == profileName),
-				disablecolor = ((_profile == profileName) and "|cFFCE2EFF" or nil),
+				disablecolor = ((_profile == profileName) and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
 				func = function()
 					setSpellProfile(spellCommID, profileName, 1, callback)
 					CloseDropDownMenus()
@@ -968,8 +908,8 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 		for k,v in ipairs(baseVaultFilterTags) do
 			interTagTable[v] = false
 		end
-		if SpellCreatorSavedSpells[spellCommID].tags then
-			for k,v in pairs(SpellCreatorSavedSpells[spellCommID].tags) do
+		if spell.tags then
+			for k,v in pairs(spell.tags) do
 				interTagTable[k] = true
 			end
 		end
@@ -1001,8 +941,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 		ChatLink.linkSpell(savedSpellFromVault[spellCommID], vault)
 	end}
 	menuList[#menuList+1] = {text = "Export", notCheckable = true, func = function()
-		local exportData = savedSpellFromVault[spellCommID]
-		showExportMenu(savedSpellFromVault[spellCommID].commID, savedSpellFromVault[spellCommID].commID..":"..serializer.compressForExport(exportData))
+		ImportExport.exportSpell(savedSpellFromVault[spellCommID])
 	end}
 
 
@@ -1026,7 +965,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	local currentVault = LoadSpellFrame.getCurrentVault()
 
 	if currentVault == VAULT_TYPE.PERSONAL then
-		savedSpellFromVault = SpellCreatorSavedSpells
+		savedSpellFromVault = Vault.personal.getSpells()
 		SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Hide()
 		SCForgeMainFrame.LoadSpellFrame.profileButton:Show()
 		SCForgeMainFrame.LoadSpellFrame.TitleBgColor:SetColorTexture(0.30,0.10,0.40,0.5)
@@ -1172,30 +1111,23 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					button.border:SetPoint("TOPLEFT", -6, 6)
 					button.border:SetPoint("BOTTOMRIGHT", 6, -6)
 
-					-- TOOLTIP OVERHAUL NEEDED
-					button:SetScript("OnEnter", function(self)
-						GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-						self.Timer = C_Timer.NewTimer(0.7,function()
-							GameTooltip:SetText(savedSpellFromVault[self.commID].fullName, nil, nil, nil, nil, true)
-							if savedSpellFromVault[self.commID].description then
-								GameTooltip:AddLine(savedSpellFromVault[self.commID].description, 1, 1, 1, 1)
-							end
-							GameTooltip:AddLine(" ", 1, 1, 1, 1)
-							--GameTooltip:AddLine("Command: '/sf "..v.commID.."'", 1, 1, 1, 1)
-							GameTooltip:AddLine("Click to cast '"..savedSpellFromVault[self.commID].commID.."'", 1, 1, 1, 1)
-							GameTooltip:AddLine("Actions: "..#savedSpellFromVault[self.commID].actions, 1, 1, 1, 1)
+					-- NOTE: INCLUDE THE FORCED TAG ON THIS TOOLTIP, WE EXPECT A TOOLTIP ON THE ICON EVEN IF TOOLTIPS ARE DISABLED
+					Tooltip.set(button,function(self) return savedSpellFromVault[self.commID].fullName end,
+						function(self)
+							local strings = {}
+							if savedSpellFromVault[self.commID].description then tinsert(strings, savedSpellFromVault[self.commID].description); end
+							tinsert(strings, " ")
+							tinsert(strings, "Click to cast "..Tooltip.genContrastText(savedSpellFromVault[self.commID].commID))
+							tinsert(strings, "Actions: "..#savedSpellFromVault[self.commID].actions)
 							local hotkeyKey = Hotkeys.getHotkeyByCommID(self.commID)
-							if hotkeyKey then GameTooltip:AddLine("Hotkey: "..hotkeyKey, 1,1,1,1) end
-							GameTooltip:AddLine(" ", 1, 1, 1, 1)
-							GameTooltip:AddLine("Right-Click for more options!", 1, 1, 1, 1)
-							GameTooltip:AddLine("Shift-Click to link in chat & share with other players.", 1, 1, 1, 1)
-							GameTooltip:Show()
-						end)
-					end)
-					button:SetScript("OnLeave", function(self)
-						GameTooltip_Hide()
-						self.Timer:Cancel()
-					end)
+							if hotkeyKey then tinsert(strings, "Hotkey: "..hotkeyKey) end
+							tinsert(strings, " ")
+							tinsert(strings, Tooltip.genContrastText("Right-Click").." for more options!")
+							--tinsert(strings, " ")
+							tinsert(strings, Tooltip.genContrastText("Shift-Click").." to link in chat.")
+							return strings
+					end, {forced = true})
+
 					button:SetScript("OnClick", function(self, button)
 						local currentVault = LoadSpellFrame.getCurrentVault()
 						if button == "LeftButton" then
@@ -1318,7 +1250,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 								if self.insertedFrame.hideButton:GetChecked() then tag = tag.."_hide" end
 								tag = tag..":"
 								local command
-								if self.insertedFrame.RadioOption:GetChecked() then command = "ph fo np go op ad "; elseif self.insertedFrame.RadioBody:Getchecked() then command = "ph fo np go te ad "; end
+								if self.insertedFrame.RadioOption:GetChecked() then command = "ph fo np go op ad "; elseif self.insertedFrame.RadioBody:GetChecked() then command = "ph fo np go te ad "; end
 
 								local finalCommand = command..text.." "..tag..savedSpellFromVault[data].commID..">"
 								cmd(finalCommand)
@@ -1464,7 +1396,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 						thisRow.loadButton:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
 						thisRow.gossipButton:Show()
 						thisRow.privateIconButton:Show()
-						if isGossipLoaded then
+						if Gossip.isLoaded() then
 							thisRow.gossipButton:Enable()
 						else
 							thisRow.gossipButton:Disable()
@@ -1480,30 +1412,22 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					end
 				end
 
-				-- TOOLTIP UPDATE NEEDED
-				-- Update the main row frame for mouse over - this allows us to hover & shift-click for links
-				thisRow:SetScript("OnEnter", function(self)
-					GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-					self.Timer = C_Timer.NewTimer(0.7,function()
-						GameTooltip:SetText(v.fullName, nil, nil, nil, nil, true)
-						if v.description then
-							GameTooltip:AddLine(v.description, 1, 1, 1, 1)
-						end
-						GameTooltip:AddLine(" ", 1, 1, 1, 1)
-						GameTooltip:AddLine("Command: '/sf "..v.commID.."'", 1, 1, 1, 1)
-						GameTooltip:AddLine("Actions: "..#v.actions, 1, 1, 1, 1)
-						local hotkeyKey = Hotkeys.getHotkeyByCommID(v.commID)
-						if hotkeyKey then GameTooltip:AddLine("Hotkey: "..hotkeyKey, 1,1,1,1) end
-						GameTooltip:AddLine(" ", 1, 1, 1, 1)
-						GameTooltip:AddLine("Right-Click for more options!", 1, 1, 1, 1)
-						GameTooltip:AddLine("Shift-Click to link in chat & share with other players.", 1, 1, 1, 1)
-						GameTooltip:Show()
-					end)
-				end)
-				thisRow:SetScript("OnLeave", function(self)
-					GameTooltip_Hide()
-					self.Timer:Cancel()
-				end)
+				Tooltip.set(thisRow,function(self) return savedSpellFromVault[self.commID].fullName end,
+					function(self)
+						local strings = {}
+						if savedSpellFromVault[self.commID].description then tinsert(strings, savedSpellFromVault[self.commID].description); end
+						tinsert(strings, " ")
+						tinsert(strings, "Command: "..Tooltip.genContrastText("/sf "..savedSpellFromVault[self.commID].commID))
+						tinsert(strings, "Actions: "..#savedSpellFromVault[self.commID].actions)
+						local hotkeyKey = Hotkeys.getHotkeyByCommID(self.commID)
+						if hotkeyKey then tinsert(strings, "Hotkey: "..hotkeyKey) end
+						tinsert(strings, " ")
+						tinsert(strings, Tooltip.genContrastText("Right-Click").." for more options!")
+						--tinsert(strings, " ")
+						tinsert(strings, Tooltip.genContrastText("Shift-Click").." to link in chat.")
+						return strings
+				end, {forced = true})
+
 				thisRow:SetScript("OnClick", function(self, button)
 					local currentVault = LoadSpellFrame.getCurrentVault()
 					if button == "LeftButton" then
@@ -1534,7 +1458,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				while thisRow.spellName:GetNumLines() > 2 do
 					fontName,fontHeight,fontFlags = thisRow.spellName:GetFont()
 					thisRow.spellName:SetFont(fontName, fontHeight-1, fontFlags)
-					if fontHeight-1 <= 8 then break; end
+					if fontHeight-1 <= 8 then break; end -- don't go smaller than 8 point font. Becomes too hard to read. We'll take a truncated text over that.
 				end
 			end
 
@@ -1552,8 +1476,9 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	MainFrame.updateFrameChildScales(SCForgeMainFrame)
 end
 
-local function deleteSpell(spellKey)
-	SpellCreatorSavedSpells[spellKey] = nil
+---@param commID CommID
+local function deleteSpell(commID)
+	Vault.personal.deleteSpell(commID)
 	updateSpellLoadRows()
 end
 
@@ -1608,20 +1533,12 @@ saveSpell = function (overwriteBypass, fromPhaseVaultID, manualData)
 		cprint("Spell Name and/or Spell Command cannot be blank.")
 		return;
 	end
-
-		if SpellCreatorSavedSpells[newSpellData.commID] then
+		local existingSpell = Vault.personal.findSpellByID(newSpellData.commID)
+		if existingSpell then
 			if overwriteBypass then
 				wasOverwritten = true
 			else
-				StaticPopupDialogs["SCFORGE_CONFIRM_OVERWRITE"] = {
-					text = "Spell '"..newSpellData.commID.."' Already exists.\n\rDo you want to overwrite the spell ("..newSpellData.fullName..")".."?",
-					OnAccept = function() saveSpell(true, (fromPhaseVaultID and fromPhaseVaultID or nil), (manualData and manualData or nil)) end,
-					button1 = "Overwrite",
-					button2 = "Cancel",
-					hideOnEscape = true,
-					whileDead = true,
-				}
-				StaticPopup_Show("SCFORGE_CONFIRM_OVERWRITE")
+				Popups.showPersonalVaultOverwritePopup(newSpellData, existingSpell, fromPhaseVaultID, manualData, saveSpell)
 				return;
 			end
 		end
@@ -1644,7 +1561,7 @@ saveSpell = function (overwriteBypass, fromPhaseVaultID, manualData)
 	end
 
 	if #newSpellData.actions >= 1 then
-		SpellCreatorSavedSpells[newSpellData.commID] = newSpellData
+		Vault.personal.saveSpell(newSpellData)
 		Attic.setEditCommId(Attic.getInfo().commID)
 		SCForgeMainFrame.SaveSpellButton:UpdateIfValid()
 		if wasOverwritten then
@@ -1660,34 +1577,13 @@ saveSpell = function (overwriteBypass, fromPhaseVaultID, manualData)
 	end
 end
 
-StaticPopupDialogs["SCFORGE_IMPORT_SPELL"] = {
-	text = "ArcSpell Import",
-	subText = "CTRL+V to Paste",
-	closeButton = true,
-	enterClicksFirstButton = true,
-	button1 = "Import",
-	OnButton1 = function(self)
-		local text = self.insertedFrame.ScrollFrame.EditBox:GetText();
-		if not text then return; end
-		local text, rest = strsplit(":", text, 2)
-		local spellData
-		if text and rest and rest ~= "" then
-			spellData = serializer.decompressForImport(rest)
-		elseif text ~= "" then
-			spellData = serializer.decompressForImport(text)
-		else
-			dprint("Invalid ArcSpell data. Try again."); return;
-		end
-		if spellData and spellData ~= "" then saveSpell(nil, nil, spellData) end
-	end,
-	hideOnEscape = true,
-	whileDead = true,
-}
+
+ImportExport.init(saveSpell)
 
 --------- Load Spell Frame - aka the Vault
 
 SCForgeMainFrame.LoadSpellFrame = LoadSpellFrame.init({
-	import = showImportMenu,
+	import = ImportExport.showImportMenu,
 	upload = function(commID)
 		saveSpellToPhaseVault(commID, IsShiftKeyDown())
 	end,
@@ -1783,7 +1679,7 @@ SCForgeMainFrame.LoadSpellFrame.profileButton = CreateFrame("BUTTON", nil, SCFor
 
 	_button:SetScript("OnClick", function(self, button)
 		if button == "LeftButton" then
-			EasyMenu(ProfileFilterMenu.genProfileSelectDropDown(updateSpellLoadRows), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
+			EasyMenu(ProfileFilterMenu.genProfileFilterDropDown(updateSpellLoadRows), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
 		elseif button == "RightButton" then
 			EasyMenu(ProfileFilterMenu.genChangeDefaultProfileDropDown(), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
 		end
@@ -1796,6 +1692,8 @@ SCForgeMainFrame.LoadSpellFrame.profileButton = CreateFrame("BUTTON", nil, SCFor
 -- Mini-Map Icon
 -------------------------------------------------------------------------------
 
+---comment
+---@param where "options" | "enableMMIcon" | nil
 local function scforge_showhide(where)
 	if where == "options" then
 		InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
@@ -1865,82 +1763,19 @@ local function aceCommInit()
 	AceComm:RegisterComm(addonMsgPrefix.."_LCACHE", onCommReceived)
 end
 
+--- Gossip
 
-
---- Gossip Helper Functions & Tables
-
-local spellsToCast = {}
-local shouldAutoHide = false
-local shouldLoadSpellVault = false
-local useImmersion = false
-local gossipOptionPayload
-local gossipGreetPayload
-local lastGossipText
-local currGossipText
-local origImmersionSetText = nil
-
-local gossipScript = {
-	show = function()
-		scforge_showhide("enableMMIcon");
+Gossip.init({
+	openArcanum = function()
+		scforge_showhide("enableMMIcon")
 	end,
-	auto_cast = function(payLoad)
-		table.insert(spellsToCast, payLoad)
-		dprint("Adding AutoCast from Gossip: '"..payLoad.."'.")
+	saveToPersonal = function(phaseVaultIndex)
+		saveSpell(nil, phaseVaultIndex)
 	end,
-	click_cast = function(payLoad)
-		if phaseVault.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Casting when loaded..!"); table.insert(spellsToCast, payLoad) return; end
-		executePhaseSpell(payLoad)
+	loadPhaseVault = function(callback)
+		getSpellForgePhaseVault(callback)
 	end,
-	save = function(payLoad)
-		if phaseVault.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Please try again in a moment."); return; end
-		dprint("Scanning Phase Vault for Spell to Save: "..payLoad)
-
-		local index = Vault.phase.findSpellIndexByID(payLoad)
-		if index ~= nil then
-			dprint("Found & Saving Spell '"..payLoad.."' (".. index ..") to your Personal Vault.")
-			saveSpell(nil, index)
-		end
-	end,
-	copy = function(payLoad)
-		HTML.copyLink(nil, payLoad)
-	end,
-	cmd = function(payLoad)
-		cmdWithDotCheck(payLoad)
-	end,
-	hide_check = function(button)
-		if button then -- came from an OnClick, so we need to close now, instead of toggling AutoHide which already past.
-			CloseGossip();
-		else
-			shouldAutoHide = true
-		end
-	end,
-}
-
-local gossipTags = {
-	default = "<arc[anum]-_.->",
-	capture = "<arc[anum]-_(.-)>",
-	dm = "<arc-DM :: ",
-	body = { -- tag is pointless, I changed it to tags are the table key, but kept for readability
-		show = {tag = "show", script = gossipScript.show},
-		cast = {tag = "cast", script = gossipScript.auto_cast},
-		save = {tag = "save", script = gossipScript.save},
-		cmd = {tag = "cmd", script = gossipScript.cmd},
-		macro = {tag = "macro", script = runMacroText},
-		copy = {tag = "copy", script = gossipScript.copy},
-	},
-	option = {
-		show = {tag = "show", script = gossipScript.show},
-		toggle = {tag = "toggle", script = gossipScript.show}, -- kept for back-compatibility, but undocumented. They should use Show now.
-		cast = {tag = "cast", script = gossipScript.click_cast},
-		save = {tag = "save", script = gossipScript.save},
-		cmd = {tag = "cmd", script = gossipScript.cmd},
-		macro = {tag = "macro", script = runMacroText},
-		copy = {tag = "copy", script = gossipScript.copy},
-	},
-	extensions = {
-		{ ext = "hide", script = gossipScript.hide_check},
-	},
-}
+})
 
 local function updateGossipVaultButtons(enable)
 	local spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
@@ -1956,10 +1791,6 @@ SC_Addon_Listener:RegisterEvent("PLAYER_ENTERING_WORLD")
 SC_Addon_Listener:RegisterEvent("UI_ERROR_MESSAGE");
 SC_Addon_Listener:RegisterEvent("GOSSIP_SHOW");
 SC_Addon_Listener:RegisterEvent("GOSSIP_CLOSED");
-
-local function gossipReloadCheck()
-	if isGossipLoaded and lastGossipText and lastGossipText == currGossipText then return true; else return false; end
-end
 
 if not C_Epsilon.IsDM then C_Epsilon.IsDM = false end
 SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
@@ -2026,7 +1857,7 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 --			InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
 --			InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
 			local titleText = SpellCreatorInterfaceOptions.panel.scrollFrame.Title
-			titleText:SetText("Spell Forge - |cff57F287UPDATED|r to v"..addonVersion)
+			titleText:SetText("Spell Forge - "..ADDON_COLORS.UPDATED:GenerateHexColorMarkup().."UPDATED|r to v"..addonVersion)
 			titleText.Backdrop:SetSize(titleText:GetWidth()-4, titleText:GetHeight()/2)
 		end
 
@@ -2039,199 +1870,10 @@ SC_Addon_Listener:SetScript("OnEvent", function( self, event, name, ... )
 
 	-- Gossip Menu Listener
 	elseif event == "GOSSIP_SHOW" then
-
-		spellsToCast = {} -- make sure our variables are reset before we start processing
-		shouldAutoHide = false
-		shouldLoadSpellVault = false
-		useImmersion = false
-		gossipOptionPayload = nil
-		gossipGreetPayload = nil
-		currGossipText = GetGossipText();
-
-		local gossipGreetingText = GossipGreetingText:GetText()
-		if ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame then
-			gossipGreetingText = ImmersionFrame.TalkBox.TextFrame.Text.storedText;
-			local tagSearchText = gossipGreetingText
-			useImmersion = true;
-			dprint("Immersion detected, using it");
-
-			while tagSearchText and tagSearchText:match(gossipTags.default) do -- while tagSearchText has an arcTag - this allows multiple tags - For Immersion, we need to split our filters between the whole text, and the displayed text
-				shouldLoadSpellVault = true
-				gossipGreetPayload = tagSearchText:match(gossipTags.capture) -- capture the tag
-				local strTag, strArg = strsplit(":", gossipGreetPayload, 2) -- split the tag from the data
-				local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
-
-				if gossipReloadCheck() then
-					dprint("Gossip Reload of the Same Page detected. Skipping Auto Functions.")
-				else
-					if isDMEnabled() then cprint("DM Enabled - Skipping Auto Function ("..gossipGreetPayload..")") else
-						if gossipTags.body[mainTag] then -- Checking Main Tags & Running their code if present
-							gossipTags.body[mainTag].script(strArg)
-						end
-						if extTags then
-							for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
-								if extTags:match(v.ext) then v.script() end
-							end
-						end
-					end
-				end
-				tagSearchText = tagSearchText:gsub(gossipTags.default, "", 1)
-				dprint("Saw a gossip greeting | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
-			end
-			ImmersionFrame.TalkBox.TextFrame.Text.storedText = tagSearchText
-			tagSearchText = nil
-
-			ImmersionFrame.TalkBox.TextFrame.Text:RepeatTexts() -- this triggers Immersion to restart the text, pulling from it's storedText, which we already cleaned.
-
-		else
-
-			while gossipGreetingText and gossipGreetingText:match(gossipTags.default) do -- while gossipGreetingText has an arcTag - this allows multiple tags
-				shouldLoadSpellVault = true
-				gossipGreetPayload = gossipGreetingText:match(gossipTags.capture) -- capture the tag
-				local strTag, strArg = strsplit(":", gossipGreetPayload, 2) -- split the tag from the data
-				local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
-
-				if gossipReloadCheck() then
-					dprint("Gossip Reload of the Same Page detected. Skipping Auto Functions.")
-				else
-					if isDMEnabled() then cprint("DM Enabled - Skipping Auto Function ("..gossipGreetPayload..")") else
-						if gossipTags.body[mainTag] then -- Checking Main Tags & Running their code if present
-							gossipTags.body[mainTag].script(strArg)
-						end
-						if extTags then
-							for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
-								if extTags:match(v.ext) then v.script() end
-							end
-						end
-					end
-				end
-
-				if isDMEnabled() then -- Updating GossipGreetingText
-					GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, gossipTags.dm..gossipGreetPayload..">", 1))
-					gossipGreetingText = GossipGreetingText:GetText()
-				else
-					GossipGreetingText:SetText(gossipGreetingText:gsub(gossipTags.default, "", 1))
-					gossipGreetingText = GossipGreetingText:GetText()
-				end
-				dprint("Saw a gossip greeting | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
-			end
-		end
-
-		for i = 1, GetNumGossipOptions() do
-			--[[	-- Replaced with a memory of modifiedGossips that we reset when gossip is closed instead.
-			_G["GossipTitleButton" .. i]:SetScript("OnClick", function()
-				SelectGossipOption(i)
-			end)
-			--]]
-			local titleButton = _G["GossipTitleButton" .. i]
-			local titleButtonText = titleButton:GetText();
-			if ImmersionFrame then
-				local immersionButton = _G["ImmersionTitleButton"..i]
-				if immersionButton then titleButton = immersionButton; titleButtonText = immersionButton:GetText() end
-			end
-
-			while titleButtonText and titleButtonText:match(gossipTags.default) do
-				shouldLoadSpellVault = true
-				gossipOptionPayload = titleButtonText:match(gossipTags.capture) -- capture the tag
-				local strTag, strArg = strsplit(":", gossipOptionPayload, 2) -- split the tag from the data
-				local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
-
-				if gossipTags.option[mainTag] then -- Checking Main Tags & Running their code if present
-					--[[
-					if not titleButton.isHookedByArc then
-						titleButton:HookScript("OnClick", function() gossipTags.option[mainTag].script(strArg) end)
-						titleButton.isHookedByArc = true
-					end
-					modifiedGossips[i] = titleButton
-					--]]
-					local function _newOnClickHook() gossipTags.option[mainTag].script(strArg); dprint("Hooked gossip clicked for <"..mainTag..":"..(strArg or "")..">") end
-
-					if extTags then
-						if extTags:match("auto") then -- legacy auto support - hard coded to avoid breaking gossipText
-							if isDMEnabled() then
-								cprint("Legacy Auto Gossip Option skipped due to DM Mode On.")
-							else
-								if mainTag == "cast" then
-									dprint("Running Legacy Auto-Cast..")
-									gossipScript.auto_cast(strArg)
-								else
-									gossipTags.option[mainTag].script(strArg)
-									dprint("Running Legacy Auto Tag Support.. This may not work.")
-								end
-							end
-						end
-						if extTags == "auto_hide" then shouldAutoHide = true end
-						for k,v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
-							if extTags:match(v.ext) then
-								local _origNewOnClickHook = _newOnClickHook
-								function _newOnClickHook(self, button)
-									_origNewOnClickHook()
-									v.script(strArg or button)
-								end
-							end
-						end
-					end
-					if ImmersionFrame then
-						if not titleButton.isHookedByArc then
-							titleButton:HookScript("OnClick", _newOnClickHook)
-							titleButton.isHookedByArc = true
-						end
-					else
-						titleButton:HookScript("OnClick", _newOnClickHook)
-						titleButton.isHookedByArc = true
-					end
-					modifiedGossips[i] = titleButton
-				end
-
-
-				if isDMEnabled() then -- Update the text
-					-- Is DM and Officer+
-					titleButton:SetText(titleButtonText:gsub(gossipTags.default, gossipTags.dm..gossipOptionPayload..">", 1));
-				else
-					-- Is not DM or Officer+
-					titleButton:SetText(titleButtonText:gsub(gossipTags.default, "", 1));
-				end
-				titleButtonText = titleButton:GetText();
-				dprint("Saw an option tag | Tag: "..mainTag.." | Spell: "..(strArg or "none").." | Ext: "..(tostring(extTags) or "none"))
-			end
-
-			GossipResize(titleButton) -- Fix the size if the gossip option changed number of lines.
-
-		end
-
-		if shouldLoadSpellVault and not isGossipLoaded then
-			local castTheSpells = function(ready)
-				if next(spellsToCast) == nil then dprint("No Auto Cast Spells in Gossip"); return; end
-				for _,j in pairs(spellsToCast) do
-
-					executePhaseSpell(j)
-				end
-				spellsToCast = {} -- empty the table.
-			end
-			if phaseVault.isLoaded then
-				castTheSpells()
-			else
-				getSpellForgePhaseVault(castTheSpells)
-			end
-		end
-
-		isGossipLoaded = true
-		lastGossipText = currGossipText
+		Gossip.onGossipShow()
 		updateGossipVaultButtons(true)
-
-		if shouldAutoHide and not(isDMEnabled()) then CloseGossip(); end -- Final check if we toggled shouldAutoHide and close gossip if so.
-
 	elseif event == "GOSSIP_CLOSED" then
-
-		for k,v in pairs(modifiedGossips) do
-			v:SetScript("OnClick", function()
-				SelectGossipOption(k)
-			end)
-			v.isHookedByArc = nil
-			modifiedGossips[k] = nil
-		end
-
-		isGossipLoaded = false
+		Gossip.onGossipClosed()
 		updateGossipVaultButtons(false)
 
 	end
@@ -2247,8 +1889,9 @@ SLASH_SCFORGEMAIN1, SLASH_SCFORGEMAIN2 = '/arcanum', '/sf'; -- 3.
 function SlashCmdList.SCFORGEMAIN(msg, editbox) -- 4.
 	if #msg > 0 then
 		dprint(false,"Casting Arcanum Spell by CommID: "..msg)
-		if SpellCreatorSavedSpells[msg] then
-			executeSpell(SpellCreatorSavedSpells[msg].actions, nil, SpellCreatorSavedSpells[msg].fullName, SpellCreatorSavedSpells[msg])
+		local spell = Vault.personal.findSpellByID(msg)
+		if spell then
+			executeSpell(spell.actions, nil, spell.fullName, spell)
 		elseif msg == "options" then
 			scforge_showhide("options")
 		else
@@ -2270,16 +1913,16 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 	end
 	if SpellCreatorMasterTable.Options["debug"] and msg ~= "" then
 		if command == "resetSpells" then
-			dprint(true, "All Arcaum Spells reset. #GoodBye #ThisCannotBeUndoneHopeYouDidn'tFuckUp!")
+			dprint(true, "All Arcanum Spells reset. #GoodBye #ThisCannotBeUndoneHopeYouDidn'tFuckUp!")
 			SpellCreatorSavedSpells = {}
 			updateSpellLoadRows()
 		elseif command == "listSpells" then
-			for k,v in orderedPairs(SpellCreatorSavedSpells) do
+			for k,v in orderedPairs(Vault.personal.getSpells()) do
 				cprint("ArcSpell: "..k.." =")
 				Debug.dump(v)
 			end
 		elseif command == "listSpellKeys" then -- debug to list all spell keys by alphabetical order.
-			local newTable = get_keys(SpellCreatorSavedSpells)
+			local newTable = Vault.personal.getIDs()
 			table.sort(newTable)
 			Debug.dump(newTable)
 		elseif command == "resetPhaseSpellKeys" then
@@ -2416,7 +2059,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 		print("... listSpells: List all your vault spells' data.. this is alot of text!")
 		print("... listSpellKeys: List all your vault spells by just keys. Easier to read.")
 		print("... getPhaseKeys: Lists all the vault spells by keys.")
-		print("... getPhaseSpellData [$commID/key]: Exports the spell data for all current keys, or the specified commID/key, to your '|cffFFAAAA..epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua|r' file.")
+		print("... getPhaseSpellData [$commID/key]: Exports the spell data for all current keys, or the specified commID/key, to your '"..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup().."..epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua|r' file.")
 		print("... resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, and can be exported to your WTF file by using getPhaseSpellData.")
 		print("... removePhaseKey: Removes a single phase key from the Phase Vault. The data for the spell remains, and can be retrieved using getPhaseSpellData also.")
 	end

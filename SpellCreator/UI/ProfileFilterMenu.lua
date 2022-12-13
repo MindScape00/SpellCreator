@@ -20,7 +20,7 @@ local function createDefaultProfileMenuListItem(profile, currentDefaultProfile)
 		isNotRadio = isCurrent,
 		checked = isCurrent,
 		notClickable = isCurrent,
-		disablecolor = (isCurrent and "|cFFCE2EFF" or nil),
+		disablecolor = (isCurrent and ns.Constants.ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
 		arg1= profile,
 		func = setDefaultProfile,
 	}
@@ -32,6 +32,10 @@ local function genChangeDefaultProfileDropDown()
 	return {
 		{
 			text = "Change Default Profile",
+			notCheckable = true,
+			isTitle=true,
+		},
+		{
 			notCheckable = true,
 			isTitle=true,
 		},
@@ -113,7 +117,7 @@ end
 
 ---@param updateUICallback function
 ---@return MenuItem[]
-local function genProfileSelectDropDown(updateUICallback)
+local function genProfileFilterDropDown(updateUICallback)
 	local playerName = GetUnitName("player")
 	local isNotAllChecked
 	local menuList = {
@@ -125,14 +129,6 @@ local function genProfileSelectDropDown(updateUICallback)
 		genFilterItem("Account", ProfileFilter.isAccountShown(), updateUICallback),
 		genFilterItem(playerName, ProfileFilter.isPlayerShown(), updateUICallback),
 	}
-
-	local interTagTable = {}
-	-- gen dynamic list of available characters / profiles
-	for k,v in pairs(SpellCreatorSavedSpells) do
-		if v.profile then
-			interTagTable[v.profile] = true
-		end
-	end
 
 	local profileNames = SavedVariables.getProfileNames(true, true)
 	sort(profileNames)
@@ -155,8 +151,9 @@ local function genProfileSelectDropDown(updateUICallback)
 	return menuList
 end
 
+
 ---@class UI_ProfileFilterMenu
 ns.UI.ProfileFilterMenu = {
 	genChangeDefaultProfileDropDown = genChangeDefaultProfileDropDown,
-	genProfileSelectDropDown = genProfileSelectDropDown,
+	genProfileFilterDropDown = genProfileFilterDropDown,
 }
