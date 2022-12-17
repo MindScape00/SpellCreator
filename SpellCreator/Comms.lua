@@ -61,17 +61,17 @@ local function saveReceivedSpell(spell, charName)
 	cprint("Saved Spell from "..charName..": "..spell.commID)
 end
 
----@param data table
+---@param spell VaultSpell
 ---@param charName string
 ---@param callback fun()
-local function tryToSaveReceivedSpell(data, charName, callback)
-	if data.commID then
-		if Vault.personal.findSpellByID(data.commID) then
+local function tryToSaveReceivedSpell(spell, charName, callback)
+	if spell.commID then
+		if Vault.personal.findSpellByID(spell.commID) then
 			dprint("The spell already exists, prompting to confirm over-write.")
-			ns.UI.Popups.showCommOverwritePopup(data, charName, callback)
+			ns.UI.Popups.showCommOverwritePopup(spell, charName, callback)
 			return
 		end
-		saveReceivedSpell(data, charName)
+		saveReceivedSpell(spell, charName)
 		if callback then callback() end
 	else
 		eprint("SpellData did not contain a valid CommID.")

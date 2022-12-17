@@ -9,6 +9,7 @@ local UIHelpers = ns.Utils.UIHelpers
 local Tooltip = ns.Utils.Tooltip
 
 local MainFrame = ns.UI.MainFrame
+local Attic = ns.UI.Attic
 
 local actionTypeData, actionTypeDataList = ActionsData.actionTypeData, ActionsData.actionTypeDataList
 local ASSETS_PATH = Constants.ASSETS_PATH
@@ -170,6 +171,8 @@ local function initActionDropdownItems(dataList, flatMenuList, menuList, parentI
 					Debug.ddump(self)
 					updateSpellRowOptions(arg1, menuItem.value)
 
+					Attic.markEditorUnsaved()
+
 					if (parentItem) then
 						CloseDropDownMenus()
 					end
@@ -190,7 +193,7 @@ end
 
 ---@param parent Frame
 ---@param dropdownName string
----@param menuList MenuItem[]
+---@param menuList MenuItem[] | function
 ---@param title string
 ---@param width number?
 local function genStaticDropdownChild( parent, dropdownName, menuList, title, width )
@@ -351,7 +354,7 @@ local function addRow(rowToAdd)
 			newRow.mainDelayBox:SetSize(delayColumnWidth,23)
 			newRow.mainDelayBox:SetPoint("LEFT", 40, 0)
 			newRow.mainDelayBox:SetMaxLetters(10)
-			newRow.mainDelayBox:HookScript("OnTextChanged", function(self)
+			newRow.mainDelayBox:HookScript("OnTextChanged", function(self, userInput)
 				if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
 					self:SetTextColor(255,255,255,1)
 				elseif self:GetText() == "" then
@@ -361,6 +364,7 @@ local function addRow(rowToAdd)
 				else
 					self:SetTextColor(1,0,0,1)
 				end
+				if userInput then Attic.markEditorUnsaved() end
 			end)
 			Tooltip.set(newRow.mainDelayBox, "Main Action Delay", "How long after 'casting' the ArcSpell this action triggers.\rCan be '0' for instant.")
 
@@ -407,6 +411,9 @@ local function addRow(rowToAdd)
 			newRow.InputEntryBox.rowNumber = numActiveRows
 			newRow.InputEntryBox:SetAutoFocus(false)
 			newRow.InputEntryBox:Disable()
+			newRow.InputEntryBox:HookScript("OnTextChanged", function(self, userInput)
+				if userInput then Attic.markEditorUnsaved() end
+			end)
 
 			Tooltip.set(newRow.InputEntryBox,
 				function(self) -- title
@@ -448,7 +455,7 @@ local function addRow(rowToAdd)
 			newRow.RevertDelayBox:SetPoint("LEFT", (newRow.InputEntryScrollFrame or newRow.InputEntryBox), "RIGHT", 25, 0)
 			newRow.RevertDelayBox:SetMaxLetters(10)
 
-			newRow.RevertDelayBox:HookScript("OnTextChanged", function(self)
+			newRow.RevertDelayBox:HookScript("OnTextChanged", function(self, userInput)
 				if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
 					self:SetTextColor(255,255,255,1)
 				elseif self:GetText() == "" then
@@ -458,6 +465,7 @@ local function addRow(rowToAdd)
 				else
 					self:SetTextColor(1,0,0,1)
 				end
+				if userInput then Attic.markEditorUnsaved() end
 			end)
 
 			Tooltip.set(newRow.RevertDelayBox,

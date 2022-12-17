@@ -96,25 +96,6 @@ local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
 
 -------------------------------------------------------------------------------
--- UI Helper & Definitions
--------------------------------------------------------------------------------
-
-StaticPopupDialogs["SCFORGE_RELOADUI_REQUIRED"] = {
-	text = "A UI Reload is Required to Change Input Boxes.\n\rReload Now?\r[Warning: All un-saved data will be wiped]",
-	showAlert = true,
-	button1 = YES,
-	button2 = NO,
-	OnAccept = function(self, data, data2)
-		ReloadUI();
-	end,
-	timeout = 0,
-	cancels = true,
-	whileDead = true,
-	hideOnEscape = true,
-	preferredIndex = 3,
-}
-
--------------------------------------------------------------------------------
 -- Main UI Frame
 -------------------------------------------------------------------------------
 
@@ -348,10 +329,15 @@ SCForgeMainFrame:SetScript("OnSizeChanged", function(self)
 end)
 
 ---@param spellToLoad VaultSpell
-local function loadSpell(spellToLoad)
+local function loadSpell(spellToLoad, byPassResetConfirmation)
 	--dprint("Loading spell.. "..spellToLoad.commID)
 
+	if not byPassResetConfirmation then
+		if ns.UI.Popups.checkAndShowResetForgeConfirmation("load a spell", loadSpell, spellToLoad, true) then return end
+	end
+
 	Attic.updateInfo(spellToLoad)
+	Attic.markEditorSaved()
 
 	---@type VaultSpellAction[]
 	local localSpellActions = CopyTable(spellToLoad.actions)
@@ -388,7 +374,7 @@ Basement.init(SCForgeMainFrame, {
 		return actionsToCommit
 	end,
 	saveSpell = function(overwriteBypass)
-		saveSpell(overwriteBypass)
+		return saveSpell(overwriteBypass)
 	end,
 	toggleVault = function()
 		SCForgeMainFrame.LoadSpellFrame:SetShown(not SCForgeMainFrame.LoadSpellFrame:IsShown())
@@ -426,7 +412,7 @@ local phaseVaultKeys
 ---@param spellKey CommID
 ---@param where VaultType
 local function deleteSpellConf(spellKey, where)
-	local dialog = StaticPopup_Show("SCFORGE_CONFIRM_DELETE", savedSpellFromVault[spellKey].fullName, savedSpellFromVault[spellKey].commID)
+	local dialog = StaticPopup_Show("SCFORGE_CONFIRM_DELETE", DataUtils.wordToProperCase(where), string.format("Name: %s\nCommand: /sf %s", savedSpellFromVault[spellKey].fullName, savedSpellFromVault[spellKey].commID))
 	if dialog then dialog.data = spellKey; dialog.data2 = where end
 end
 
@@ -575,17 +561,7 @@ local function saveSpellToPhaseVault(commID, overwrite, fromPhase, forcePrivate)
 						if not overwrite then
 							-- phase already has this ID saved.. Handle over-write...
 							dprint("Phase already has a spell saved by Command '"..commID.."'. Prompting to confirm over-write.")
-
-							StaticPopupDialogs["SCFORGE_CONFIRM_POVERWRITE"] = {
-								text = "Spell '"..commID.."' Already exists in the Phase Vault.\n\rDo you want to overwrite the spell?",
-								OnAccept = function() saveSpellToPhaseVault(commID, true) end,
-								button1 = "Overwrite",
-								button2 = CANCEL,
-								hideOnEscape = true,
-								whileDead = true,
-							}
-							StaticPopup_Show("SCFORGE_CONFIRM_POVERWRITE")
-
+							Popups.showPhaseVaultOverwritePopup(commID)
 							phaseVault.isSavingOrLoadingAddonData = false
 							sendPhaseVaultIOLock(false)
 							return;
@@ -645,125 +621,6 @@ local function clearSpellLoadRadios(self)
 	end
 end
 
-local gossipAddMenuInsert = CreateFrame("FRAME")
-gossipAddMenuInsert:SetSize(300,68)
-gossipAddMenuInsert:Hide()
-
-gossipAddMenuInsert.vertDivLine = gossipAddMenuInsert:CreateTexture(nil, "ARTWORK")
-	gossipAddMenuInsert.vertDivLine:SetPoint("TOP", -30, -4)
-	gossipAddMenuInsert.vertDivLine:SetPoint("BOTTOM", -30, 18)
-	gossipAddMenuInsert.vertDivLine:SetWidth(2)
-	gossipAddMenuInsert.vertDivLine:SetColorTexture(1,1,1,0.2)
-
-gossipAddMenuInsert.horizDivLine = gossipAddMenuInsert:CreateTexture(nil, "ARTWORK")
-	gossipAddMenuInsert.horizDivLine:SetPoint("BOTTOMLEFT", 26, 16)
-	gossipAddMenuInsert.horizDivLine:SetPoint("BOTTOMRIGHT", -26, 16)
-	gossipAddMenuInsert.horizDivLine:SetHeight(2)
-	gossipAddMenuInsert.horizDivLine:SetColorTexture(1,1,1,0.2)
-
-gossipAddMenuInsert.hideButton = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
-	gossipAddMenuInsert.hideButton:SetSize(26,26)
-	gossipAddMenuInsert.hideButton:SetPoint("BOTTOM", -50, -12)
-	gossipAddMenuInsert.hideButton.text:SetText("Hide after Casting")
-	gossipAddMenuInsert.hideButton:SetHitRectInsets(0,-gossipAddMenuInsert.hideButton.text:GetWidth(),0,0)
-	Tooltip.set(gossipAddMenuInsert.hideButton, "Hide the Gossip menu after Casting/Saving", "\n\rFor On Click: The Gossip menu will close after you click, and then the spell will be casted or saved.\n\rFor On Open: The Gossip menu will close immediately after opening, usually before it can be seen, and the spell will be casted or saved." )
-	gossipAddMenuInsert.hideButton:SetScript("OnShow", function(self)
-		self:SetChecked(false)
-		self.text:SetText("Hide after Casting")
-	end)
-
-gossipAddMenuInsert.RadioOption = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
-	gossipAddMenuInsert.RadioOption.text:SetText("..On Click (Option)")
-	gossipAddMenuInsert.RadioOption:SetSize(26,26)
-	gossipAddMenuInsert.RadioOption:SetChecked(true)
-	gossipAddMenuInsert.RadioOption:SetHitRectInsets(0,-gossipAddMenuInsert.RadioOption.text:GetWidth(),0,0)
-	gossipAddMenuInsert.RadioOption:SetPoint("TOPLEFT", gossipAddMenuInsert, "TOP", -13, 0)
-	gossipAddMenuInsert.RadioOption.CheckedTex = gossipAddMenuInsert.RadioOption:GetCheckedTexture()
-	gossipAddMenuInsert.RadioOption.CheckedTex:SetAtlas("common-checkbox-partial")
-	gossipAddMenuInsert.RadioOption.CheckedTex:ClearAllPoints()
-	gossipAddMenuInsert.RadioOption.CheckedTex:SetPoint("CENTER", -1, 0)
-	gossipAddMenuInsert.RadioOption.CheckedTex:SetSize(12,12)
-	Tooltip.set(gossipAddMenuInsert.RadioOption, "..OnClick", "\nAdds the ArcSpell & Tag to a Gossip Option. When that option is clicked, the spell will be cast.\n\rRequires Gossip Text, otherwise it's un-clickable.")
-	gossipAddMenuInsert.RadioOption:SetScript("OnShow", function(self)
-		self:SetChecked(true)
-	end)
-
-gossipAddMenuInsert.RadioBody = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
-	gossipAddMenuInsert.RadioBody.text:SetText("..On Open (Auto/Text)")
-	gossipAddMenuInsert.RadioBody:SetSize(26,26)
-	gossipAddMenuInsert.RadioBody:SetChecked(false)
-	gossipAddMenuInsert.RadioBody:SetHitRectInsets(0,-gossipAddMenuInsert.RadioBody.text:GetWidth(),0,0)
-	gossipAddMenuInsert.RadioBody:SetPoint("TOPLEFT", gossipAddMenuInsert.RadioOption, "BOTTOMLEFT", 0, 4)
-	gossipAddMenuInsert.RadioBody.CheckedTex = gossipAddMenuInsert.RadioBody:GetCheckedTexture()
-	gossipAddMenuInsert.RadioBody.CheckedTex:SetAtlas("common-checkbox-partial")
-	gossipAddMenuInsert.RadioBody.CheckedTex:ClearAllPoints()
-	gossipAddMenuInsert.RadioBody.CheckedTex:SetPoint("CENTER", -1, 0)
-	gossipAddMenuInsert.RadioBody.CheckedTex:SetSize(12,12)
-	Tooltip.set(gossipAddMenuInsert.RadioBody, "..On Open (Auto)", "\nAdds the ArcSpell & Tag to the Gossip main menu, casting them atuotmaically from the Phase Vault when it is shown.\n\rDoes not require Gossip Text, you can add a tag without any additional text.")
-	gossipAddMenuInsert.RadioBody:SetScript("OnShow", function(self)
-		self:SetChecked(false)
-	end)
-
-gossipAddMenuInsert.RadioOption:SetScript("OnClick", function(self)
-	self:SetChecked(true)
-	gossipAddMenuInsert.RadioBody:SetChecked(false)
-	local parent = self:GetParent():GetParent()
-	if #parent.editBox:GetText() > 0 then
-		parent.button1:Enable()
-	else
-		parent.button1:Disable()
-	end
-end)
-gossipAddMenuInsert.RadioBody:SetScript("OnClick", function(self)
-	self:SetChecked(true)
-	gossipAddMenuInsert.RadioOption:SetChecked(false)
-	self:GetParent():GetParent().button1:Enable()
-end)
-
-
-gossipAddMenuInsert.RadioCast = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
-	gossipAddMenuInsert.RadioCast.text:SetText("Cast Spell")
-	gossipAddMenuInsert.RadioCast:SetSize(26,26)
-	gossipAddMenuInsert.RadioCast:SetChecked(true)
-	gossipAddMenuInsert.RadioCast:SetHitRectInsets(0,-gossipAddMenuInsert.RadioCast.text:GetWidth(),0,0)
-	gossipAddMenuInsert.RadioCast:SetPoint("TOPLEFT", 26, 0)
-	gossipAddMenuInsert.RadioCast.CheckedTex = gossipAddMenuInsert.RadioCast:GetCheckedTexture()
-	gossipAddMenuInsert.RadioCast.CheckedTex:SetAtlas("common-checkbox-partial")
-	gossipAddMenuInsert.RadioCast.CheckedTex:ClearAllPoints()
-	gossipAddMenuInsert.RadioCast.CheckedTex:SetPoint("CENTER", -1, 0)
-	gossipAddMenuInsert.RadioCast.CheckedTex:SetSize(12,12)
-	Tooltip.set(gossipAddMenuInsert.RadioCast, "Cast Spell", "\nCasts the ArcSpell from the Phase Vault.")
-	gossipAddMenuInsert.RadioCast:SetScript("OnShow", function(self)
-		self:SetChecked(true)
-	end)
-
-gossipAddMenuInsert.RadioSave = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
-	gossipAddMenuInsert.RadioSave.text:SetText("Save Spell")
-	gossipAddMenuInsert.RadioSave:SetSize(26,26)
-	gossipAddMenuInsert.RadioSave:SetChecked(false)
-	gossipAddMenuInsert.RadioSave:SetHitRectInsets(0,-gossipAddMenuInsert.RadioSave.text:GetWidth(),0,0)
-	gossipAddMenuInsert.RadioSave:SetPoint("TOPLEFT", gossipAddMenuInsert.RadioCast, "BOTTOMLEFT", 0, 4)
-	gossipAddMenuInsert.RadioSave.CheckedTex = gossipAddMenuInsert.RadioSave:GetCheckedTexture()
-	gossipAddMenuInsert.RadioSave.CheckedTex:SetAtlas("common-checkbox-partial")
-	gossipAddMenuInsert.RadioSave.CheckedTex:ClearAllPoints()
-	gossipAddMenuInsert.RadioSave.CheckedTex:SetPoint("CENTER", -1, 0)
-	gossipAddMenuInsert.RadioSave.CheckedTex:SetSize(12,12)
-	Tooltip.set(gossipAddMenuInsert.RadioSave, "Save Spell from Phase Vault", "\nSaves the ArcSpell, from the Phase Vault, to the player's Personal Vault.")
-	gossipAddMenuInsert.RadioSave:SetScript("OnShow", function(self)
-		self:SetChecked(false)
-	end)
-
-gossipAddMenuInsert.RadioCast:SetScript("OnClick", function(self)
-	self:SetChecked(true)
-	gossipAddMenuInsert.RadioSave:SetChecked(false)
-	gossipAddMenuInsert.hideButton.text:SetText("Hide after Casting")
-end)
-gossipAddMenuInsert.RadioSave:SetScript("OnClick", function(self)
-	self:SetChecked(true)
-	gossipAddMenuInsert.RadioCast:SetChecked(false)
-	gossipAddMenuInsert.hideButton.text:SetText("Hide after Saving")
-end)
-
 ------------------------
 
 --[[ local baseVaultFilterTags = {
@@ -785,46 +642,8 @@ end ]]
 local function setSpellProfile(spellCommID, profileName, vaultType, callback)
 	if not vaultType then vaultType = 1 end
 	if not spellCommID then return; end
-	if not profileName then
-		StaticPopupDialogs["SCFORGE_NEW_PROFILE"] = {
-			text = "Assign to new Profile",
-			subText = "Assigning ArcSpell: '"..savedSpellFromVault[spellCommID].fullName.."'",
-			closeButton = true,
-			hasEditBox = true,
-			enterClicksFirstButton = true,
-			editBoxInstructions = "New Profile Name",
-			--editBoxWidth = 310,
-			maxLetters = 50,
-			OnButton1 = function(self, data)
-				local text = self.editBox:GetText();
-				setSpellProfile(data.comm, text, data.vault, data.callback )
-			end,
-			EditBoxOnTextChanged = function (self)
-				local text = self:GetText();
-				if #text > 0 and text ~= "" then
-					self:GetParent().button1:Enable()
-				else
-					self:GetParent().button1:Disable()
-				end
-			end,
-
-			button1 = ADD,
-			button2 = CANCEL,
-			hideOnEscape = true,
-			EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
-			EditBoxOnEnterPressed = function(self)
-				local parent = self:GetParent();
-				if parent.button1:IsEnabled() then
-					parent.button1:Click()
-				end
-			end,
-			whileDead = true,
-			OnShow = function (self, data)
-				self.button1:Disable()
-			end,
-		}
-		local dialog = StaticPopup_Show("SCFORGE_NEW_PROFILE")
-		dialog.data = {comm = spellCommID, vault = vaultType, callback = callback}
+	if isNotDefined(profileName) then
+		Popups.showNewProfilePopup(spellCommID, vaultType, callback)
 		return;
 	end
 	if vaultType == 1 then
@@ -932,7 +751,7 @@ local function genDropDownContextOptions(vault, spellCommID, callback)
 		end
 
 		menuList[#menuList+1] = {text = "Link Hotkey", notCheckable = true, func = function()
-			Hotkeys.showLinkHotkeyDialog(savedSpellFromVault[spellCommID].commID)
+			Popups.showLinkHotkeyDialog(savedSpellFromVault[spellCommID].commID)
 		end}
 
 	end
@@ -1167,7 +986,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					button:SetFrameLevel(thisRow.spellIcon:GetFrameLevel()+1)
 					button:SetScript("OnClick", function(self, button)
 						if button == "LeftButton" then
-							Hotkeys.showLinkHotkeyDialog(self.commID)
+							Popups.showLinkHotkeyDialog(self.commID)
 						elseif button == "RightButton" and IsShiftKeyDown() then
 							Hotkeys.deregisterHotkeyByComm(self.commID)
 						end
@@ -1226,49 +1045,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 					button:SetMotionScriptsWhileDisabled(true)
 					button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 					button:SetScript("OnClick", function(self, button)
-						StaticPopupDialogs["SCFORGE_ADD_GOSSIP"] = {
-							text = "Add ArcSpell to NPC Gossip",
-							subText = "ArcSpell: '"..savedSpellFromVault[self.commID].fullName.."' ("..savedSpellFromVault[self.commID].commID..")",
-							closeButton = true,
-							hasEditBox = true,
-							enterClicksFirstButton = true,
-							editBoxInstructions = "Gossip Text (i.e., 'Cast the Spell!')",
-							editBoxWidth = 310,
-							maxLetters = 255-25-20-#savedSpellFromVault[self.commID].commID, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
-							EditBoxOnTextChanged = function (self, data)
-								local text = self:GetText();
-								if #text > 0 and text ~= "" then
-									self:GetParent().button1:Enable()
-								else
-									self:GetParent().button1:Disable()
-								end
-							end,
-							OnButton1 = function(self, data)
-								local text = self.editBox:GetText();
-								local tag = "<arc_"
-								if self.insertedFrame.RadioCast:GetChecked() then tag = tag.."cast"; elseif self.insertedFrame.RadioSave:GetChecked() then tag = tag.."save"; end
-								if self.insertedFrame.hideButton:GetChecked() then tag = tag.."_hide" end
-								tag = tag..":"
-								local command
-								if self.insertedFrame.RadioOption:GetChecked() then command = "ph fo np go op ad "; elseif self.insertedFrame.RadioBody:GetChecked() then command = "ph fo np go te ad "; end
-
-								local finalCommand = command..text.." "..tag..savedSpellFromVault[data].commID..">"
-								cmd(finalCommand)
-
-								--if self.insertedFrame.hideButton:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast:"..savedSpellFromVault[data].commID..">") end
-								--savedSpellFromVault[data].commID
-							end,
-							button1 = ADD,
-							button2 = CANCEL,
-							hideOnEscape = true,
-							EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
-							whileDead = true,
-							OnShow = function (self, data)
-								self.button1:Disable()
-							end,
-						}
-						local dialog = StaticPopup_Show("SCFORGE_ADD_GOSSIP", nil, nil, nil, gossipAddMenuInsert)
-						dialog.data = self.commID
+						Popups.showAddGossipPopup(self.commID)
 					end)
 
 					Tooltip.set(button, "Add to Gossip Menu", {
@@ -1476,33 +1253,6 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	MainFrame.updateFrameChildScales(SCForgeMainFrame)
 end
 
----@param commID CommID
-local function deleteSpell(commID)
-	Vault.personal.deleteSpell(commID)
-	updateSpellLoadRows()
-end
-
-StaticPopupDialogs["SCFORGE_CONFIRM_DELETE"] = {
-	text = "Are you sure you want to delete the spell?\n\rName: %s\nCommand: /sf %s\r",
-	showAlert = true,
-	button1 = "Delete",
-	button2 = "Cancel",
-	OnAccept = function(self, data, data2)
-		if data2 == VAULT_TYPE.PERSONAL then
-			deleteSpell(data)
-			Hotkeys.deregisterHotkeyByComm(data)
-		elseif data2 == VAULT_TYPE.PHASE then
-			dprint("Deleting '"..data.."' from Phase Vault.")
-			deleteSpellFromPhaseVault(data, updateSpellLoadRows)
-		end
-	end,
-	timeout = 0,
-	cancels = true,
-	whileDead = true,
-	hideOnEscape = true,
-	preferredIndex = 3,
-}
-
 ---@param fromPhaseVaultID integer?
 saveSpell = function (overwriteBypass, fromPhaseVaultID, manualData)
 
@@ -1575,6 +1325,7 @@ saveSpell = function (overwriteBypass, fromPhaseVaultID, manualData)
 	if not fromPhaseVaultID then
 		updateSpellLoadRows()
 	end
+	return true
 end
 
 
@@ -2083,7 +1834,15 @@ function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
 
 end
 
+local function getSavedSpellFromVaultTable()
+	return savedSpellFromVault
+end
+
 ---@class MainFuncs
 ns.MainFuncs = {
 	updateSpellLoadRows = updateSpellLoadRows,
+	saveSpellToPhaseVault = saveSpellToPhaseVault, -- Move to SpelLStrorage when done
+	setSpellProfile = setSpellProfile, -- used in the profile popup, no idea where this should go tbh
+	getSavedSpellFromVaultTable = getSavedSpellFromVaultTable, -- I think this would move to spell storage later?
+	deleteSpellFromPhaseVault = deleteSpellFromPhaseVault, -- Move to Spell Storage? Vaults?
 }

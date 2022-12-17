@@ -73,9 +73,6 @@ end
 local function setGreeting()
 	local gossipGreetPayload = nil
 	local gossipGreetingText = getGreetingText()
-	local useImmersion = (ImmersionFrame and ImmersionFrame.TalkBox and ImmersionFrame.TalkBox.TextFrame)
-
-	if useImmersion then dprint("Immersion detected, using it") end
 
 	while gossipGreetingText and gossipGreetingText:match(gossipTags.default) do -- while gossipGreetingText has an arcTag - this allows multiple tags - For Immersion, we need to split our filters between the whole text, and the displayed text
 		shouldLoadSpellVault = true
@@ -100,22 +97,18 @@ local function setGreeting()
 			end
 		end
 
-		if useImmersion then
-			gossipGreetingText = gossipGreetingText:gsub(gossipTags.default, "", 1)
+
+		if isDMEnabled() then -- Updating GossipGreetingText
+			gossipGreetingText = gossipGreetingText:gsub(gossipTags.default, gossipTags.dm .. gossipGreetPayload .. ">", 1)
 		else
-			if isDMEnabled() then -- Updating GossipGreetingText
-				setGreetingText(gossipGreetingText:gsub(gossipTags.default, gossipTags.dm .. gossipGreetPayload .. ">", 1))
-			else
-				setGreetingText(gossipGreetingText:gsub(gossipTags.default, "", 1))
-			end
+			gossipGreetingText = gossipGreetingText:gsub(gossipTags.default, "", 1)
 		end
+
 
 		dprint("Saw a gossip greeting | Tag: " .. mainTag .. " | Spell: " .. (strArg or "none") .. " | Ext: " .. (tostring(extTags) or "none"))
 	end
 
-	if useImmersion then
-		setGreetingText(gossipGreetingText)
-	end
+	setGreetingText(gossipGreetingText)
 end
 
 local function hookTitleButtons()

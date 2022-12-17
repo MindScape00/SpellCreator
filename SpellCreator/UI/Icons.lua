@@ -81,7 +81,8 @@ local function getFinalIcon( icon )
         end
     else
         --icon = "Interface/Icons/inv_misc_questionmark"
-        icon = Gems.gemPath("Violet")
+        --icon = Gems.gemPath("Violet")
+		icon = FALLBACK_ICON
     end
     return icon
 end

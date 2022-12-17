@@ -71,6 +71,7 @@ local function createImportButton(frame, import)
 	importButton.HighlightTexture:SetTexCoord(0,1,1,0)
 	importButton.PushedTexture:SetTexture("interface/buttons/ui-microstream-green")
 	importButton.PushedTexture:SetTexCoord(0,1,1,0)
+	-- I don't know how to clear these undefined fields..
 
 	--[[
 	importButton.backIcon = importButton:CreateTexture(nil, "BACKGROUND")
@@ -252,6 +253,7 @@ local function init(callbacks)
 		background:SetVertTile(false)
 		background:SetHorizTile(false)
 		background:SetTexCoord(0.0546875,1-0.0546875,0.228515625,1-0.228515625)
+		--background:SetTexture(ASSETS_PATH .. "/FrameBG_Darkblue-thin") -- FOR ARCANUM 2.0 // VAULT FIRST
 		background:SetPoint("TOPLEFT")
 		background:SetPoint("BOTTOMRIGHT",-19,0)
 	end

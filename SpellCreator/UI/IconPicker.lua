@@ -28,7 +28,7 @@ local filteredList = nil
 function IconPicker.IconPickerButton_OnClick( self )
 	-- Apply the icon and close the picker.
 	SCForgeMainFrame.IconButton:SelectTex( self.realTex )
-
+	ns.UI.Attic.markEditorUnsaved()
 	PlaySound(114990)
 	IconPicker.IconPicker_Close()
 end

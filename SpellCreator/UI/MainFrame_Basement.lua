@@ -52,7 +52,8 @@ local function createSaveButton(mainFrame, saveSpell)
 	saveButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
 	saveButton:SetScript("OnClick", function(self, button)
-		saveSpell(button == "RightClick" or isSaving())
+		local success = saveSpell(button == "RightClick" or isSaving())
+		if success then Attic.markEditorSaved() end
 		doFlicker(mainFrame, 1)
 	end)
 
@@ -176,7 +177,11 @@ local function createResetButton(mainFrame, resetUI)
 	UIHelpers.setupCoherentButtonTextures(resetButton, "transmog-icon-revert", true)
 	resetButton:SetMotionScriptsWhileDisabled(true)
 
-	resetButton:SetScript("OnClick", resetUI)
+	resetButton:SetScript("OnClick", function(self)
+		if not ns.UI.Popups.checkAndShowResetForgeConfirmation("reset", resetUI, self) then
+			resetUI(self)
+		end
+	end)
 
 	Tooltip.set(resetButton,
 		"Clear & Reset the Forge UI!", {

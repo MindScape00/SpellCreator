@@ -4,6 +4,11 @@ local ns = select(2, ...)
 local Logging = ns.Logging
 local ProfileFilter = ns.ProfileFilter
 local Vault = ns.Vault
+local UI = ns.UI
+local Attic = UI.Attic
+
+
+local Popups = ns.UI.Popups
 
 local Debug = ns.Utils.Debug
 local DataUtils = ns.Utils.Data
@@ -12,10 +17,15 @@ local cprint, dprint, eprint = Logging.cprint, Logging.dprint, Logging.eprint
 local isNotDefined = DataUtils.isNotDefined
 
 ---@param spellToLoad VaultSpell
-local function loadSpell(spellToLoad)
+local function loadSpell(spellToLoad, byPassResetConfirmation)
 	--dprint("Loading spell.. "..spellToLoad.commID)
 
+	if not byPassResetConfirmation then
+		if ns.UI.Popups.checkAndShowResetForgeConfirmation("load a spell", loadSpell, spellToLoad, true) then return end
+	end
+
 	Attic.updateInfo(spellToLoad)
+	Attic.markEditorSaved()
 
 	---@type VaultSpellAction[]
 	local localSpellActions = CopyTable(spellToLoad.actions)
@@ -145,16 +155,7 @@ local function saveSpellToPhaseVault(commID, overwrite, fromPhase, forcePrivate)
 						if not overwrite then
 							-- phase already has this ID saved.. Handle over-write...
 							dprint("Phase already has a spell saved by Command '" .. commID .. "'. Prompting to confirm over-write.")
-
-							StaticPopupDialogs["SCFORGE_CONFIRM_POVERWRITE"] = {
-								text = "Spell '" .. commID .. "' Already exists in the Phase Vault.\n\rDo you want to overwrite the spell?",
-								OnAccept = function() saveSpellToPhaseVault(commID, true) end,
-								button1 = "Overwrite",
-								button2 = CANCEL,
-								hideOnEscape = true,
-								whileDead = true,
-							}
-							StaticPopup_Show("SCFORGE_CONFIRM_POVERWRITE")
+							Popups.showPhaseVaultOverwritePopup(commID)
 
 							phaseVault.isSavingOrLoadingAddonData = false
 							sendPhaseVaultIOLock(false)

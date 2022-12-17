@@ -86,20 +86,28 @@ local function createSpellCreatorInterfaceOptions()
 		local buttonData = {
 		["anchor"] = {point = , relativeTo = , relativePoint = , x = , y = ,},
 		["title"] = ,
+		["titleAnchor"] = {point = , relativePoint = , x = , y = ,},
+		["titleFont"] = ,
 		["tooltipTitle"] = ,
 		["tooltipText"] = ,
 		["optionKey"] = ,
 		["onClickHandler"] = , -- extra OnClick function
 		["customOnLoad"] = , -- extra OnLoad function
+		["template"] = ,
 		}
 		--]]
-		local button = CreateFrame("CHECKBUTTON", nil, parent, "InterfaceOptionsCheckButtonTemplate")
+
+		local button = CreateFrame("CHECKBUTTON", nil, parent, buttonData.template or "InterfaceOptionsCheckButtonTemplate")
 		if buttonData.anchor.relativePoint then
 			button:SetPoint(buttonData.anchor.point, buttonData.anchor.relativeTo, buttonData.anchor.relativePoint, buttonData.anchor.x, buttonData.anchor.y)
 		else
 			button:SetPoint(buttonData.anchor.point, buttonData.anchor.x, buttonData.anchor.y)
 		end
+		if not button.Text then button.Text = button:CreateFontString(nil, "ARTWORK", buttonData.titleFont or "GameFontNormal") end
 		button.Text:SetText(buttonData.title)
+		if buttonData.titleAnchor then
+			button.Text:SetPoint(buttonData.titleAnchor.point or "RIGHT", button, buttonData.titleAnchor.relativePoint or "LEFT", buttonData.titleAnchor.x or 0, buttonData.titleAnchor.y or 0)
+		end
 		button:SetScript("OnShow", function(self)
 			if SpellCreatorMasterTable.Options[buttonData.optionKey] == true then
 				self:SetChecked(true)
@@ -160,13 +168,13 @@ local function createSpellCreatorInterfaceOptions()
 
 	local buttonData = {
 		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.showVaultToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -3,},
-		["title"] = "Enable QuickCast Book",
-		["tooltipTitle"] = "Enable the QuickCast Book",
-		["tooltipText"] = "You can assign ArcSpells to Quickcast from your vault, and cast them quickly using the Quickcast Book on your screen.",
-		["optionKey"] = "quickcastToggle",
-		["onClickHandler"] = function(self) if SpellCreatorMasterTable.Options["quickcastToggle"] then Quickcast.setShown(true) else Quickcast.setShown(false) end end,
+		["title"] = "Show Tooltips",
+		["tooltipTitle"] = "Show Tooltips",
+		["tooltipText"] = "Show Tooltips when you mouse-over UI elements like buttons, editboxes, and spells in the vault, just like this one!\nYou can't currently toggle these off, maybe later.",
+		["optionKey"] = "showTooltips",
+		["onClickHandler"] = nil,
 		}
-	SpellCreatorInterfaceOptions.panel.MinimapIconToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+	SpellCreatorInterfaceOptions.panel.showTooltipsToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 
 	--[[
 	local buttonData = {
@@ -192,26 +200,27 @@ local function createSpellCreatorInterfaceOptions()
 
 	local buttonData = {
 		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.loadChronologicallyToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -3,},
-		["title"] = "A future option",
-		["tooltipTitle"] = "Something later",
-		["tooltipText"] = "This used to the the fast reset toggle, but it was already fast enough, so we got rid of it. TBD what we add here next!",
-		["optionKey"] = "idkyet",
-		["onClickHandler"] = nil,
+		["title"] = "Enable QuickCast Book",
+		["tooltipTitle"] = "Enable the QuickCast Book",
+		["tooltipText"] = "You can assign ArcSpells to Quickcast from your vault, and cast them quickly using the Quickcast Book on your screen.",
+		["optionKey"] = "quickcastToggle",
+		["onClickHandler"] = function(self) if SpellCreatorMasterTable.Options["quickcastToggle"] then Quickcast.setShown(true) else Quickcast.setShown(false) end end,
 		}
-	SpellCreatorInterfaceOptions.panel.fastResetToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
-	SpellCreatorInterfaceOptions.panel.fastResetToggle:Disable()
+	SpellCreatorInterfaceOptions.panel.enableQCIconToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 
 	local buttonData = {
-		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.fastResetToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -3,},
-		["title"] = "Show Tooltips",
-		["tooltipTitle"] = "Show Tooltips",
-		["tooltipText"] = "Show Tooltips when you mouse-over UI elements like buttons, editboxes, and spells in the vault, just like this one!\nYou can't currently toggle these off, maybe later.",
-		["optionKey"] = "showTooltips",
+		["anchor"] = {point = "TOPLEFT", relativeTo = SpellCreatorInterfaceOptions.panel.enableQCIconToggle, relativePoint = "BOTTOMLEFT", x = 0, y = -3,},
+		["title"] = "Keep Quickcast Open after Casting",
+		["tooltipTitle"] = "Keep Quickcast Open after Casting",
+		["tooltipText"] = "Keeps the Quickcast ring open after casting a spell from it. Some might call it.. Quickquickcast!",
+		["optionKey"] = "keepQCOpen",
 		["onClickHandler"] = nil,
 		}
-	SpellCreatorInterfaceOptions.panel.showTooltipsToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+	SpellCreatorInterfaceOptions.panel.keepQCOpenToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+
 
 	-- UAC Control - Not in line with the rest, in the bottom left
+	--[[
 	local buttonData = {
 		["anchor"] = {point = "BOTTOMLEFT", relativeTo = SpellCreatorInterfaceOptions.panel, relativePoint = "BOTTOMLEFT", x = 0, y = 0,},
 		["title"] = "Disable UAC",
@@ -220,28 +229,24 @@ local function createSpellCreatorInterfaceOptions()
 		["optionKey"] = "disableUAC",
 		["onClickHandler"] = nil,
 		}
-	SpellCreatorInterfaceOptions.panel.showTooltipsToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+	SpellCreatorInterfaceOptions.panel.UACToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
+	--]]
 
-	-- Debug Checkbox
-	local SpellCreatorInterfaceOptionsDebug = CreateFrame("CHECKBUTTON", "SC_DebugToggleOption", SpellCreatorInterfaceOptions.panel, "OptionsSmallCheckButtonTemplate")
-	SpellCreatorInterfaceOptionsDebug:SetPoint("BOTTOMRIGHT", 0, 0)
-	SpellCreatorInterfaceOptionsDebug:SetHitRectInsets(-35,0,0,0)
-	SpellCreatorInterfaceOptionsDebug.Text = SC_DebugToggleOptionText -- This is defined by $parentText and is never made a child by the template, smfh, so it's a defined global when the frame is created.
-	SpellCreatorInterfaceOptionsDebug.Text:SetTextColor(1,1,1,1)
-	SpellCreatorInterfaceOptionsDebug.Text:SetText("Debug")
-	SpellCreatorInterfaceOptionsDebug.Text:SetPoint("LEFT", -30, 0)
-	SpellCreatorInterfaceOptionsDebug:SetScript("OnShow", function(self)
-		if SpellCreatorMasterTable.Options["debug"] == true then SpellCreatorInterfaceOptionsDebug:SetChecked(true) else SpellCreatorInterfaceOptionsDebug:SetChecked(false) end
-	end)
-	SpellCreatorInterfaceOptionsDebug:SetScript("OnClick", function(self)
-		SpellCreatorMasterTable.Options["debug"] = not SpellCreatorMasterTable.Options["debug"]
-		if SpellCreatorMasterTable.Options["debug"] then
-			cprint("Toggled Debug (VERBOSE) Mode")
-		end
-	end)
+	-- Debug Checkbox - In the bottom right instead
+	local buttonData = {
+		["anchor"] = {point = "BOTTOMRIGHT", relativeTo = SpellCreatorInterfaceOptions.panel, relativePoint = "BOTTOMRIGHT", x = 0, y = 0,},
+		["title"] = "Debug",
+		["titleAnchor"] = {point = "RIGHT", relativePoint = "LEFT"},
+		["titleFont"] = "GameFontHighlightSmallLeft",
+		["tooltipTitle"] = "Enable Debug Mode",
+		["tooltipText"] = "Enables Arcanum's Debugging Mode\n\rWARNING: This includes EXTREMELY VERBOSE DEBUG MESSAGES THAT WILL FLOOD YOUR CHAT. Please only use this if you know what you're doing or you are instructed to in order to help debug an issue.",
+		["optionKey"] = "debug",
+		["onClickHandler"] = function(self) if SpellCreatorMasterTable.Options["debug"] then cprint("Toggled Debug (VERBOSE) Mode") end end,
+		["template"] = "OptionsSmallCheckButtonTemplate",
+		}
+	SpellCreatorInterfaceOptions.panel.debugToggle = genOptionsCheckbutton(buttonData, SpellCreatorInterfaceOptions.panel)
 
 	InterfaceOptions_AddCategory(SpellCreatorInterfaceOptions.panel);
-	if SpellCreatorMasterTable.Options["debug"] == true then SpellCreatorInterfaceOptionsDebug:SetChecked(true) else SpellCreatorInterfaceOptionsDebug:SetChecked(false) end
 end
 
 

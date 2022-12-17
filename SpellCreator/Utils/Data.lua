@@ -7,6 +7,14 @@ end
 
 local function toboolean(str) return strlower(str) == "true" end
 
+local function firstToUpper(str)
+    return (str:gsub("^%l", string.upper))
+end
+
+local function wordToProperCase(word)
+	return firstToUpper(string.lower(word))
+end
+
 ---@generic T
 ---@param t T
 ---@return T
@@ -29,4 +37,6 @@ ns.Utils.Data = {
     isNotDefined = isNotDefined,
     toboolean = toboolean,
 	orderedPairs = orderedPairs,
+	firstToUpper = firstToUpper,
+	wordToProperCase = wordToProperCase,
 }

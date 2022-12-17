@@ -1,11 +1,91 @@
 local addonName, ns = ...
---[[                                                                                      ]]-- Max Length of a line is within the brackets.
+--[[                                                                                       ]]-- Max Length of a line is within the brackets.
 ns.ChangelogText = [[
 
 {h3:c} See the User Guide for more help on how to use Arcanum.{/h3}
 {h3:c} [Link - Builder's Haven Discord Guide](https://discord.com/channels/718813797611208788/1031832007031930880/1032773498600439898) - [Link - Epsilon Forums Guide](https://forums.epsilonwow.net/topic/3413-addon-arcanum-spell-forge-user-guide/) {/h3}
 
 {h1:c} Changelog {/h1}
+{h2:c} __________________________________________________________ {/h2}
+##v1.2.0 (December 17th, 2022)
+
+### - Highlights:
+
+    - ICONS!  ArcSpells can now have icons assigned, which are used in the
+            vaults, Quickcast, and Integrations when available!
+
+    - Quickcast!  ArcSpells can be assigned to Quickcast via right-click in your personal
+            vault. Quickcast is an easier way to quickly access & cast frequent spells.
+            Add a spell from your vault, then mouse-over the Quickcast book to get started!
+
+    - The Action drop-down menu has been entirely reworked! Now grouped into categories,
+            it's much easier to find what you're looking for, including lots of..
+
+    - NEW Actions!  We've added tons of new actions to make it easier to do what you want
+            without needing to figure out the scripting side or making a command. We've
+            also reworked the Action Drop-down Menu, grouping actions into categories,
+            to make it easier to find what you're looking for.
+
+    - Castbar!  ArcSpells longer than 0.25 seconds now have a castbar!
+            Hate it? Want it channeled? You can toggle it off or to show as channeled
+            by using the Cast/Channel checkbox in the top 'Attic' area in the Forge!
+
+    - Keybinds!  You can assign keybindings to ArcSpells via right-click in your personal
+            vault. Note: Keybinds are unique, you can't have two spells on one binding.
+
+    - OPie Integration!  ArcSpells can be added directly to OPie rings if you have OPie
+            installed. You can add them just as you would any other action, using the new
+            Arcanum - Spell Forge section when adding an item to a ring.
+
+### - More Changes & QOL Updates:
+    - Everywhere:
+        - Tooltips are more consistent and easier to follow. Tip: Read the ToolTIPs for
+            TIPS on how to use Arcanum & what things do!
+
+    - Gossip:
+        - Fixed a few bugs with the Add to Gossip UI.
+        - Added a new <arc_copy:url> tag to make gossip options to copy a URL easier.
+
+    - Forge UI:
+        - New rows added will pre-fill with the same delay as the row you're adding from.
+        - More alerts to help you know when an error occurs, like casting an ArcSpell that
+            doesn't exist in your vault from another ArcSpell.
+        - Editing a spell now puts the vault in Editing mode with 'Save' button instead of
+            'Create', and does not make you confirm to over-write the save.
+        - Trying to load another spell into the editor, or trying to reset the editor,
+            with unsaved changes, will now warn you that you have unsaved changes first.
+        - A new 'Profile' dropdown lives in the top of the Forge UI, to assign a spell
+            directly to a profile when creating it.
+
+    - Vaults:
+        - Spell Visibility in Phase Vault's can now be directly changed using the
+            private icon without having to reupload it.
+        - Hotkeys, Quickcast, and Profiles can all be assigned from right-clicking a
+            spell in your vault!
+
+    - Chat Links:
+        - Chat links have been reworked to be less reliant on your character being online.
+            Links also take up much less characters in messages. All spell data is now
+            sent to a client directly when shared, and has it stored in a cache so
+            it can be saved if desired without having to request it from the owner again.
+
+    - ARC:API
+        - ARC:RAND() added as a replacement for GetRandomArgument() which Blizz removes
+            in 9.0+ for some reason.
+        - ARC:CMD has replaces the ARC:COMM function so that it matches Gossip <arc_cmd:>
+            tags and the /arc cmd command. ARC:COMM will still function in the background.
+        - ARC:IF & ARC:IFS now support single command specification, so you can specify
+            the command to run if it passes the check, or do nothing if not.
+        - /arc commands now accept spaces in arguments by using "" around them.
+            - Example: /arc if HasKeys ".phase tele inside the door"
+
+### - Bugs Fixed:
+    - Phase Vault did not load correctly when entering a phase that required a
+        loading screen.
+    - Multi-Tags did not work if using the Immersion addon for gossips.
+    - Profiles reset when loading & re-saving a spell. They're now remembered!
+    - Phase vault could get stuck loading when changing phases under certain conditions.
+
 {h2:c} __________________________________________________________ {/h2}
 ##v1.1.0 (November 7th, 2022)
 

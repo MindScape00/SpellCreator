@@ -16,6 +16,9 @@ local function setHighlightToOffsetWithPushed(frame, x, y)
 	frame:HookScript("OnMouseUp", function(self) setTextureOffset(highlight, 0, 0) end)
 end
 
+---@param button BUTTON
+---@param path string
+---@param useAtlas? boolean
 local function setupCoherentButtonTextures(button, path, useAtlas)
 	if useAtlas then
 		button:SetNormalAtlas(path)

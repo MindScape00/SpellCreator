@@ -81,28 +81,6 @@ local function CustomUIFrameFadeOut(frame, timeToFade, startAlpha, endAlpha)
 	UIFrameFade(frame, fadeInfo);
 end
 
-local function hideCastButtons(buttonToActivate)
-	local frame = f
-	f.areSpellsShown = false
-	for i = 1, #frame.castButtons do
-		local button = frame.castButtons[i]
-		button.showTimer:Cancel()
-		if UIFrameIsFading(button) then UIFrameFadeRemoveFrame(button) end
-
-		if button == buttonToActivate then
-			--button.anims:Play()
-			UIFrameFadeOut(button, 0.35, 1, 0)
-			C_Timer.After(0.5, function() if button:GetAlpha() == 0 then button:Hide() end end)
-		else
-			if button:IsShown() then
-				CustomUIFrameFadeOut(button, 0.05, button:GetAlpha(), 0)
-			else
-				button:Hide()
-			end
-		end
-	end
-end
-
 local function updateButtonTexs(self) -- you need to set the main texture first
 	local pushedTex = self:GetPushedTexture()
 	local normalTex = self:GetNormalTexture()
@@ -129,7 +107,108 @@ local function setButtonActorExplode(self)
 	self.Actor:Show()
 end
 
---local quickCastSpells = {"arcsmash", "drunk","drunk","drunk","drunk","drunk","drunk","drunk","drunk","drunk","drunk",}
+f.lineFrame = CreateFrame("Frame", nil, f)
+f.lineFrame:Hide()
+f.lineFrame:SetSize(10,10)
+f.lineFrame:SetPoint("CENTER")
+f.lineFrame:SetFrameStrata("LOW")
+f.lineFrame.border = f.lineFrame:CreateTexture(nil, "BORDER")
+
+f.lineFrame.border:SetAllPoints()
+--[[
+local offset = 16
+f.lineFrame.border:SetPoint("TOPLEFT", offset, -offset)
+f.lineFrame.border:SetPoint("BOTTOMRIGHT", -offset, offset)
+--]]
+
+f.lineFrame.border:SetTexture(ASSETS_PATH .. "/quickcast_runes")
+f.lineFrame.border:SetVertexColor(ADDON_COLORS.GAME_GOLD:GetRGBA())
+f.lineFrame.lines = {}
+
+local function hideSpellLines(fadeTime)
+	for i = 1, #f.lineFrame.lines do
+		local line = f.lineFrame.lines[i]
+		UIFrameFadeRemoveFrame(line)
+		if line.fadeWait then line.fadeWait:Cancel() end
+		if fadeTime then
+			-- do the fading here
+		else
+			line:Hide()
+		end
+	end
+	if f.lineFrame:IsShown() then
+		UIFrameFadeRemoveFrame(f.lineFrame)
+		CustomUIFrameFadeOut(f.lineFrame, 0.25, f.lineFrame:GetAlpha(), 0)
+	end
+end
+
+local disableSatanicLines = true
+
+local function drawSpellLines(self, num)
+	hideSpellLines(); -- clear all the other lines first
+	UIFrameFadeIn(f.lineFrame, 0.25, 0, 1)
+
+	if disableSatanicLines then return end
+
+	if num < 5 then return end
+	local buttonStep = 2
+	local finishDrawing, finishOnNext, finishOnNextNext  = false, false, false
+	local line = 0
+
+	if num > 8 then buttonStep = 3 end
+	while finishDrawing == false do
+		if finishOnNext then finishDrawing = true end
+		if finishOnNextNext then finishOnNext = true end
+		line = line + 1
+		local buttonStart = mod(line-1, num)+1
+		local buttonEnd = mod(line-1+buttonStep, num)+1
+		if not f.lineFrame.lines[line] then
+			f.lineFrame.lines[line] = f.lineFrame:CreateLine()
+			local newLine = f.lineFrame.lines[line]
+			newLine:SetColorTexture(ADDON_COLORS.GAME_GOLD:GetRGBA())
+			newLine:SetThickness(2)
+			newLine:Hide()
+		end
+		local thisLine = f.lineFrame.lines[line]
+		thisLine:ClearAllPoints()
+		thisLine:SetStartPoint("CENTER", self.castButtons[buttonStart])
+		thisLine:SetEndPoint("CENTER", self.castButtons[buttonEnd])
+
+		thisLine.fadeWait = C_Timer.NewTimer(0.2, function() UIFrameFadeIn(thisLine, 0.25, 0, 1) end);
+
+		if buttonEnd == 1 then
+			if buttonStep == 2 then
+				finishOnNext = true
+			elseif buttonStep == 3 then
+				finishOnNextNext = true
+			end
+		end
+	end
+end
+
+local function hideCastButtons(buttonToActivate)
+	local frame = f
+	f.areSpellsShown = false
+	for i = 1, #frame.castButtons do
+		local button = frame.castButtons[i]
+		button.showTimer:Cancel()
+		if UIFrameIsFading(button) then UIFrameFadeRemoveFrame(button) end
+
+		if button == buttonToActivate then
+			--button.anims:Play()
+			UIFrameFadeOut(button, 0.35, 1, 0)
+			C_Timer.After(0.5, function() if button:GetAlpha() == 0 then button:Hide() end end)
+		else
+			if button:IsShown() then
+				CustomUIFrameFadeOut(button, 0.05, button:GetAlpha(), 0)
+			else
+				button:Hide()
+			end
+		end
+	end
+	hideSpellLines()
+end
+
 local function genQuickCastButtons(self)
 	local quickCastSpells = SpellCreatorMasterTable.quickCastSpells
 	local numSpells = #quickCastSpells
@@ -258,11 +337,9 @@ local function genQuickCastButtons(self)
 			button.tooltipText = "Cast '"..spellData.commID.."' ("..#spellData.actions.." actions).\n"..ADDON_COLORS.QC_DARKRED:GenerateHexColorMarkup().."Shift+Right-Click to remove.|r"
 			button.commID = spellData.commID
 			if spellData.icon then
-				--button.icon:SetTexture(Icons.getFinalIcon(spellData.icon))
 				button:SetNormalTexture(Icons.getFinalIcon(spellData.icon))
 			else
 				local iconNum = ((i-1) % (#Gems.arcaneGemIcons)) + 1
-				--button.icon:SetTexture(Gems.gemPath(Gems.arcaneGemIcons[iconNum]))
 				button:SetNormalTexture(Gems.gemPath(Gems.arcaneGemIcons[iconNum]))
 			end
 			button:SetScript("OnClick", function(self, button)
@@ -272,14 +349,13 @@ local function genQuickCastButtons(self)
 					C_Timer.After(0.1, function() genQuickCastButtons(self:GetParent()) end)
 				else
 					executeSpell(spellData.actions, nil, spellData.fullName, spellData)
-					hideCastButtons(self)
+					if not SpellCreatorMasterTable.Options.keepQCOpen then hideCastButtons(self) end
 					setButtonActorExplode(self)
 					C_Timer.After(0.5, function() setButtonActorNormal(self) end)
 				end
 			end)
 		end
 		updateButtonTexs(button)
-		--button:Show()
 		local maxSequenceTime = 0.5
 		local maxSequenceDelay = 0.1
 		local sequenceDelay = maxSequenceTime / numSpells
@@ -287,7 +363,7 @@ local function genQuickCastButtons(self)
 		if numSpells < 4 then sequenceDelay = 0 end
 		if not button:IsShown() then button.showTimer = C_Timer.NewTimer(sequenceDelay*i, function() UIFrameFadeIn(button, 0.05, 0, 1) end) else UIFrameFadeIn(button, 0, 0, 1) end
 	end
-
+	drawSpellLines(self, numSpells)
 end
 
 f:SetScript("OnEnter", function(self)
@@ -305,14 +381,15 @@ f:SetScript("OnEnter", function(self)
 
 	genQuickCastButtons(self)
 
-	local rad = (self.radius+35)
+	local rad = (self.radius+15) -- this is the radius to the EDGE of the quick cast buttons, not their center
 	self:SetScript("OnUpdate", function(self)
 		--if not self:IsMouseOver(rad, -rad, -rad, rad) then
-		if getCursorDistanceFromFrame(self) > rad+15 then -- manually overriding rad to 50 offset from self.radius (that is: 50 'pixels' outside of the cast button's center)
+		if getCursorDistanceFromFrame(self) > rad+35 then -- manually overriding rad to 50 (35+15) offset from self.radius (that is: 50 'pixels' outside of the cast button's center)
 			hideCastButtons()
 			self:SetScript("OnUpdate", nil)
 		end
 	end)
+	self.lineFrame:SetSize((rad)*2, (rad)*2)
 end)
 
 f:SetScript("OnLeave", function(self)

@@ -20,7 +20,7 @@ end
 
 local function saveSpellFromCache(commId, charOrPhase)
 	local spellData = getSpellFromCache(commId, charOrPhase)
-	if not spellData then return end -- spell was not in the cache, we can add a requestSpellFromPlayer here if we want?
+	if not spellData then return end -- spell was not in the cache, we can add a requestSpellFromPlayer here if we want? Shouldn't really be possible tho.
 	Comms.tryToSaveReceivedSpell(spellData, charOrPhase, ns.MainFuncs.updateSpellLoadRows)
 end
 

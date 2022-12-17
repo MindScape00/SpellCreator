@@ -7,6 +7,7 @@ local Localization = ns.Localization
 local Tooltip = ns.Utils.Tooltip
 local ADDON_COLORS = Constants.ADDON_COLORS
 local SavedVariables = ns.SavedVariables
+local MainFrame = ns.UI.MainFrame
 
 local IconPicker = ns.UI.IconPicker
 local Icons = ns.UI.Icons
@@ -22,6 +23,19 @@ local profile -- to be replaced with actual select
 local author
 local editCommID
 local iconButton
+local editorsaved = true
+
+local function markEditorSaved()
+	editorsaved = true
+end
+
+local function markEditorUnsaved()
+	editorsaved = false
+end
+
+local function getEditorSavedState()
+	return editorsaved
+end
 
 ---@param mainFrame SCForgeMainFrame
 local function createNameBox(mainFrame)
@@ -36,12 +50,15 @@ local function createNameBox(mainFrame)
 	--nameBox.Title:SetText(NAME)
 	--nameBox.Title:SetPoint("BOTTOM", nameBox, "TOP", 0, 0)
 	nameBox:SetAutoFocus(false)
-	nameBox:SetSize(mainFrame:GetWidth() / 4,23)
-	nameBox:SetPoint("TOPRIGHT", mainFrame, "TOP", -3, -20)
+	nameBox:SetSize(mainFrame:GetWidth() / 4.5, 23)
+	nameBox:SetPoint("TOPRIGHT", mainFrame, "TOP", -38, -20)
+	nameBox:HookScript("OnTextChanged", function(self, userInput)
+		if userInput then markEditorUnsaved() end
+	end)
 
 	Tooltip.set(nameBox,
 		Localization.SPELLNAME,
-		"The name of the spell.\rThis can be anything and is only used for identifying the spell in the Vault & Chat Links.\n\rYes, you can have two spells with the same name, but that's annoying.."
+		"The name of the spell.\n\rThis can be anything and is only used for identifying the spell in the Vault & Chat Links.\n\rYes, you can have two spells with the same name, but that's annoying.."
 	)
 
 	return nameBox
@@ -73,9 +90,10 @@ local function createCommandBox(mainFrame)
 		}
 	)
 
-	commandBox:HookScript("OnTextChanged", function(self)
+	commandBox:HookScript("OnTextChanged", function(self, userInput)
 		local selfText = self:GetText();
 		if selfText:match(",") then self:SetText(selfText:gsub(",","")) end
+		if userInput then markEditorUnsaved() end
 	end)
 
 	return commandBox
@@ -102,6 +120,10 @@ local function createInfoDescBox(mainFrame)
 	end
 	descBox:SetRelativePoints()
 
+	descBox:HookScript("OnTextChanged", function(self, userInput)
+		if userInput then markEditorUnsaved() end
+	end)
+
 	Tooltip.set(descBox, "Description", "A description of the spell. This will show up in tooltips.")
 
 	return descBox
@@ -116,7 +138,7 @@ local function createCastbarCheckButton(mainFrame)
 	castbarCheckButton = CreateFrame("CheckButton", nil, mainFrame, "UICheckButtonTemplate")
 	castbarCheckButton:SetSize(20,20)
 	castbarCheckButton:SetPoint("LEFT", commandBox, "RIGHT", 0, 0)
-	castbarCheckButton.text:SetText(" Cast/Channel Bar")
+	castbarCheckButton.text:SetText(" Cast/Channel")
 	castbarCheckButton.checkState = 1 -- 0 = none, 1 = cast, 2 = channel; default to cast
 
 	castbarCheckButton.checkTex = castbarCheckButton:GetCheckedTexture()
@@ -152,8 +174,8 @@ local function createCastbarCheckButton(mainFrame)
 	castbarCheckButton:SetScript("OnClick", function(self)
 		self.checkState = self.checkState + 1
 		if self.checkState > 2 then self.checkState = 0 end
-
 		self:UpdateCheckedTex()
+		markEditorUnsaved()
 	end)
 
 	Tooltip.set(castbarCheckButton,
@@ -171,7 +193,7 @@ local function createCastbarCheckButton(mainFrame)
 				"\nCurrent: "..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup().."" .. castingStateText .. "|r",
 			}
 		end,
-		{ updateOnClick = true }
+		{ updateOnClick = true, delay = 0.3 }
 	)
 
 	return castbarCheckButton
@@ -181,7 +203,8 @@ end
 local function createIconButton(mainFrame)
 	iconButton = CreateFrame("BUTTON", nil, mainFrame)
 	iconButton:SetSize(34,34)
-	iconButton:SetPoint("TOPRIGHT", nameBox, "TOPLEFT", -22, -6)
+	iconButton:SetPoint("TOPRIGHT", nameBox, "TOPLEFT", -14, -6)
+	--iconButton:SetPoint("TOPLEFT", 70, -26)
 	iconButton:SetNormalTexture("Interface/Icons/inv_misc_questionmark")
 	iconButton.highlight = iconButton:CreateTexture(nil, "OVERLAY")
 	iconButton.highlight:SetTexture(ASSETS_PATH .. "/dm-trait-select")
@@ -230,6 +253,7 @@ local function createIconButton(mainFrame)
 	iconButton:SetScript("OnClick", function(self, button)
 		if button == "RightButton" then
 			self:ResetTex()
+			markEditorUnsaved()
 			return
 		end
 		IconPicker.IconPicker_Open(self)
@@ -237,7 +261,7 @@ local function createIconButton(mainFrame)
 	end)
 	iconButton:RegisterForClicks("RightButtonUp", "LeftButtonUp")
 
-	Tooltip.set(iconButton, "Select an Icon", "Select an icon for your ArcSpell. This will be shown across the addon to represent the spell (i.e., in the vault, castbar, Quickcast, chatlinks).\n\r"..Tooltip.genContrastText("Right-Click").." to remove the icon. You should probably select an icon tho..")
+	Tooltip.set(iconButton, "Select an Icon", "Select an icon for your ArcSpell.\n\rThis will be shown across the addon to represent the spell (i.e., in the vault, castbar, Quickcast, chatlinks).\n\r"..Tooltip.genContrastText("Right-Click").." to remove the icon. You should probably have an icon tho..")
 
 	return iconButton
 end
@@ -340,9 +364,16 @@ end
 
 ---@param mainFrameWidth integer
 local function updateSize(mainFrameWidth)
-	commandBox:SetWidth(mainFrameWidth / 5)
-	nameBox:SetWidth(mainFrameWidth / 4)
-	descBox:SetWidth(mainFrameWidth / 2.5)
+	local widthScale = mainFrameWidth / MainFrame.size.Xmin
+	local squareRootWidthScale = widthScale^0.5
+	local effectiveOffsetScale = widthScale^1.5
+
+	commandBox:SetWidth( (mainFrameWidth / 5) * squareRootWidthScale)
+	nameBox:SetWidth((mainFrameWidth / 4.5) * squareRootWidthScale)
+	descBox:SetWidth((mainFrameWidth / 2.5) * squareRootWidthScale)
+
+	iconButton:SetPoint("TOPRIGHT", nameBox, "TOPLEFT", -14*effectiveOffsetScale, -6)
+	--print(widthScale, effectiveOffsetScale, squareRootWidthScale)
 end
 
 ---@param callback fun()
@@ -399,4 +430,7 @@ ns.UI.Attic = {
 	updateSize = updateSize,
 	onNameChange = onNameChange,
 	onCommandChange = onCommandChange,
+	markEditorSaved = markEditorSaved,
+	markEditorUnsaved = markEditorUnsaved,
+	getEditorSavedState = getEditorSavedState,
 }
