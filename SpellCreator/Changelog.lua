@@ -1,5 +1,6 @@
 local addonName, ns = ...
---[[                                                                                       ]]-- Max Length of a line is within the brackets.
+--[[                                                                                       ]]
+-- Max Length of a line is within the brackets.
 ns.ChangelogText = [[
 
 {h3:c} See the User Guide for more help on how to use Arcanum.{/h3}
@@ -12,14 +13,11 @@ ns.ChangelogText = [[
 ### - Highlights:
 
     - ICONS!  ArcSpells can now have icons assigned, which are used in the
-            vaults, Quickcast, and Integrations when available!
+            vaults, Quickcast, Castbars, and Integrations when available!
 
     - Quickcast!  ArcSpells can be assigned to Quickcast via right-click in your personal
             vault. Quickcast is an easier way to quickly access & cast frequent spells.
             Add a spell from your vault, then mouse-over the Quickcast book to get started!
-
-    - The Action drop-down menu has been entirely reworked! Now grouped into categories,
-            it's much easier to find what you're looking for, including lots of..
 
     - NEW Actions!  We've added tons of new actions to make it easier to do what you want
             without needing to figure out the scripting side or making a command. We've
@@ -62,6 +60,7 @@ ns.ChangelogText = [[
             private icon without having to reupload it.
         - Hotkeys, Quickcast, and Profiles can all be assigned from right-clicking a
             spell in your vault!
+        - You can now search in your Personal & Phase vaults for a spell by name.
 
     - Chat Links:
         - Chat links have been reworked to be less reliant on your character being online.
@@ -85,6 +84,8 @@ ns.ChangelogText = [[
     - Multi-Tags did not work if using the Immersion addon for gossips.
     - Profiles reset when loading & re-saving a spell. They're now remembered!
     - Phase vault could get stuck loading when changing phases under certain conditions.
+    - Phase vault could occasionally show duplicated, until refreshed.
+    - Personal vault is now correctly sorted in alphabetical order.
 
 {h2:c} __________________________________________________________ {/h2}
 ##v1.1.0 (November 7th, 2022)
