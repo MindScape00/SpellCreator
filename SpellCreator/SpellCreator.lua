@@ -4,7 +4,6 @@ local ns = select(2, ...)
 
 local ActionsData = ns.Actions.Data
 local actionTypeData = ActionsData.actionTypeData
-local cmd = ns.Cmd.cmd
 local cprint, dprint, eprint = ns.Logging.cprint, ns.Logging.dprint, ns.Logging.eprint
 local ADDON_COLORS = ns.Constants.ADDON_COLORS
 
@@ -17,6 +16,7 @@ local ProfileFilter = ns.ProfileFilter
 local SavedVariables = ns.SavedVariables
 local serializer = ns.Serializer
 local Vault = ns.Vault
+local VaultFilter = ns.VaultFilter
 local Hotkeys = ns.Actions.Hotkeys
 
 local DataUtils = ns.Utils.Data
@@ -26,30 +26,31 @@ local UIHelpers = ns.Utils.UIHelpers
 local Tooltip = ns.Utils.Tooltip
 
 local Animation = ns.UI.Animation
-local Attic = ns.UI.Attic
-local Basement = ns.UI.Basement
-local ChatLink = ns.UI.ChatLink
-local Icons = ns.UI.Icons
+local Attic = ns.UI.MainFrame.Attic
+local Basement = ns.UI.MainFrame.Basement
+local IconPicker = ns.UI.IconPicker
 local ImportExport = ns.UI.ImportExport
 local Models, Portrait = ns.UI.Models, ns.UI.Portrait
 local LoadSpellFrame = ns.UI.LoadSpellFrame
-local MainFrame = ns.UI.MainFrame
+local MainFrame = ns.UI.MainFrame.MainFrame
 local MinimapButton = ns.UI.MinimapButton
 local Options = ns.UI.Options
 local Popups = ns.UI.Popups
 local ProfileFilterMenu = ns.UI.ProfileFilterMenu
 local Quickcast = ns.UI.Quickcast
+local SpellLoadRow = ns.UI.SpellLoadRow
+local SpellLoadRowContextMenu = ns.UI.SpellLoadRowContextMenu
 local SpellRow = ns.UI.SpellRow
 local SpellVaultFrame = ns.UI.SpellVaultFrame
 
 local addonMsgPrefix = Comms.PREFIX
 local ADDON_COLOR, ADDON_PATH, ADDON_TITLE = Constants.ADDON_COLOR, Constants.ADDON_PATH, Constants.ADDON_TITLE
-local ASSETS_PATH = Constants.ASSETS_PATH
 local SPELL_VISIBILITY = Constants.SPELL_VISIBILITY
 local VAULT_TYPE = Constants.VAULT_TYPE
 local executeSpell = Execute.executeSpell
 local isOfficerPlus, isMemberPlus = Permissions.isOfficerPlus, Permissions.isMemberPlus
 local phaseVault = Vault.phase
+local shouldFilter = VaultFilter.shouldFilter
 local isNotDefined = DataUtils.isNotDefined
 local orderedPairs = DataUtils.orderedPairs
 
@@ -63,16 +64,12 @@ local saveSpell
 -- localized frequent functions for speed
 local C_Timer = C_Timer
 local print = print
-local SendChatMessage = SendChatMessage
-local _G = _G
 local ipairs = ipairs
 --local tContains = tContains
 --
 -- local curDate = date("*t") -- Current Date for surprise launch - disabled since it's over anyways
 
 local AceComm = ns.Libs.AceComm
-
-local sfCmd_ReplacerChar = "@N@"
 
 -- local utils = Epsilon.utils
 -- local messages = utils.messages
@@ -118,7 +115,7 @@ NineSlice.ApplyLayoutByName(SCForgeMainFrame.NineSlice, "ArcanumFrameTemplate")
 Portrait.init()
 
 -- The top bar Spell Info Boxes
-Attic.init(SCForgeMainFrame)
+Attic.init(SCForgeMainFrame, IconPicker)
 
 local background = SCForgeMainFrame.Inset.Bg -- re-use the stock background, save a frame texture
 	background:SetTexture(ADDON_PATH.."/assets/bookbackground_full")
@@ -176,61 +173,6 @@ end
 
 	scrollFrame.ScrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 6, 18)
 	scrollFrame.ScrollBar.scrollStep = SpellRow.size.rowHeight
-
-SCForgeMainFrame.TitleBar = CreateFrame("Frame", nil, SCForgeMainFrame.Inset)
-	SCForgeMainFrame.TitleBar:SetPoint("TOPLEFT", SCForgeMainFrame.Inset, "TOPLEFT", 25, -8)
-	SCForgeMainFrame.TitleBar:SetSize(MainFrame.size.x-50, 24)
-	--SCForgeMainFrame.TitleBar:SetHeight(20)
-
-
-	SCForgeMainFrame.TitleBar.Background = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 5)
-		SCForgeMainFrame.TitleBar.Background:SetAllPoints()
-		--SCForgeMainFrame.TitleBar.Background:SetColorTexture(0,0,0,1)
-		SCForgeMainFrame.TitleBar.Background:SetAtlas("Rewards-Shadow") -- AftLevelup-ToastBG; Garr_BuildingInfoShadow; Rewards-Shadow
-		SCForgeMainFrame.TitleBar.Background:SetAlpha(0.5)
-		SCForgeMainFrame.TitleBar.Background:SetPoint("TOPLEFT",-20,0)
-		SCForgeMainFrame.TitleBar.Background:SetPoint("BOTTOMRIGHT", 10, -3)
-
-	SCForgeMainFrame.TitleBar.Overlay = SCForgeMainFrame.TitleBar:CreateTexture(nil,"BACKGROUND", nil, 6)
-		--SCForgeMainFrame.TitleBar.Overlay:SetAllPoints(SCForgeMainFrame.TitleBar.Background)
-		SCForgeMainFrame.TitleBar.Overlay:SetPoint("TOPLEFT",-3,0)
-		SCForgeMainFrame.TitleBar.Overlay:SetPoint("BOTTOMRIGHT",-8,-3)
-		--SCForgeMainFrame.TitleBar.Overlay:SetTexture(ADDON_PATH.."/assets/SpellForgeMainPanelRow2")
-		SCForgeMainFrame.TitleBar.Overlay:SetAtlas("search-select") -- Garr_CostBar
-		SCForgeMainFrame.TitleBar.Overlay:SetDesaturated(true)
-		SCForgeMainFrame.TitleBar.Overlay:SetVertexColor(0.35,0.7,0.85)
-		SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.075,0.925,0,1)
-		--SCForgeMainFrame.TitleBar.Overlay:SetTexCoord(0.208,1-0.209,0,1-0)
-
-	SCForgeMainFrame.TitleBar.MainDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-		SCForgeMainFrame.TitleBar.MainDelay:SetWidth(SpellRow.size.delayColumnWidth)
-		SCForgeMainFrame.TitleBar.MainDelay:SetJustifyH("CENTER")
-		SCForgeMainFrame.TitleBar.MainDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar, "LEFT", 13+25, 0)
-		SCForgeMainFrame.TitleBar.MainDelay:SetText("Delay")
-
-	SCForgeMainFrame.TitleBar.Action = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-		SCForgeMainFrame.TitleBar.Action:SetWidth(SpellRow.size.actionColumnWidth+50)
-		SCForgeMainFrame.TitleBar.Action:SetJustifyH("CENTER")
-		SCForgeMainFrame.TitleBar.Action:SetPoint("LEFT", SCForgeMainFrame.TitleBar.MainDelay, "RIGHT", 0, 0)
-		SCForgeMainFrame.TitleBar.Action:SetText("Action")
-
-	SCForgeMainFrame.TitleBar.Self = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-		SCForgeMainFrame.TitleBar.Self:SetWidth(SpellRow.size.selfColumnWidth+10)
-		SCForgeMainFrame.TitleBar.Self:SetJustifyH("CENTER")
-		SCForgeMainFrame.TitleBar.Self:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Action, "RIGHT", -9, 0)
-		SCForgeMainFrame.TitleBar.Self:SetText("Self")
-
-	SCForgeMainFrame.TitleBar.InputEntry = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-		SCForgeMainFrame.TitleBar.InputEntry:SetWidth(SpellRow.size.inputEntryColumnWidth)
-		SCForgeMainFrame.TitleBar.InputEntry:SetJustifyH("CENTER")
-		SCForgeMainFrame.TitleBar.InputEntry:SetPoint("LEFT", SCForgeMainFrame.TitleBar.Self, "RIGHT", 5, 0)
-		SCForgeMainFrame.TitleBar.InputEntry:SetText("Input")
-
-	SCForgeMainFrame.TitleBar.RevertDelay = SCForgeMainFrame.TitleBar:CreateFontString(nil,"OVERLAY", "GameFontNormalLarge")
-		SCForgeMainFrame.TitleBar.RevertDelay:SetWidth(SpellRow.size.revertDelayColumnWidth)
-		SCForgeMainFrame.TitleBar.RevertDelay:SetJustifyH("CENTER")
-		SCForgeMainFrame.TitleBar.RevertDelay:SetPoint("LEFT", SCForgeMainFrame.TitleBar.InputEntry, "RIGHT", 25, 0)
-		SCForgeMainFrame.TitleBar.RevertDelay:SetText("Revert")
 
 SCForgeMainFrame.AddRowRow = CreateFrame("Frame", nil, SCForgeMainFrame.Inset.scrollFrame.scrollChild)
 local _frame = SCForgeMainFrame.AddRowRow
@@ -329,11 +271,11 @@ SCForgeMainFrame:SetScript("OnSizeChanged", function(self)
 end)
 
 ---@param spellToLoad VaultSpell
-local function loadSpell(spellToLoad, byPassResetConfirmation)
+local function loadSpell(spellToLoad)
 	--dprint("Loading spell.. "..spellToLoad.commID)
 
-	if not byPassResetConfirmation then
-		if ns.UI.Popups.checkAndShowResetForgeConfirmation("load a spell", loadSpell, spellToLoad, true) then return end
+	if Popups.checkAndShowResetForgeConfirmation("load a spell", loadSpell, spellToLoad, true) then
+		return
 	end
 
 	Attic.updateInfo(spellToLoad)
@@ -401,6 +343,7 @@ Basement.init(SCForgeMainFrame, {
 
 		C_Timer.After(resetTime, function()
 			loadSpell(emptySpell)
+			Attic.setAuthorMe()
 			Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
 			resetButton:Enable();
 		end)
@@ -408,13 +351,6 @@ Basement.init(SCForgeMainFrame, {
 })
 
 local phaseVaultKeys
-
----@param spellKey CommID
----@param where VaultType
-local function deleteSpellConf(spellKey, where)
-	local dialog = StaticPopup_Show("SCFORGE_CONFIRM_DELETE", DataUtils.wordToProperCase(where), string.format("Name: %s\nCommand: /sf %s", savedSpellFromVault[spellKey].fullName, savedSpellFromVault[spellKey].commID))
-	if dialog then dialog.data = spellKey; dialog.data2 = where end
-end
 
 local function noSpellsToLoad(fake)
 	dprint("Phase Has No Spells to load.");
@@ -450,6 +386,7 @@ local function getSpellForgePhaseVault(callback)
 			if #phaseVaultKeys < 1 then noSpellsToLoad(); return; end
 			dprint("Phase spell keys: ")
 			Debug.ddump(phaseVaultKeys)
+			Vault.phase.clearSpells()
 			local phaseVaultLoadingCount = 0
 			local phaseVaultLoadingExpected = #phaseVaultKeys
 			local messageTicketQueue = {}
@@ -550,7 +487,6 @@ local function saveSpellToPhaseVault(commID, overwrite, fromPhase, forcePrivate)
 			if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 				phaseAddonDataListener:UnregisterEvent( "CHAT_MSG_ADDON" );
 
-				--print(text)
 				if (text ~= "" and #text > 0) then phaseVaultKeys = serializer.decompressForAddonMsg(text) else phaseVaultKeys = {} end
 
 				dprint("Phase spell keys: ")
@@ -611,15 +547,6 @@ local function saveSpellToPhaseVault(commID, overwrite, fromPhase, forcePrivate)
 end
 
 local spellLoadRows = {}
-local function clearSpellLoadRadios(self)
-	if not self:GetChecked() then return; end
-	for i = 1, #spellLoadRows do
-		local button = spellLoadRows[i]
-		if button ~= self and button:GetChecked() then
-			button:SetChecked(false)
-		end
-	end
-end
 
 ------------------------
 
@@ -639,139 +566,10 @@ local function editVaultTags( tag, spellCommID, vaultType ) --
 	end
 end ]]
 
-local function setSpellProfile(spellCommID, profileName, vaultType, callback)
-	if not vaultType then vaultType = 1 end
-	if not spellCommID then return; end
-	if isNotDefined(profileName) then
-		Popups.showNewProfilePopup(spellCommID, vaultType, callback)
-		return;
-	end
-	if vaultType == 1 then
-		Vault.personal.findSpellByID(spellCommID).profile = profileName
-	end
-	if callback then
-		callback()
-	end
-end
-
-local contextDropDownMenu = CreateFrame("BUTTON", "ARCLoadRowContextMenu", UIParent, "UIDropDownMenuTemplate")
 local profileDropDownMenu = CreateFrame("BUTTON", "ARCProfileContextMenu", UIParent, "UIDropDownMenuTemplate")
-
----@param vault VaultType
----@param spellCommID CommID | integer
-local function genDropDownContextOptions(vault, spellCommID, callback)
-	local menuList = {}
-	local item
-	local playerName = GetUnitName("player")
-	local _profile
-	if vault == VAULT_TYPE.PHASE then
-		---@cast spellCommID integer
-		local phaseSpell = Vault.phase.getSpellByIndex(spellCommID)
-		menuList = {
-			{text = phaseSpell.fullName, notCheckable = true, isTitle=true},
-			{text = "Cast", notCheckable = true, func = function() executeSpell(phaseSpell.actions, nil, phaseSpell.fullName, phaseSpell) end},
-			{text = "Edit", notCheckable = true, func = function() loadSpell(phaseSpell) end},
-			{text = "Transfer", tooltipTitle="Copy to Personal Vault", tooltipOnButton=true, notCheckable = true, func = function() saveSpell(nil, spellCommID) end},
-		}
-		item = {text = "Add to Gossip", notCheckable = true, func = function() _G["scForgeLoadRow"..spellCommID].gossipButton:Click() end}
-		if not Gossip.isLoaded() then item.disabled = true; item.text = "(Open a Gossip Menu)"; end
-		tinsert(menuList, item)
-	else
-		---@cast spellCommID CommID
-		local spell = Vault.personal.findSpellByID(spellCommID)
-
-		if not spell then return end
-
-		_profile = spell.profile
-		menuList = {
-			{text = spell.fullName, notCheckable = true, isTitle=true},
-			{text = "Cast", notCheckable = true, func = function() ARC:CAST(spellCommID) end},
-			{text = "Edit", notCheckable = true, func = function() loadSpell(savedSpellFromVault[spellCommID]) end},
-			{text = "Transfer", tooltipTitle="Copy to Phase Vault", tooltipOnButton=true, notCheckable = true, func = function() saveSpellToPhaseVault(spellCommID) end},
-		}
-
-		-- Profiles Menu
-		item = {text = "Profile", notCheckable=true, hasArrow=true, keepShownOnClick=true,
-			menuList = {
-				{ text = "Account", isNotRadio = (_profile=="Account"), checked = (_profile=="Account"), disabled = (_profile=="Account"), disablecolor = ((_profile=="Account") and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil), func = function() setSpellProfile(spellCommID, "Account", 1, callback); CloseDropDownMenus(); end },
-				{ text = playerName, isNotRadio = (_profile==playerName), checked = (_profile==playerName), disabled = (_profile==playerName), disablecolor = ((_profile==playerName) and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil), func = function() setSpellProfile(spellCommID, playerName, 1, callback); CloseDropDownMenus(); end },
-			},
-		}
-
-		local profileNames = SavedVariables.getProfileNames(true, true)
-		sort(profileNames)
-
-		for _, profileName in ipairs(profileNames) do
-			item.menuList[#item.menuList+1] = {
-				text = profileName,
-				isNotRadio = (_profile == profileName),
-				checked = (_profile == profileName),
-				disabled = (_profile == profileName),
-				disablecolor = ((_profile == profileName) and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
-				func = function()
-					setSpellProfile(spellCommID, profileName, 1, callback)
-					CloseDropDownMenus()
-				end
-			}
-		end
-
-		item.menuList[#item.menuList+1] = { text = "Add New", fontObject=GameFontNormalSmallLeft, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end }
-
-		tinsert(menuList, item)
-
-		-- Tags Menu
-		--[[
-		item = {text = "Edit Tags", notCheckable=true, hasArrow=true, keepShownOnClick=true,
-			menuList = {}
-		}
-		for k,v in ipairs(baseVaultFilterTags) do
-			interTagTable[v] = false
-		end
-		if spell.tags then
-			for k,v in pairs(spell.tags) do
-				interTagTable[k] = true
-			end
-		end
-		for k,v in orderedPairs(interTagTable) do
-			tinsert(item.menuList, { text = k, checked = v, keepShownOnClick=true, func = function(self) editVaultTags(k, spellCommID, 1); end })
-		end
-		--tinsert(item.menuList, { })
-		--tinsert(item.menuList, { text = "Add New", })
-		tinsert(menuList, item)
-		--]]
-		if tContains(SpellCreatorMasterTable.quickCastSpells, spellCommID) then
-			menuList[#menuList+1] = {text = "Remove from QuickCast", notCheckable = true, func = function()
-				tDeleteItem(SpellCreatorMasterTable.quickCastSpells, spellCommID);
-				Quickcast.hideCastCuttons()
-			end}
-		else
-			menuList[#menuList+1] = {text = "Add to QuickCast", notCheckable = true, func = function()
-				tinsert(SpellCreatorMasterTable.quickCastSpells, spellCommID);
-			end}
-		end
-
-		menuList[#menuList+1] = {text = "Link Hotkey", notCheckable = true, func = function()
-			Popups.showLinkHotkeyDialog(savedSpellFromVault[spellCommID].commID)
-		end}
-
-	end
-
-	menuList[#menuList+1] = {text = "Chatlink", notCheckable = true, func = function()
-		ChatLink.linkSpell(savedSpellFromVault[spellCommID], vault)
-	end}
-	menuList[#menuList+1] = {text = "Export", notCheckable = true, func = function()
-		ImportExport.exportSpell(savedSpellFromVault[spellCommID])
-	end}
-
-
-	return menuList
-end
 
 ------------------------
 
-local load_row_background = ASSETS_PATH.."/SpellForgeVaultPanelRow"
-
-local loadRowHeight = 45
 local loadRowSpacing = 5
 local function updateSpellLoadRows(fromPhaseDataLoaded)
 	spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
@@ -819,28 +617,24 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		end
 	end
 
+	VaultFilter.prepareFilter(currentVault)
+
 	local spellLoadFrame = SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.scrollChild
 	local rowNum = 0
-	local realRowNum = 0
 	local numSkippedRows = 0
-	local columnWidth = spellLoadFrame:GetWidth()
 	local thisRow
 
 	for k,v in orderedPairs(savedSpellFromVault) do
 	-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
-		--[[
-		realRowNum = realRowNum+1
-		rowNum = realRowNum-numSkippedRows
-		--]]
 		rowNum = rowNum + 1
 
 		if currentVault == VAULT_TYPE.PERSONAL then
 			ProfileFilter.ensureProfile(v)
 		end
 
-		if currentVault == VAULT_TYPE.PERSONAL and ProfileFilter.shouldFilterFromPersonalVault(v) then
-			dprint("Load Row Filtered from Personal Vault Profiles (skipped): "..k)
-			rowNum = rowNum-1
+		if shouldFilter(v) then
+			dprint("Spell filtered from vault (skipped): " .. k)
+			rowNum = rowNum - 1
 		else
 			if spellLoadRows[rowNum] then
 				thisRow = spellLoadRows[rowNum]
@@ -856,397 +650,23 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 
 			else
 				dprint(false,"SCForge Load Row "..rowNum.." Didn't exist - making it!")
-				spellLoadRows[rowNum] = CreateFrame("CheckButton", "scForgeLoadRow"..rowNum, spellLoadFrame)
-				thisRow = spellLoadRows[rowNum]
 
-				-- Position the Rows
+				thisRow = SpellLoadRow.createRow(spellLoadFrame, rowNum)
+
 				if rowNum == 1 or rowNum-1-numSkippedRows < 1 then
 					thisRow:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
 				else
 					thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum-1-numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
 				end
-				thisRow:SetWidth(columnWidth-20)
-				thisRow:SetHeight(loadRowHeight)
 
-				-- A nice lil background to make them easier to tell apart
-				thisRow.Background = thisRow:CreateTexture(nil,"BACKGROUND",nil,5)
-				thisRow.Background:SetPoint("TOPLEFT",-3,0)
-				thisRow.Background:SetPoint("BOTTOMRIGHT",0,0)
-				thisRow.Background:SetTexture(load_row_background)
-				thisRow.Background:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
-
-				--[[
-				thisRow.BGOverlay = thisRow:CreateTexture(nil,"BACKGROUND",nil,6)
-				thisRow.BGOverlay:SetAllPoints(thisRow.Background)
-				thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
-				thisRow.BGOverlay:SetAlpha(0.25)
-				--]]
-
-				thisRow:SetCheckedTexture("Interface\\AddOns\\SpellCreator\\assets\\l_row_selected")
-				thisRow.CheckedTexture = thisRow:GetCheckedTexture()
-				thisRow.CheckedTexture:SetAllPoints(thisRow.Background)
-				thisRow.CheckedTexture:SetTexCoord(0.0625,1-0.066,0.125,1-0.15)
-				thisRow.CheckedTexture:SetAlpha(0.75)
-				--thisRow.CheckedTexture:SetPoint("RIGHT", thisRow.Background, "RIGHT", 5, 0)
-
-				-- Original Atlas based texture with vertex shading for a unique look. Actually looked pretty good imo.
-				--thisRow.Background:SetAtlas("TalkingHeads-Neutral-TextBackground")
-				--thisRow.Background:SetVertexColor(0.75,0.70,0.8) -- Let T color it naturally :)
-				--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
-
-				--[[ -- Disabled, not needed on the new load row backgrounds
-				thisRow.spellNameBackground = thisRow:CreateTexture(nil, "BACKGROUND")
-				thisRow.spellNameBackground:SetPoint("TOPLEFT", thisRow.Background, "TOPLEFT", 5, -2)
-				thisRow.spellNameBackground:SetPoint("BOTTOMRIGHT", thisRow.Background, "BOTTOM", 10, 2) -- default position - move it later with the actual name font string.
-
-				thisRow.spellNameBackground:SetColorTexture(1,1,1,0.25)
-				thisRow.spellNameBackground:SetGradient("HORIZONTAL", 0.5,0.5,0.5,1,1,1)
-				thisRow.spellNameBackground:SetBlendMode("MOD")
-				--]]
-
-
-				-- Make the Spell Name Text
-				thisRow.spellName = thisRow:CreateFontString(nil,"OVERLAY", "GameFontNormalMed2")
-				thisRow.spellName:SetWidth((columnWidth*2/3)-15)
-				thisRow.spellName:SetJustifyH("LEFT")
-				thisRow.spellName:SetPoint("LEFT", 34, 0)
-				thisRow.spellName:SetText(v.fullName) -- initial text, reset later when it needs updated
-				thisRow.spellName:SetShadowColor(0, 0, 0)
-				thisRow.spellName:SetMaxLines(3) -- hardlimit to 3 lines, but soft limit to 2 later.
-				--thisRow.spellNameBackground:SetPoint("RIGHT", thisRow.spellName, "RIGHT", 0, 0) -- move the right edge of the gradient to the right edge of the name
-
-				thisRow.spellIcon = CreateFrame("BUTTON", nil, thisRow)
-				local button = thisRow.spellIcon
-					button.commID = k
-					button:SetPoint("RIGHT", thisRow.spellName, "LEFT", -3, 0)
-					button:SetSize(32,32)
-					button:SetNormalTexture("Interface/Icons/inv_misc_questionmark")
-					button:SetHighlightTexture(ASSETS_PATH .. "/dm-trait-select")
-					button.highlight = button:GetHighlightTexture()
-					button.highlight:SetPoint("TOPLEFT", -4, 4)
-					button.highlight:SetPoint("BOTTOMRIGHT", 4, -4)
-					button.border = button:CreateTexture(nil, "OVERLAY")
-					button.border:SetTexture(ASSETS_PATH .. "/dm-trait-border")
-					button.border:SetPoint("TOPLEFT", -6, 6)
-					button.border:SetPoint("BOTTOMRIGHT", 6, -6)
-
-					-- NOTE: INCLUDE THE FORCED TAG ON THIS TOOLTIP, WE EXPECT A TOOLTIP ON THE ICON EVEN IF TOOLTIPS ARE DISABLED
-					Tooltip.set(button,function(self) return savedSpellFromVault[self.commID].fullName end,
-						function(self)
-							local strings = {}
-							if savedSpellFromVault[self.commID].description then tinsert(strings, savedSpellFromVault[self.commID].description); end
-							tinsert(strings, " ")
-							tinsert(strings, "Click to cast "..Tooltip.genContrastText(savedSpellFromVault[self.commID].commID))
-							tinsert(strings, "Actions: "..#savedSpellFromVault[self.commID].actions)
-							local hotkeyKey = Hotkeys.getHotkeyByCommID(self.commID)
-							if hotkeyKey then tinsert(strings, "Hotkey: "..hotkeyKey) end
-							tinsert(strings, " ")
-							tinsert(strings, Tooltip.genContrastText("Right-Click").." for more options!")
-							--tinsert(strings, " ")
-							tinsert(strings, Tooltip.genContrastText("Shift-Click").." to link in chat.")
-							return strings
-					end, {forced = true})
-
-					button:SetScript("OnClick", function(self, button)
-						local currentVault = LoadSpellFrame.getCurrentVault()
-						if button == "LeftButton" then
-							if IsModifiedClick("CHATLINK") then
-								ChatLink.linkSpell(savedSpellFromVault[self.commID], currentVault)
-								return;
-							end
-							if currentVault == VAULT_TYPE.PHASE then
-								local phaseSpell = Vault.phase.getSpellByIndex(self.commID)
-								executeSpell(phaseSpell.actions, nil, phaseSpell.fullName, phaseSpell)
-							else
-								ARC:CAST(self.commID)
-							end
-						elseif button == "RightButton" then
-							--Show & Update Right-Click Context Menu
-							EasyMenu(genDropDownContextOptions(currentVault, self.commID, updateSpellLoadRows), contextDropDownMenu, "cursor", 0 , 0, "MENU");
-						end
-					end)
-					button:RegisterForClicks("LeftButtonUp","RightButtonUp")
-
-
-				thisRow.hotkeyIcon = CreateFrame("BUTTON", nil, thisRow)
-				local button = thisRow.hotkeyIcon
-					button.commID = k
-					button:SetPoint("CENTER", thisRow.spellIcon, "TOPRIGHT", -4, -5)
-					button:SetSize(20,10)
-					button:SetNormalTexture("interface/tradeskillframe/ui-tradeskill-linkbutton")
-					button.normal = button:GetNormalTexture()
-					button.normal:SetTexCoord(0, 1, 0, 0.5)
-					button.normal:SetRotation(math.rad(-45))
-					button:SetHighlightTexture("interface/tradeskillframe/ui-tradeskill-linkbutton")
-					button.hilight = button:GetHighlightTexture()
-					button.hilight:SetTexCoord(0, 1, 0, 0.5)
-					button.hilight:SetRotation(math.rad(-45))
-
-					Tooltip.set(button, function(self) return "Bound to: "..Hotkeys.getHotkeyByCommID(self.commID) end, {" ","Left-Click to Edit Binding","Shift+Right-Click to Unbind"})
-					button:SetFrameLevel(thisRow.spellIcon:GetFrameLevel()+1)
-					button:SetScript("OnClick", function(self, button)
-						if button == "LeftButton" then
-							Popups.showLinkHotkeyDialog(self.commID)
-						elseif button == "RightButton" and IsShiftKeyDown() then
-							Hotkeys.deregisterHotkeyByComm(self.commID)
-						end
-					end)
-					button:RegisterForClicks("LeftButtonUp","RightButtonUp")
-
-				-- Make the delete saved spell button
-				thisRow.deleteButton = CreateFrame("BUTTON", nil, thisRow)
-				local button = thisRow.deleteButton
-					button.commID = k
-					button:SetPoint("RIGHT", 0, 0)
-					button:SetSize(24,24)
-					--button:SetText("x")
-
-					UIHelpers.setupCoherentButtonTextures(button, ADDON_PATH.."/assets/icon-x")
-
-					Tooltip.set(button, function(self) return "Delete '"..savedSpellFromVault[self.commID].commID.."'" end)
-
-
-				-- Make the load button
-				thisRow.loadButton = CreateFrame("BUTTON", nil, thisRow)
-					local button = thisRow.loadButton
-					button.commID = k
-					button:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
-					button:SetSize(24,24)
-					--button:SetText(EDIT)
-
-					UIHelpers.setupCoherentButtonTextures(button, ADDON_PATH.."/assets/icon-edit")
-
-					button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-					button:SetScript("OnClick", function(self, button)
-						if button == "RightButton" then
-							table.sort(savedSpellFromVault[self.commID].actions, function (k1, k2) return k1.delay < k2.delay end)
-						end
-						loadSpell(savedSpellFromVault[self.commID])
-					end)
-					Tooltip.set(button, function(self) return "Load '"..savedSpellFromVault[self.commID].commID.."'" end, {"Load the spell into the Forge UI so you can edit it.", "\nRight-click to load the ArcSpell, and re-sort it's actions into chronological order by delay."})
-
-				--
-
-				thisRow.gossipButton = CreateFrame("BUTTON", nil, thisRow)
-					local button = thisRow.gossipButton
-					button.commID = k
-					button:SetPoint("TOP", thisRow.deleteButton, "BOTTOM", 0, 0)
-					button:SetSize(16,16)
-
-					UIHelpers.setupCoherentButtonTextures(button, "groupfinder-waitdot", true)
-					button.NormalTexture:SetVertexColor(1,0.8,0)
-
-					button.speechIcon = button:CreateTexture(nil, "OVERLAY", nil, 7)
-					button.speechIcon:SetTexture("interface/gossipframe/chatbubblegossipicon")
-					button.speechIcon:SetSize(10,10)
-					button.speechIcon:SetTexCoord(1,0,0,1)
-					button.speechIcon:SetPoint("CENTER", button, "TOPRIGHT",-2,-1)
-
-					button:SetMotionScriptsWhileDisabled(true)
-					button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-					button:SetScript("OnClick", function(self, button)
-						Popups.showAddGossipPopup(self.commID)
-					end)
-
-					Tooltip.set(button, "Add to Gossip Menu", {
-						"With a gossip menu open, click here to add this ArcSpell to an NPC's gossip.",
-						"\nThis allows you to link ArcSpells to cast from an NPC's gossip menu.",
-						"\nFor example, you could add an ArcSpell with mining animations & an Add Item action, as an '..On Open' with hide, to simulate a mining node.",
-					})
-					button:SetScript("OnDisable", function(self)
-						self.speechIcon:SetDesaturated(true)
-						self.speechIcon:SetVertexColor(.6,.6,.6)
-					end)
-					button:SetScript("OnEnable", function(self)
-						self.speechIcon:SetDesaturated(false)
-						self.speechIcon:SetVertexColor(1,1,1)
-					end)
-
-
-				-------------
-				thisRow.privateIconButton = CreateFrame("BUTTON", nil, thisRow)
-					local button = thisRow.privateIconButton
-					button.commID = k
-					button.isPrivate = false
-					button:SetSize(16,16)
-					button:SetPoint("RIGHT", thisRow.gossipButton, "LEFT", -8, 0)
-
-					--button:SetNormalAtlas("UI_Editor_Eye_Icon")
-					UIHelpers.setupCoherentButtonTextures(button, ADDON_PATH.."/assets/icon_visible_32")
-					button.HighlightTexture:SetAlpha(0.2) -- override, 0.33 was still too bright on this one
-
-					button:SetMotionScriptsWhileDisabled(true)
-
-					button.SetPrivacy = function(self, priv)
-						if not isNotDefined(priv) then self.isPrivate = priv else self.isPrivate = not self.isPrivate end
-						if self.isPrivate then
-							self:SetNormalTexture(ASSETS_PATH .. "/icon_hidden_32")
-							self:GetNormalTexture():SetVertexColor(0.6,0.6,0.6)
-							self:SetPushedTexture(ASSETS_PATH .. "/icon_hidden_32")
-							self.HighlightTexture:SetTexture(ASSETS_PATH .. "/icon_hidden_32")
-						else
-							self:SetNormalTexture(ASSETS_PATH .. "/icon_visible_32")
-							self:GetNormalTexture():SetVertexColor(0.9,0.65,0)
-							self:SetPushedTexture(ASSETS_PATH .. "/icon_visible_32")
-							self.HighlightTexture:SetTexture(ASSETS_PATH .. "/icon_visible_32")
-						end
-						self.PushedTexture:SetVertexColor(self:GetNormalTexture():GetVertexColor())
-
-						return self.isPrivate
-					end
-
-					Tooltip.set(button, function(self) if self.isPrivate then return "'"..savedSpellFromVault[self.commID].fullName.."' is Private & visible only to Officers+" else return "'"..savedSpellFromVault[self.commID].fullName.."' is Public & visible to everyone" end end, "Click to change this spell's visibility.")
-
-					button:SetScript("OnClick", function(self)
-						if not isOfficerPlus() then eprint("You're not an officer.. You can't toggle a spell's visibility.") return end
-						local priv = self:SetPrivacy()
-						if priv == nil then priv = false end
-						saveSpellToPhaseVault(self.commID, true, true, priv)
-					end)
-
+				spellLoadRows[rowNum] = thisRow
 			end
 
-			-- Set the buttons stuff
-			do
-				-- make sure to set the data, otherwise it will still use old data if new spells have been saved since last.
-				thisRow.spellName:SetText(v.fullName)
-				thisRow.loadButton.commID = k
-				thisRow.deleteButton.commID = k
-				thisRow.gossipButton.commID = k
-				thisRow.privateIconButton.commID = k
-				thisRow.spellIcon.commID = k
-				thisRow.hotkeyIcon.commID = k
-				thisRow.commID = k -- used in new Transfer to Phase Button - all the other ones should probably move to using this anyways..
-				thisRow.rowID = rowNum
+			SpellLoadRow.updateRow(thisRow, rowNum, k, v)
 
-				if Hotkeys.getHotkeyByCommID(k) then thisRow.hotkeyIcon:Show() else thisRow.hotkeyIcon:Hide() end
-
-				if v.icon then
-					dprint(nil, Icons.getFinalIcon(v.icon))
-					thisRow.spellIcon:SetNormalTexture(Icons.getFinalIcon(v.icon))
-				else
-					thisRow.spellIcon:SetNormalTexture("Interface/Icons/inv_misc_questionmark")
-				end
-				thisRow.deleteButton:SetScript("OnClick", function(self, button)
-					if button == "LeftButton" then
-						deleteSpellConf(self.commID, LoadSpellFrame.getCurrentVault())
-					elseif button == "RightButton" then
-
-					end
-				end)
-
-				-- NEED TO UPDATE THE ROWS IF WE ARE IN PHASE VAULT
-				if currentVault == VAULT_TYPE.PERSONAL then
-					--thisRow.loadButton:SetText(EDIT)
-					--thisRow.saveToPhaseButton.commID = k
-					--thisRow.Background:SetVertexColor(0.75,0.70,0.8)
-					--thisRow.Background:SetTexCoord(0,1,0,1)
-					thisRow.deleteButton:Show()
-					thisRow.deleteButton:ClearAllPoints()
-					thisRow.deleteButton:SetPoint("RIGHT")
-					thisRow.loadButton:ClearAllPoints()
-					thisRow.loadButton:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
-					thisRow.gossipButton:Hide()
-					thisRow.privateIconButton:Hide()
-					--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Rare")
-
-					--[[	-- Replaced with the <-> Phase Vault button
-					if isMemberPlus() then
-						thisRow.saveToPhaseButton:Show()
-					else
-						thisRow.saveToPhaseButton:Hide()
-					end
-					--]]
-
-				elseif currentVault == VAULT_TYPE.PHASE then
-					--thisRow.loadButton:SetText("Load")
-					--thisRow.saveToPhaseButton:Hide()
-					--thisRow.Background:SetVertexColor(0.73,0.63,0.8)
-					--thisRow.Background:SetTexCoord(0,1,0,1)
-					--thisRow.BGOverlay:SetAtlas("Garr_FollowerToast-Epic")
-
-					if isMemberPlus() then
-						thisRow.deleteButton:Show()
-						thisRow.deleteButton:ClearAllPoints()
-						thisRow.deleteButton:SetPoint("TOPRIGHT")
-						thisRow.loadButton:ClearAllPoints()
-						thisRow.loadButton:SetPoint("RIGHT", thisRow.deleteButton, "LEFT", 0, 0)
-						thisRow.gossipButton:Show()
-						thisRow.privateIconButton:Show()
-						if Gossip.isLoaded() then
-							thisRow.gossipButton:Enable()
-						else
-							thisRow.gossipButton:Disable()
-						end
-					else
-						thisRow.deleteButton:Hide()
-						thisRow.deleteButton:ClearAllPoints()
-						thisRow.deleteButton:SetPoint("RIGHT")
-						thisRow.loadButton:ClearAllPoints()
-						thisRow.loadButton:SetPoint("CENTER", thisRow.deleteButton, "CENTER", 0, 0)
-						thisRow.gossipButton:Hide()
-						if SpellCreatorMasterTable.Options["debug"] then thisRow.privateIconButton:Show() else thisRow.privateIconButton:Hide() end
-					end
-				end
-
-				Tooltip.set(thisRow,function(self) return savedSpellFromVault[self.commID].fullName end,
-					function(self)
-						local strings = {}
-						if savedSpellFromVault[self.commID].description then tinsert(strings, savedSpellFromVault[self.commID].description); end
-						tinsert(strings, " ")
-						tinsert(strings, "Command: "..Tooltip.genContrastText("/sf "..savedSpellFromVault[self.commID].commID))
-						tinsert(strings, "Actions: "..#savedSpellFromVault[self.commID].actions)
-						local hotkeyKey = Hotkeys.getHotkeyByCommID(self.commID)
-						if hotkeyKey then tinsert(strings, "Hotkey: "..hotkeyKey) end
-						tinsert(strings, " ")
-						tinsert(strings, Tooltip.genContrastText("Right-Click").." for more options!")
-						--tinsert(strings, " ")
-						tinsert(strings, Tooltip.genContrastText("Shift-Click").." to link in chat.")
-						return strings
-				end, {forced = true})
-
-				thisRow:SetScript("OnClick", function(self, button)
-					local currentVault = LoadSpellFrame.getCurrentVault()
-					if button == "LeftButton" then
-						if IsModifiedClick("CHATLINK") then
-							ChatLink.linkSpell(savedSpellFromVault[k], currentVault)
-							self:SetChecked(not self:GetChecked());
-							return;
-						end
-						clearSpellLoadRadios(self)
-						if self:GetChecked() then
-							LoadSpellFrame.selectRow(self.rowID)
-						else
-							LoadSpellFrame.selectRow(nil)
-						end
-					elseif button == "RightButton" then
-						--Show & Update Right-Click Context Menu
-						EasyMenu(genDropDownContextOptions(currentVault, self.commID, updateSpellLoadRows), contextDropDownMenu, "cursor", 0 , 0, "MENU");
-						self:SetChecked( not self:GetChecked() )
-					end
-				end)
-				thisRow:RegisterForClicks("LeftButtonUp","RightButtonUp")
-			end
-
-			-- Limit our Spell Name to 2 lines - but by downsizing the text instead of truncating..
-			do
-				local fontName,fontHeight,fontFlags = thisRow.spellName:GetFont()
-				thisRow.spellName:SetFont(fontName, 14, fontFlags) -- reset the font to default first, then test if we need to scale it down.
-				while thisRow.spellName:GetNumLines() > 2 do
-					fontName,fontHeight,fontFlags = thisRow.spellName:GetFont()
-					thisRow.spellName:SetFont(fontName, fontHeight-1, fontFlags)
-					if fontHeight-1 <= 8 then break; end -- don't go smaller than 8 point font. Becomes too hard to read. We'll take a truncated text over that.
-				end
-			end
-
-			if currentVault == VAULT_TYPE.PHASE and v.private and not (isOfficerPlus() or SpellCreatorMasterTable.Options["debug"]) then
+			if SpellLoadRow.shouldHideRow(v) then
 				thisRow:Hide()
 				numSkippedRows = numSkippedRows+1
-			end
-			if v.private then
-				thisRow.privateIconButton:SetPrivacy(true)
-			else
-				thisRow.privateIconButton:SetPrivacy(false)
 			end
 		end
 	end
@@ -1266,6 +686,7 @@ saveSpell = function (overwriteBypass, fromPhaseVaultID, manualData)
 		newSpellData.actions = phaseSpell.actions
 		newSpellData.castbar = phaseSpell.castbar
 		newSpellData.icon = phaseSpell.icon
+		newSpellData.author = phaseSpell.author
 		dprint("Saving Spell from Phase Vault, fake commID: "..fromPhaseVaultID..", real commID: "..newSpellData.commID)
 	elseif manualData then
 		newSpellData = manualData
@@ -1328,20 +749,43 @@ saveSpell = function (overwriteBypass, fromPhaseVaultID, manualData)
 	return true
 end
 
+---@param index integer
+local function downloadToPersonal(index)
+	Debug.ddump(Vault.phase.getSpellByIndex(index)) -- Dump the table of the phase vault spell for debug
+	saveSpell(nil, index)
+end
+
+local function updateRows()
+	updateSpellLoadRows(phaseVault.isLoaded)
+end
 
 ImportExport.init(saveSpell)
+VaultFilter.init({
+	updateRows = updateRows,
+})
 
 --------- Load Spell Frame - aka the Vault
 
 SCForgeMainFrame.LoadSpellFrame = LoadSpellFrame.init({
 	import = ImportExport.showImportMenu,
+	downloadToPersonal = downloadToPersonal,
 	upload = function(commID)
 		saveSpellToPhaseVault(commID, IsShiftKeyDown())
 	end,
-	downloadToPersonal = function (commID)
-		Debug.ddump(Vault.phase.getSpellByIndex(commID)) -- Dump the table of the phase vault spell for debug
-		saveSpell(nil, commID)
-	end
+})
+SpellLoadRow.init({
+	loadSpell = loadSpell,
+	upload = function(commID, isPrivate)
+		saveSpellToPhaseVault(commID, true, true, isPrivate)
+	end,
+})
+SpellLoadRowContextMenu.init({
+	loadSpell = loadSpell,
+	downloadToPersonal = downloadToPersonal,
+	upload = function(commID)
+		saveSpellToPhaseVault(commID)
+	end,
+	updateRows = updateRows,
 })
 
 SCForgeMainFrame.LoadSpellFrame:Hide()
@@ -1354,6 +798,7 @@ end)
 SCForgeMainFrame.LoadSpellFrame.spellVaultFrame = SpellVaultFrame.init(SCForgeMainFrame.LoadSpellFrame)
 
 MainFrame.setResizeWithMainFrame(SCForgeMainFrame.LoadSpellFrame.spellVaultFrame)
+MainFrame.setResizeWithMainFrame(SCForgeMainFrame.LoadSpellFrame.searchBox) -- this should be done in the searchBox creation I think but the load order doesn't allow that and I CBF'd fixing it atm..
 
 SCForgeMainFrame.LoadSpellFrame.TabButton1 = CreateFrame("BUTTON", "$parentTab1", SCForgeMainFrame.LoadSpellFrame, "TabButtonTemplate")
 local button = SCForgeMainFrame.LoadSpellFrame.TabButton1
@@ -1430,7 +875,7 @@ SCForgeMainFrame.LoadSpellFrame.profileButton = CreateFrame("BUTTON", nil, SCFor
 
 	_button:SetScript("OnClick", function(self, button)
 		if button == "LeftButton" then
-			EasyMenu(ProfileFilterMenu.genProfileFilterDropDown(updateSpellLoadRows), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
+			EasyMenu(ProfileFilterMenu.genProfileFilterDropDown(), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
 		elseif button == "RightButton" then
 			EasyMenu(ProfileFilterMenu.genChangeDefaultProfileDropDown(), profileDropDownMenu, self, 0 , 0, "DROPDOWN");
 		end
@@ -1842,7 +1287,6 @@ end
 ns.MainFuncs = {
 	updateSpellLoadRows = updateSpellLoadRows,
 	saveSpellToPhaseVault = saveSpellToPhaseVault, -- Move to SpelLStrorage when done
-	setSpellProfile = setSpellProfile, -- used in the profile popup, no idea where this should go tbh
 	getSavedSpellFromVaultTable = getSavedSpellFromVaultTable, -- I think this would move to spell storage later?
 	deleteSpellFromPhaseVault = deleteSpellFromPhaseVault, -- Move to Spell Storage? Vaults?
 }

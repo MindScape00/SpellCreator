@@ -4,6 +4,8 @@ local ns = select(2, ...)
 local Logging = ns.Logging
 local SavedVariables = ns.SavedVariables
 
+local DEFAULT_PROFILE_NAME = GetUnitName("player")
+
 ---@class ActiveProfileFilter
 ---@field showAll boolean
 ---@field Account boolean
@@ -59,14 +61,20 @@ local function reset()
         selectedProfileFilter[profileName] = nil
 	end
 
+	toggleFilter("Account", nil)
+	togglePlayer(nil)
     toggleShowAll(nil)
 
     local defaultProfile = SavedVariables.getDefaultProfile()
 
-    if defaultProfile and defaultProfile ~= "All" then
-        selectedProfileFilter[defaultProfile] = true
-    else
-        togglePlayer(true)
+    if defaultProfile then
+		if defaultProfile == "Character" then
+        	togglePlayer(true)
+--		elseif defaultProfile == "All" then -- disabled because uh - well - then you can't ever reset to none, and while technically correct, it's annoying..
+--			toggleShowAll(true)
+		else
+			selectedProfileFilter[defaultProfile] = true
+		end
     end
 end
 
@@ -79,8 +87,8 @@ end
 ---@param spell VaultSpell
 local function ensureProfile(spell)
     if not spell.profile then
-        setSpellProfile(spell, GetUnitName("player"))
-        Logging.dprint("Spell '".. spell.commID .."' didn't have a profile. Set to character.")
+        setSpellProfile(spell, DEFAULT_PROFILE_NAME)
+        Logging.dprint("Spell '".. spell.commID .."' didn't have a profile. Set to " .. DEFAULT_PROFILE_NAME)
     end
 end
 
@@ -107,6 +115,8 @@ end
 
 ---@class ProfileFilter
 ns.ProfileFilter = {
+	DEFAULT_PROFILE_NAME = DEFAULT_PROFILE_NAME,
+
     isShown = isShown,
     isAllShown = isAllShown,
     isAccountShown = isAccountShown,

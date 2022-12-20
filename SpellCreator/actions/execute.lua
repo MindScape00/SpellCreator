@@ -7,6 +7,7 @@ local pairs = pairs
 local Constants = ns.Constants
 local Permissions = ns.Permissions
 local Vault = ns.Vault
+local DataUtils = ns.Utils.Data
 
 local actionTypeData = ns.Actions.Data.actionTypeData
 local cmd = ns.Cmd.cmd
@@ -105,7 +106,7 @@ local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 		end
 	end
 	for _,spell in pairs(actionsToCommit) do
-		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, spell.vars)
+		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, DataUtils.sanitizeNewlinesToCSV(spell.vars))
 		if spell.delay > longestDelay then
 			longestDelay = spell.delay
 		end

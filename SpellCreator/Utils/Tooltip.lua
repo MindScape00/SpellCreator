@@ -10,7 +10,6 @@ local function setTitle(title)
 	GameTooltip:SetText(title, nil, nil, nil, nil, true)
 end
 
-
 ---@param line string
 local function addLine(line)
 	if line:match(strchar(31)) then
@@ -22,37 +21,64 @@ local function addLine(line)
 	end
 end
 
+---@alias TooltipStyle "contrast" | "example" | "norevert" | "revert" | "lpurple"
 
+---@class TooltipStyleData
+---@field color string
+---@field tag string? text that shows up before the given text
+---@field tagColor string?
+---@field texture string? path
+---@field atlas string? atlasName
+---@field iconH integer?
+---@field iconW integer?
+
+---@type { [TooltipStyle]: TooltipStyleData }
 local tooltipTextStyles = {
---	["styleName"] = {color = "FFFFFF", tag = "text that shows up before the given text", tagColor = "AAAAAA", atlas|texture = "path or atlasName", iconH = height, iconW = width}
-	["contrast"] = {color = ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColor()},
-	["example"] = {color = ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColor(), tag = "Example: "},
-	["norevert"] = {color = ADDON_COLORS.TOOLTIP_NOREVERT:GenerateHexColor()},
-	["revert"] = {color = ADDON_COLORS.GAME_GOLD:GenerateHexColor(), tag="Revert: ", tagColor = ADDON_COLORS.TOOLTIP_REVERT:GenerateHexColor(), atlas = "transmog-icon-revert", iconH = 16},
+	contrast = {
+		color = ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColor(),
+	},
+	example = {
+		color = ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColor(),
+		tag = "Example: ",
+	},
+	norevert = {
+		color = ADDON_COLORS.TOOLTIP_NOREVERT:GenerateHexColor(),
+	},
+	revert = {
+		color = ADDON_COLORS.GAME_GOLD:GenerateHexColor(),
+		tag = "Revert: ",
+		tagColor = ADDON_COLORS.TOOLTIP_REVERT:GenerateHexColor(),
+		atlas = "transmog-icon-revert",
+		iconH = 16,
+	},
+	lpurple = {
+		color = ADDON_COLORS.LIGHT_PURPLE:GenerateHexColor(),
+	}
 }
 
----@param style string
+---@param style TooltipStyle
 ---@param text string
 local function genTooltipText(style, text)
 	local styledata = tooltipTextStyles[style]
-	if not styledata then return text end
 
-	local color = styledata.color and "|c"..styledata.color or nil
-	local iconH, iconW = styledata.iconH and styledata.iconH or 0, (styledata.iconW and styledata.iconW) or (styledata.iconH and styledata.iconH) or 0
+	local color = styledata.color and "|c" .. styledata.color or nil
+	local iconH, iconW = styledata.iconH and styledata.iconH or 0,
+		(styledata.iconW and styledata.iconW) or (styledata.iconH and styledata.iconH) or 0
+
 	local icon
 	if styledata.texture then
-		icon = "|T"..styledata.texture..":"..iconH..":"..iconW.."|t "
+		icon = "|T" .. styledata.texture .. ":" .. iconH .. ":" .. iconW .. "|t "
 	elseif styledata.atlas then
-		icon = "|A:"..styledata.atlas..":"..iconH..":"..iconW.."|a "
+		icon = "|A:" .. styledata.atlas .. ":" .. iconH .. ":" .. iconW .. "|a "
 	end
-	--local tag = icon and " "..styledata.tag or styledata.tag
+
 	local tag = styledata.tag
-	if styledata.tagColor then
+	if tag and styledata.tagColor then
 		tag = WrapTextInColorCode(tag, styledata.tagColor)
 	end
 
 	if styledata.color then
-		text = text:gsub("|r", "|r"..color) -- until SL makes it so colors pop in order instead of all, this will always add our color back, including after the tag!
+		text = text:gsub("|r", "|r" .. color) -- until SL makes it so colors pop in order instead of all, this will always add our color back, including after the tag!
 	end
 
 	text = (icon and icon or "") .. (color and color or "") .. (tag and tag or "") .. text .. (color and "|r" or "")
@@ -60,6 +86,7 @@ local function genTooltipText(style, text)
 	return text
 end
 
+---@param text string
 local function genContrastText(text)
 	if type(text) == "table" then
 		local finalText
@@ -78,7 +105,7 @@ local function genContrastText(text)
 end
 
 ---@param title string | fun(self): string
----@param lines string[] | string | fun(self): (string[] | string)
+---@param lines? string[] | string | fun(self): (string[] | string)
 local function setTooltip(self, title, lines)
 	local _title = title
 	local _lines = lines
@@ -109,7 +136,7 @@ local function setTooltip(self, title, lines)
 end
 
 ---@param title string | fun(self): string
----@param lines string[] | string | fun(self): (string[] | string)
+---@param lines? string[] | string | fun(self): (string[] | string)
 local function onEnter(title, lines, delay)
 	if not delay then delay = 0.7 end
 	return function(self)
@@ -134,7 +161,7 @@ end
 ---@generic F
 ---@param frame F | Frame | Button
 ---@param title string | fun(self: F): string | nil
----@param lines string[] | string | fun(self: F): (string[] | string)
+---@param lines? string[] | string | fun(self: F): (string[] | string)
 ---@param options? { updateOnClick?: boolean, delay?: integer, forced?: boolean, anchor?: string}
 local function set(frame, title, lines, options)
 	frame:HookScript("OnEnter", onEnter(title, lines, options and options.delay or nil))

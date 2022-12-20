@@ -582,9 +582,10 @@ local actionTypeData = {
 			if showShield then showShield = ns.Utils.Data.toboolean(strtrim(showShield)) end
 			ns.UI.Castbar.showCastBar(length, text, iconPath, channeled, showIcon, showShield)
 		end,
-		description = "Show a custom Arcanum Castbar with your own settings & duration.",
+		description = "Show a custom Arcanum Castbar with your own settings & duration.\n\rSyntax: duration, [title, [iconPath/FileID, [channeled (true/false), [showIcon (true/false), [showShield (true/false)]]]]]\n\rDuration is the only required input.",
 		dataName = "Castbar Settings",
 		inputDescription = "Syntax: duration, [title, [iconPath/FileID, [channeled (true/false), [showIcon (true/false), [showShield (true/false)]]]]]\n\rDuration is the only required input.",
+		example = Tooltip.genContrastText("5, Cool Spell!, 1, true, true, false").." will show a Castbar for 5 seconds, named 'Cool Spell!', with a gem icon, but no shield frame.\n\r"..Tooltip.genTooltipText("lpurple", "Icon ID's "..Tooltip.genContrastText("1 - 10").." can be used for Arcanum's custom Icons."),
 		revert = nil,
 		doNotDelimit = true,
 	}),

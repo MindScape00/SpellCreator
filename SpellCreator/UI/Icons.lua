@@ -4,6 +4,7 @@ local ns = select(2, ...)
 local LibRPMedia = ns.Libs.LibRPMedia
 
 local Gems = ns.UI.Gems
+local dprint = ns.Logging.dprint
 
 local FALLBACK_ICON = "Interface/Icons/inv_misc_questionmark"
 
@@ -37,7 +38,9 @@ for i = 1, #SCFORGE_CUSTOM_ICONS do
 	iconList[#iconList + 1] = SCFORGE_CUSTOM_ICONS[i]
 end
 
-
+local function getNumCustomIcons()
+	return #SCFORGE_CUSTOM_ICONS
+end
 
 -- Handlers
 
@@ -46,7 +49,7 @@ local function convertPathToCustomIconIndex( path )
 end
 
 local function getCustomIconPathFromIndex(index)
-    return SCFORGE_CUSTOM_ICONS[index] or FALLBACK_ICON
+    return SCFORGE_CUSTOM_ICONS[tonumber(index)] or FALLBACK_ICON
 end
 
 local function getIconTextureFromName( name )
@@ -76,6 +79,7 @@ local function getFinalIcon( icon )
     if icon then
         if tonumber(icon) and tonumber(icon) < 10000 then
             icon = getCustomIconPathFromIndex(icon)
+			dprint(nil, "Path of Custom Icon: "..icon)
         else
             icon = icon
         end
@@ -97,4 +101,5 @@ ns.UI.Icons = {
     convertPathToCustomIconIndex = convertPathToCustomIconIndex,
     getCustomIconPathFromIndex = getCustomIconPathFromIndex,
     getFinalIcon = getFinalIcon,
+	getNumCustomIcons = getNumCustomIcons,
 }

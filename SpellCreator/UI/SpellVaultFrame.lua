@@ -9,9 +9,11 @@ local function createScrollFrame(frame)
 	---@class SpellVaultFrame: ScrollFrame, UIPanelScrollFrameTemplate
 	local spellVaultFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
 
-	spellVaultFrame:SetPoint("TOPLEFT", 0, -3)
+	spellVaultFrame:SetPoint("TOPLEFT", 0, -28)
 	spellVaultFrame:SetPoint("BOTTOMRIGHT", -24, 0)
+
 	spellVaultFrame.ScrollBar.scrollStep = rowHeight + 5
+	spellVaultFrame.ScrollBar:SetPoint("TOPLEFT", spellVaultFrame, "TOPRIGHT", 6, 10)
 
 	spellVaultFrame.LoadingText = spellVaultFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 	spellVaultFrame.LoadingText:SetPoint("TOP", 0, -100)
@@ -19,7 +21,7 @@ local function createScrollFrame(frame)
 
 	local scrollChild = CreateFrame("Frame")
 	spellVaultFrame:SetScrollChild(scrollChild)
-	scrollChild:SetWidth(SCForgeMainFrame.LoadSpellFrame.Inset:GetWidth()-12)
+	scrollChild:SetWidth(SCForgeMainFrame.LoadSpellFrame.Inset:GetWidth() - 12)
 	scrollChild:SetHeight(1)
 	spellVaultFrame.scrollChild = scrollChild
 

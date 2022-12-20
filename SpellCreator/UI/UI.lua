@@ -3,8 +3,6 @@ local ns = select(2, ...)
 
 ---@class UI
 ---@field Animation UI_Animation
----@field Attic UI_Attic
----@field Basement UI_Basement
 ---@field Castbar UI_Castbar
 ---@field ChatLink UI_ChatLink
 ---@field Gems UI_Gems
@@ -19,6 +17,8 @@ local ns = select(2, ...)
 ---@field Portrait UI_Portrait
 ---@field ProfileFilterMenu UI_ProfileFilterMenu
 ---@field Quickcast UI_Quickcast
+---@field SpellLoadRow UI_SpellLoadRow
+---@field SpellLoadRowContextMenu UI_SpellLoadRowContextMenu
 ---@field SpellRow UI_SpellRow
 ---@field SpellVaultFrame UI_SpellVaultFrame
 ns.UI = {}

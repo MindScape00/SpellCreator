@@ -6,6 +6,7 @@ local NineSlice = ns.Utils.NineSlice
 local Permissions = ns.Permissions
 local Tooltip = ns.Utils.Tooltip
 local UIHelpers = ns.Utils.UIHelpers
+local VaultFilter = ns.VaultFilter
 
 local ASSETS_PATH = Constants.ASSETS_PATH
 local SPELL_VISIBILITY = Constants.SPELL_VISIBILITY
@@ -28,7 +29,8 @@ end
 
 ---@return SpellVisibility visibility
 local function getUploadToPhaseVisibility()
-	return SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle:GetChecked() and SPELL_VISIBILITY.PRIVATE or SPELL_VISIBILITY.PUBLIC
+	return SCForgeMainFrame.LoadSpellFrame.PrivateUploadToggle:GetChecked() and SPELL_VISIBILITY.PRIVATE or
+		SPELL_VISIBILITY.PUBLIC
 end
 
 ---@return CommID?
@@ -60,17 +62,17 @@ end
 local function createImportButton(frame, import)
 	local importButton = CreateFrame("BUTTON", nil, frame)
 	importButton:SetPoint("BOTTOMLEFT", 3, 3)
-	importButton:SetSize(24,24)
+	importButton:SetSize(24, 24)
 	importButton:SetText("Import")
 	importButton:SetMotionScriptsWhileDisabled(true)
 
 	UIHelpers.setupCoherentButtonTextures(importButton, "interface/buttons/ui-microstream-yellow")
 
 	-- overrides to flip the texture to point up & change pushed to the green arrow
-	importButton.NormalTexture:SetTexCoord(0,1,1,0)
-	importButton.HighlightTexture:SetTexCoord(0,1,1,0)
+	importButton.NormalTexture:SetTexCoord(0, 1, 1, 0)
+	importButton.HighlightTexture:SetTexCoord(0, 1, 1, 0)
 	importButton.PushedTexture:SetTexture("interface/buttons/ui-microstream-green")
-	importButton.PushedTexture:SetTexCoord(0,1,1,0)
+	importButton.PushedTexture:SetTexCoord(0, 1, 1, 0)
 	-- I don't know how to clear these undefined fields..
 
 	--[[
@@ -94,15 +96,15 @@ end
 local function createUploadToPhaseButton(frame, upload)
 	local uploadButton = CreateFrame("BUTTON", nil, frame, "UIPanelButtonNoTooltipTemplate")
 	uploadButton:SetPoint("BOTTOM", 0, 3)
-	uploadButton:SetSize(24*5,24)
+	uploadButton:SetSize(24 * 5, 24)
 	uploadButton:SetText("    Phase Vault")
 	uploadButton:SetMotionScriptsWhileDisabled(true)
 
 	uploadButton.icon = uploadButton:CreateTexture(nil, "ARTWORK")
 	uploadButton.icon:SetTexture(ASSETS_PATH .. "/icon-transfer")
-	uploadButton.icon:SetTexCoord(0,1,1,0)
+	uploadButton.icon:SetTexCoord(0, 1, 1, 0)
 	uploadButton.icon:SetPoint("TOPLEFT", 5, 0)
-	uploadButton.icon:SetSize(24,24)
+	uploadButton.icon:SetSize(24, 24)
 
 	uploadButton:SetScript("OnClick", function()
 		local commID = getSelectedSpellCommID()
@@ -138,25 +140,25 @@ end
 local function createPrivateUploadToggle(frame)
 	local privateUploadToggle = CreateFrame("CHECKBUTTON", nil, frame)
 	privateUploadToggle:SetPoint("LEFT", frame.UploadToPhaseButton, "RIGHT", 6, 0)
-	privateUploadToggle:SetSize(20,20)
+	privateUploadToggle:SetSize(20, 20)
 	--privateUploadToggle.text:SetText("Private")
 
 	UIHelpers.setupCoherentButtonTextures(privateUploadToggle, ASSETS_PATH .. "/icon_visible_32", false)
 	privateUploadToggle.HighlightTexture:SetAlpha(0.2) -- override, 0.33 is still too bright
 
-	privateUploadToggle.NormalTexture:SetVertexColor(0.9,0.65,0)
-	privateUploadToggle.PushedTexture:SetVertexColor(0.9,0.65,0)
+	privateUploadToggle.NormalTexture:SetVertexColor(0.9, 0.65, 0)
+	privateUploadToggle.PushedTexture:SetVertexColor(0.9, 0.65, 0)
 	privateUploadToggle:SetCheckedTexture("")
 
 	privateUploadToggle.updateTex = function(self)
 		if self:GetChecked() then
 			self:SetNormalTexture(ASSETS_PATH .. "/icon_hidden_32")
-			self:GetNormalTexture():SetVertexColor(0.6,0.6,0.6)
+			self:GetNormalTexture():SetVertexColor(0.6, 0.6, 0.6)
 			self:SetPushedTexture(ASSETS_PATH .. "/icon_hidden_32")
 			self.HighlightTexture:SetTexture(ASSETS_PATH .. "/icon_hidden_32")
 		else
 			self:SetNormalTexture(ASSETS_PATH .. "/icon_visible_32")
-			self:GetNormalTexture():SetVertexColor(0.9,0.65,0)
+			self:GetNormalTexture():SetVertexColor(0.9, 0.65, 0)
 			self:SetPushedTexture(ASSETS_PATH .. "/icon_visible_32")
 			self.HighlightTexture:SetTexture(ASSETS_PATH .. "/icon_visible_32")
 		end
@@ -189,19 +191,19 @@ local function createPrivateUploadToggle(frame)
 end
 
 ---@param frame Frame
----@param downloadToPersonal fun(commID: CommID)
+---@param downloadToPersonal fun(index: integer)
 local function createDownloadToPersonalButton(frame, downloadToPersonal)
 	local downloadToPersonalButton = CreateFrame("BUTTON", nil, frame, "UIPanelButtonNoTooltipTemplate")
 	downloadToPersonalButton:SetPoint("BOTTOM", 0, 3)
-	downloadToPersonalButton:SetSize(24*5.5,24)
+	downloadToPersonalButton:SetSize(24 * 5.5, 24)
 	downloadToPersonalButton:SetText("     Personal Vault")
 	downloadToPersonalButton:SetMotionScriptsWhileDisabled(true)
 
 	downloadToPersonalButton.icon = downloadToPersonalButton:CreateTexture(nil, "ARTWORK")
 	downloadToPersonalButton.icon:SetTexture(ASSETS_PATH .. "/icon-transfer")
-	downloadToPersonalButton.icon:SetTexCoord(0,1,1,0)
+	downloadToPersonalButton.icon:SetTexCoord(0, 1, 1, 0)
 	downloadToPersonalButton.icon:SetPoint("TOPLEFT", 5, 0)
-	downloadToPersonalButton.icon:SetSize(24,24)
+	downloadToPersonalButton.icon:SetSize(24, 24)
 
 	downloadToPersonalButton:SetScript("OnClick", function()
 		local commID = getSelectedSpellCommID()
@@ -218,12 +220,12 @@ local function createDownloadToPersonalButton(frame, downloadToPersonal)
 	end)
 
 	Tooltip.set(downloadToPersonalButton,
-		"Transfer to Personal Vault",
+		"Copy to Personal Vault",
 		function(self)
 			if self:IsEnabled() then
-				return "Transfer the spell to your Personal Vault."
+				return "Copy the spell to your Personal Vault."
 			end
-			return "Select a spell above to transfer it."
+			return "Select a spell above to copy it."
 		end
 	)
 
@@ -234,7 +236,22 @@ local function createDownloadToPersonalButton(frame, downloadToPersonal)
 	return downloadToPersonalButton
 end
 
----@param callbacks { import: fun(), upload: fun(commID: CommID), downloadToPersonal: fun(commID: CommID) }
+---@param frame Frame
+local function createSearchBox(frame)
+	local searchBox = CreateFrame("EditBox", nil, frame, "SearchBoxTemplate")
+	searchBox:SetPoint("TOPLEFT", frame.Inset, 11, -6)
+	searchBox:SetPoint("TOPRIGHT", frame.Inset, -22, -6)
+	searchBox:SetHeight(20)
+
+	searchBox:SetScript("OnTextChanged", function(self)
+		SearchBoxTemplate_OnTextChanged(self)
+		VaultFilter.onSearchTextChanged(self:GetText())
+	end)
+
+	return searchBox
+end
+
+---@param callbacks { import: fun(), upload: fun(commID: CommID), downloadToPersonal: fun(index: integer) }
 local function init(callbacks)
 	---@class LoadSpellFrame: ButtonFrameTemplate, Frame
 	local loadSpellFrame = CreateFrame("Frame", "SCForgeLoadFrame", SCForgeMainFrame, "ButtonFrameTemplate")
@@ -243,7 +260,7 @@ local function init(callbacks)
 	NineSlice.ApplyLayoutByName(loadSpellFrame.NineSlice, "ArcanumFrameTemplateNoPortrait")
 
 	loadSpellFrame:SetPoint("TOPLEFT", SCForgeMainFrame, "TOPRIGHT", 0, 0)
-	loadSpellFrame:SetSize(280,SCForgeMainFrame:GetHeight())
+	loadSpellFrame:SetSize(280, SCForgeMainFrame:GetHeight())
 	loadSpellFrame:SetFrameStrata("MEDIUM")
 
 	do
@@ -252,22 +269,23 @@ local function init(callbacks)
 		background:SetTexture(ASSETS_PATH .. "/SpellForgeVaultBG")
 		background:SetVertTile(false)
 		background:SetHorizTile(false)
-		background:SetTexCoord(0.0546875,1-0.0546875,0.228515625,1-0.228515625)
+		background:SetTexCoord(0.0546875, 1 - 0.0546875, 0.228515625, 1 - 0.228515625)
 		--background:SetTexture(ASSETS_PATH .. "/FrameBG_Darkblue-thin") -- FOR ARCANUM 2.0 // VAULT FIRST
 		background:SetPoint("TOPLEFT")
-		background:SetPoint("BOTTOMRIGHT",-19,0)
+		background:SetPoint("BOTTOMRIGHT", -19, 0)
 	end
 
 	loadSpellFrame:SetTitle("Spell Vault")
 	loadSpellFrame.TitleBgColor = loadSpellFrame:CreateTexture(nil, "BACKGROUND")
 	loadSpellFrame.TitleBgColor:SetPoint("TOPLEFT", loadSpellFrame.TitleBg)
 	loadSpellFrame.TitleBgColor:SetPoint("BOTTOMRIGHT", loadSpellFrame.TitleBg)
-	loadSpellFrame.TitleBgColor:SetColorTexture(0.40,0.10,0.50,0.5)
+	loadSpellFrame.TitleBgColor:SetColorTexture(0.40, 0.10, 0.50, 0.5)
 
 	loadSpellFrame.ImportSpellButton = createImportButton(loadSpellFrame, callbacks.import)
 	loadSpellFrame.UploadToPhaseButton = createUploadToPhaseButton(loadSpellFrame, callbacks.upload)
 	loadSpellFrame.PrivateUploadToggle = createPrivateUploadToggle(loadSpellFrame)
 	loadSpellFrame.DownloadToPersonalButton = createDownloadToPersonalButton(loadSpellFrame, callbacks.downloadToPersonal)
+	loadSpellFrame.searchBox = createSearchBox(loadSpellFrame)
 
 	loadSpellFrame.UploadToPhaseButton:SetScript("OnShow", function(self)
 		if not getSelectedSpellCommID() then self:Disable() end

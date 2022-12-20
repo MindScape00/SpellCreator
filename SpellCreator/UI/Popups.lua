@@ -8,6 +8,8 @@ local Hotkeys = ns.Actions.Hotkeys
 local VAULT_TYPE = ns.Constants.VAULT_TYPE
 local dprint = ns.Logging.dprint
 
+local Attic = ns.UI.MainFrame.Attic
+
 StaticPopupDialogs["SCFORGE_RELOADUI_REQUIRED"] = {
 	text = "A UI Reload is Required to Change Input Boxes.\n\rReload Now?\r[Warning: All un-saved data will be wiped]",
 	showAlert = true,
@@ -93,7 +95,7 @@ StaticPopupDialogs["SCFORGE_CONFIRM_POVERWRITE"] = {
 }
 
 ---@param commID CommID
----@param callback fun()
+---@param callback? fun()
 local function showPhaseVaultOverwritePopup(commID, callback)
 	local dialog = StaticPopup_Show("SCFORGE_CONFIRM_POVERWRITE", Tooltip.genContrastText(commID), nil, commID)
 	dialog.data2 = callback
@@ -270,11 +272,11 @@ StaticPopupDialogs["SCFORGE_NEW_PROFILE"] = {
 	maxLetters = 50,
 	OnButton1 = function(self, data)
 		local text = self.editBox:GetText();
-		ns.MainFuncs.setSpellProfile(data.comm, text, data.vault, data.callback )
+		data.onNewProfileSave(data.comm, text)
 	end,
 	EditBoxOnTextChanged = function (self)
 		local text = self:GetText();
-		if #text > 0 and text ~= "" then
+		if #text > 0 and text:gsub(" ", "") ~= "" then
 			self:GetParent().button1:Enable()
 		else
 			self:GetParent().button1:Disable()
@@ -294,24 +296,61 @@ StaticPopupDialogs["SCFORGE_NEW_PROFILE"] = {
 	whileDead = true,
 	OnShow = function (self, data)
 		self.button1:Disable()
-		if data.subText then
+		if data and data.subText then
 			self.SubText:SetText(data.subText)
 		end
 	end,
 }
 
 ---@param spellCommID CommID
----@param vaultType? number
----@param callback fun()
-local function showNewProfilePopup(spellCommID, vaultType, callback)
-	local dialog = StaticPopup_Show("SCFORGE_NEW_PROFILE", Tooltip.genContrastText(ns.Vault.personal.findSpellByID(spellCommID).fullName))
-	dialog.data = {comm = spellCommID, vault = vaultType, callback = callback}
+---@param onNewProfileSave fun(commID: CommID, newProfileName: string)
+local function showNewProfilePopup(spellCommID, onNewProfileSave)
+	local dialog = StaticPopup_Show("SCFORGE_NEW_PROFILE", Tooltip.genContrastText(Vault.personal.findSpellByID(spellCommID).fullName))
+	dialog.data = {
+		comm = spellCommID,
+		onNewProfileSave = onNewProfileSave,
+	}
 end
 
+StaticPopupDialogs["SCFORGE_ATTIC_PROFILE"] = {
+	text = "Set a New Profile:",
+	closeButton = true,
+	hasEditBox = true,
+	enterClicksFirstButton = true,
+	editBoxInstructions = "New Profile Name",
+	--editBoxWidth = 310,
+	maxLetters = 50,
+	OnButton1 = function(self, data)
+		local text = self.editBox:GetText();
+		Attic.selectEditorProfile(text)
+	end,
+	EditBoxOnTextChanged = function (self)
+		local text = self:GetText();
+		if #text > 0 and text:gsub(" ", "") ~= "" then
+			self:GetParent().button1:Enable()
+		else
+			self:GetParent().button1:Disable()
+		end
+	end,
 
-
-
-
+	button1 = ADD,
+	button2 = CANCEL,
+	hideOnEscape = true,
+	EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
+	EditBoxOnEnterPressed = function(self)
+		local parent = self:GetParent();
+		if parent.button1:IsEnabled() then
+			parent.button1:Click()
+		end
+	end,
+	whileDead = true,
+	OnShow = function (self, data)
+		self.button1:Disable()
+		if data and data.subText then
+			self.SubText:SetText(data.subText)
+		end
+	end,
+}
 
 local gossipAddMenuInsert = CreateFrame("FRAME")
 gossipAddMenuInsert:SetSize(300,68)
@@ -443,7 +482,7 @@ StaticPopupDialogs["SCFORGE_ADD_GOSSIP"] = {
 	maxLetters = 255-25-20-25, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
 	EditBoxOnTextChanged = function (self, data)
 		local text = self:GetText();
-		if #text > 0 and text ~= "" then
+		if #text > 0 and text:gsub(" ", "") ~= "" then
 			self:GetParent().button1:Enable()
 		else
 			self:GetParent().button1:Disable()
@@ -513,7 +552,7 @@ StaticPopupDialogs["SCFORGE_RESETFORGE_CONFIRM"] = {
 	button1 = YES,
 	button2 = NO,
 	OnAccept = function(self, callback, data2)
-		ns.UI.Attic.markEditorSaved()
+		Attic.markEditorSaved()
 		callback(unpack(data2))
 	end,
 	timeout = 0,
@@ -529,9 +568,58 @@ local function showResetForgeConfirmation(text, callback, ...)
 end
 
 local function checkAndShowResetForgeConfirmation(text, callback, ...)
-	if ns.UI.Attic.getEditorSavedState() then return false end
+	if Attic.getEditorSavedState() then return false end
 	showResetForgeConfirmation(text, callback, ...)
 	return true
+end
+
+StaticPopupDialogs["SCFORGE_ASSIGN_AUTHOR"] = {
+	text = "Assign Author to spell "..Tooltip.genContrastText("%s"),
+	closeButton = true,
+	hasEditBox = true,
+	enterClicksFirstButton = true,
+	editBoxInstructions = "Author Name",
+	--editBoxWidth = 310,
+	maxLetters = 50,
+	OnButton1 = function(self, data)
+		local text = self.editBox:GetText();
+		Vault.personal.assignPersonalSpellAuthor(data.commID, text)
+	end,
+	EditBoxOnTextChanged = function (self)
+		local text = self:GetText();
+		if #text > 0 and text:gsub(" ", "") ~= "" then
+			self:GetParent().button1:Enable()
+		else
+			self:GetParent().button1:Disable()
+		end
+	end,
+
+	button1 = ADD,
+	button2 = CANCEL,
+	hideOnEscape = true,
+	EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
+	EditBoxOnEnterPressed = function(self)
+		local parent = self:GetParent();
+		if parent.button1:IsEnabled() then
+			parent.button1:Click()
+		end
+	end,
+	whileDead = true,
+	OnShow = function (self, data)
+		self.button1:Disable()
+		if data then
+			if data.subText then
+				self.SubText:SetText(data.subText)
+			end
+			if data.author then
+				self.editBox:SetText(data.author)
+			end
+		end
+	end,
+}
+local function showAssignPersonalSpellAuthorPopup(spellCommID, author)
+	local data = {commID = spellCommID, author = author}
+	StaticPopup_Show("SCFORGE_ASSIGN_AUTHOR", spellCommID, nil, data)
 end
 
 ---@class UI_Popups
@@ -543,4 +631,5 @@ ns.UI.Popups = {
 	showNewProfilePopup = showNewProfilePopup,
 	showAddGossipPopup = showAddGossipPopup,
 	checkAndShowResetForgeConfirmation = checkAndShowResetForgeConfirmation,
+	showAssignPersonalSpellAuthorPopup = showAssignPersonalSpellAuthorPopup,
 }

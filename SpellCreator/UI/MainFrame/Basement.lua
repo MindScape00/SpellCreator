@@ -8,7 +8,7 @@ local Tooltip = ns.Utils.Tooltip
 local UIHelpers = ns.Utils.UIHelpers
 
 local Animation = ns.UI.Animation
-local Attic = ns.UI.Attic
+local Attic = ns.UI.MainFrame.Attic
 local Castbar = ns.UI.Castbar
 local Icons = ns.UI.Icons
 
@@ -202,8 +202,8 @@ local function init(mainFrame, callbacks)
 	mainFrame.ResetUIButton = createResetButton(mainFrame, callbacks.resetUI)
 end
 
----@class UI_Basement
-ns.UI.Basement = {
+---@class UI_MainFrame_Basement
+ns.UI.MainFrame.Basement = {
 	init = init,
 	updateExecutePermission = updateExecutePermission,
 }

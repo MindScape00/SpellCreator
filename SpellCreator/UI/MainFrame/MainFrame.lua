@@ -1,13 +1,24 @@
 ---@class ns
 local ns = select(2, ...)
 
+local Constants = ns.Constants
+
 local size = {
 	["x"] = 700,
 	["y"] = 700,
 	["Xmin"] = 550,
 	["Ymin"] = 550,
 	["Xmax"] = math.min(1100,UIParent:GetHeight()), -- Don't let them resize it bigger than their screen is.. then you can't resize it down w/o using hidden right-click on X button
-	["Ymax"] = math.min(1100,UIParent:GetHeight()), --
+	["Ymax"] = math.min(1100,UIParent:GetHeight()),
+
+	columnWidths = {
+		delay = 100,
+		action = 100,
+		self = 32,
+		inputEntry = 140 + 42,
+		revertDelay = 80,
+
+	}
 }
 
 local framesToResizeWithMainFrame = {}
@@ -64,8 +75,8 @@ local _frame = SCForgeMainFrame.SettingsButton
 	_frame.icon:SetSize(16,16)
 	_frame.icon:SetPoint("CENTER")
 	_frame:SetScript("OnClick", function(self)
-		InterfaceOptionsFrame_OpenToCategory(ns.Constants.ADDON_TITLE);
-		InterfaceOptionsFrame_OpenToCategory(ns.Constants.ADDON_TITLE);
+		InterfaceOptionsFrame_OpenToCategory(Constants.ADDON_TITLE);
+		InterfaceOptionsFrame_OpenToCategory(Constants.ADDON_TITLE);
 	end)
 	_frame:SetScript("OnMouseDown", function(self)
 		local point, relativeTo, relativePoint, xOfs, yOfs = self.icon:GetPoint(1)
@@ -98,8 +109,8 @@ local dragBar = SCForgeMainFrame.DragBar
 		self:GetParent():StopMovingOrSizing()
 	end)
 
----@class UI_MainFrame
-ns.UI.MainFrame = {
+---@class UI_MainFrame_MainFrame
+ns.UI.MainFrame.MainFrame = {
     size = size,
 
     setResizeWithMainFrame = setResizeWithMainFrame,

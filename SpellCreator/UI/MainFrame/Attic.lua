@@ -4,23 +4,24 @@ local ns = select(2, ...)
 local Constants = ns.Constants
 local DataUtils = ns.Utils.Data
 local Localization = ns.Localization
-local Tooltip = ns.Utils.Tooltip
-local ADDON_COLORS = Constants.ADDON_COLORS
+local ProfileFilter = ns.ProfileFilter
 local SavedVariables = ns.SavedVariables
-local MainFrame = ns.UI.MainFrame
+local Tooltip = ns.Utils.Tooltip
 
-local IconPicker = ns.UI.IconPicker
 local Icons = ns.UI.Icons
+local MainFrame = ns.UI.MainFrame.MainFrame
 
+local ADDON_COLORS = Constants.ADDON_COLORS
 local ASSETS_PATH = Constants.ASSETS_PATH
+local DEFAULT_PROFILE_NAME = ProfileFilter.DEFAULT_PROFILE_NAME
 local isNotDefined = DataUtils.isNotDefined
 
 local nameBox
 local commandBox
 local descBox
 local castbarCheckButton
-local profile -- to be replaced with actual select
-local author
+local profileDropdown
+local author = GetUnitName("player")
 local editCommID
 local iconButton
 local editorsaved = true
@@ -35,6 +36,18 @@ end
 
 local function getEditorSavedState()
 	return editorsaved
+end
+
+local function setAuthor(text)
+	author = text
+end
+
+local function getAuthor()
+	return author
+end
+
+local function setAuthorMe()
+	author = GetUnitName("player")
 end
 
 ---@param mainFrame SCForgeMainFrame
@@ -200,7 +213,8 @@ local function createCastbarCheckButton(mainFrame)
 end
 
 ---@param mainFrame SCForgeMainFrame
-local function createIconButton(mainFrame)
+---@param IconPicker UI_IconPicker
+local function createIconButton(mainFrame, IconPicker)
 	iconButton = CreateFrame("BUTTON", nil, mainFrame)
 	iconButton:SetSize(34,34)
 	iconButton:SetPoint("TOPRIGHT", nameBox, "TOPLEFT", -14, -6)
@@ -266,58 +280,83 @@ local function createIconButton(mainFrame)
 	return iconButton
 end
 
-local function selectEditorProfile(profileName, dropdown)
-	if profileName then
-		profile = profileName
-		dropdown.Text:SetText(profileName)
-	else
-		profile = nil
-		dropdown.Text:SetText("Profile")
-	end
+---@return string profileName
+local function getEditorProfile()
+	return profileDropdown.Text:GetText()
 end
 
-local function genEditorProfileSelectMenu(button)
-	local _profile = profile
-	local dropdown = button:GetParent()
-	local playerName = GetUnitName("player")
+---@param profileName? string
+local function selectEditorProfile(profileName)
+	if not profileName then
+		profileName = DEFAULT_PROFILE_NAME
+	end
 
+	profileDropdown.Text:SetText(profileName)
+	markEditorUnsaved()
+end
+
+---@param profileName string
+---@return MenuItem
+local function genFilterItem(profileName)
+	local isActive = (getEditorProfile() == profileName)
+
+	return {
+		text = profileName,
+		isNotRadio = isActive,
+		checked = isActive,
+		disabled = isActive,
+		disablecolor = (isActive and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
+		func = function()
+			selectEditorProfile(profileName)
+			CloseDropDownMenus()
+		end,
+	}
+end
+
+local function genEditorProfileSelectMenu()
 	local menuList = {
-		{ text = "Select a Profile", notCheckable=true, isTitle=true},
-		{ text = "Account", isNotRadio = (_profile=="Account"), checked = (_profile=="Account"), disabled = (_profile=="Account"), disablecolor = ((_profile=="Account") and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil), func = function() selectEditorProfile("Account", dropdown); CloseDropDownMenus(); end },
-		{ text = playerName, isNotRadio = (_profile==playerName), checked = (_profile==playerName), disabled = (_profile==playerName), disablecolor = ((_profile==playerName) and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil), func = function() selectEditorProfile(playerName, dropdown); CloseDropDownMenus(); end },
+		{
+			text = "Select a Profile",
+			notCheckable=true,
+			isTitle=true,
+		},
+		genFilterItem("Account"),
+		genFilterItem(GetUnitName("player")),
 	}
 
 	local profileNames = SavedVariables.getProfileNames(true, true)
 	sort(profileNames)
 
 	for _, profileName in ipairs(profileNames) do
-		menuList[#menuList+1] = {
-			text = profileName,
-			isNotRadio = (_profile == profileName),
-			checked = (_profile == profileName),
-			disabled = (_profile == profileName),
-			disablecolor = ((_profile == profileName) and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
-			func = function()
-				selectEditorProfile(profileName, dropdown)
-				CloseDropDownMenus()
-			end
-		}
+		menuList[#menuList+1] = genFilterItem(profileName)
 	end
 
-	--menuList[#menuList+1] = { text = "Add New", fontObject=GameFontNormalSmallLeft, func = function() setSpellProfile(spellCommID, nil, nil, callback); CloseDropDownMenus(); end }
+	menuList[#menuList+1] = {
+		text = "Add New",
+		tooltipTitle = "New Profile",
+		tooltipText = "Set the spell you are currently editing to a new profile when saved.\n\r"..Tooltip.genTooltipText("norevert", "Profiles added here will not show in menus until the spell is created/saved."),
+		tooltipOnButton = true,
+		fontObject = GameFontNormalSmallLeft,
+		func = function() StaticPopup_Show("SCFORGE_ATTIC_PROFILE"); CloseDropDownMenus(); end,
+	}
 
 	return menuList
 end
 
 ---@param mainFrame SCForgeMainFrame
 local function createProfileDrownDown(mainFrame)
+	-- TODO move out of SpellRow
+	profileDropdown = ns.UI.SpellRow.genStaticDropdownChild( mainFrame, "SCForgeAtticProfileButton", genEditorProfileSelectMenu, DEFAULT_PROFILE_NAME, 75)
+	profileDropdown:SetPoint("BOTTOMRIGHT", mainFrame.Inset, "TOPRIGHT", 16, 0)
 
-	local _button = ns.UI.SpellRow.genStaticDropdownChild( mainFrame, "SCForgeAtticProfileButton", genEditorProfileSelectMenu, "Profile", 75)
-	_button:SetPoint("BOTTOMRIGHT", mainFrame.Inset, "TOPRIGHT", 16, 0)
+	Tooltip.set(profileDropdown.Button,
+		"Assign Profile",
+		"Assign this spell to the selected profile when created or saved.", {
+			delay = 0.3
+		}
+	)
 
-	Tooltip.set(_button.Button, "Assign Profile", "Assign this spell to the selected profile when created or saved.", {delay = 0.3})
-
-	return _button
+	return profileDropdown
 end
 
 local function getEditCommId()
@@ -337,8 +376,8 @@ local function getInfo()
 	newSpellData.description = descBox:GetText()
 	newSpellData.castbar = castbarCheckButton:GetCheckState()
 	newSpellData.icon = iconButton:GetSelectedTexID()
-	newSpellData.profile = profile
-	newSpellData.author = author
+	newSpellData.profile = profileDropdown.Text:GetText()
+	newSpellData.author = author or nil
 
 	return newSpellData
 end
@@ -352,9 +391,9 @@ local function updateInfo(spell)
 	if spell.description then
 		descBox:SetText(spell.description)
 	end
-	selectEditorProfile(spell.profile, SCForgeMainFrame.ProfileSelectMenu)
-	--profile = spell.profile
+	selectEditorProfile(spell.profile)
 	editCommID = spell.commID
+	author = spell.author or nil
 end
 
 local function isInfoValid()
@@ -387,12 +426,13 @@ local function onCommandChange(callback)
 end
 
 ---@param mainFrame SCForgeMainFrame
-local function init(mainFrame)
+---@param IconPicker UI_IconPicker
+local function init(mainFrame, IconPicker)
 	mainFrame.SpellInfoNameBox = createNameBox(mainFrame)
 	mainFrame.SpellInfoCommandBox = createCommandBox(mainFrame)
 	mainFrame.SpellInfoDescBox = createInfoDescBox(mainFrame)
 	mainFrame.CastBarCheckButton = createCastbarCheckButton(mainFrame)
-	mainFrame.IconButton = createIconButton(mainFrame)
+	mainFrame.IconButton = createIconButton(mainFrame, IconPicker)
 	mainFrame.ProfileSelectMenu = createProfileDrownDown(mainFrame)
 
 	-- Enable Tabbing between editboxes
@@ -419,8 +459,8 @@ SCForgeMainFrame.CollapseAttic = function(self)
 	descBox:SetSize(SCForgeMainFrame:GetWidth()/2.5,23)
 end
 
----@class UI_Attic
-ns.UI.Attic = {
+---@class UI_MainFrame_Attic
+ns.UI.MainFrame.Attic = {
 	init = init,
 	getInfo = getInfo,
 	updateInfo = updateInfo,
@@ -433,4 +473,8 @@ ns.UI.Attic = {
 	markEditorSaved = markEditorSaved,
 	markEditorUnsaved = markEditorUnsaved,
 	getEditorSavedState = getEditorSavedState,
+	selectEditorProfile = selectEditorProfile,
+	setAuthor = setAuthor,
+	setAuthorMe = setAuthorMe,
+	getAuthor = getAuthor,
 }

@@ -9,3 +9,4 @@
 ---@field icon integer?
 ---@field castbar (0 | 1 | 2)?
 ---@field actions VaultSpellAction[]
+---@field author string

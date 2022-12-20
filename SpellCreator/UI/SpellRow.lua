@@ -8,11 +8,12 @@ local Debug = ns.Utils.Debug
 local UIHelpers = ns.Utils.UIHelpers
 local Tooltip = ns.Utils.Tooltip
 
-local MainFrame = ns.UI.MainFrame
-local Attic = ns.UI.Attic
+local MainFrame = ns.UI.MainFrame.MainFrame
+local Attic = ns.UI.MainFrame.Attic
 
 local actionTypeData, actionTypeDataList = ActionsData.actionTypeData, ActionsData.actionTypeDataList
 local ASSETS_PATH = Constants.ASSETS_PATH
+local columnWidths = MainFrame.size.columnWidths
 
 -- Row Sizing / Info
 local numActiveRows = 0
@@ -20,11 +21,11 @@ local maxNumberOfRows = 69
 local rowHeight = 60
 
 -- Column Widths
-local delayColumnWidth = 100
-local actionColumnWidth = 100
-local selfColumnWidth = 32
-local inputEntryColumnWidth = 140+42
-local revertDelayColumnWidth = 80
+local delayColumnWidth = columnWidths.delay
+local actionColumnWidth = columnWidths.action
+local selfColumnWidth = columnWidths.self
+local inputEntryColumnWidth = columnWidths.inputEntry
+local revertDelayColumnWidth = columnWidths.revertDelay
 
 SCForgeMainFrame.spellRows = {}
 
@@ -338,7 +339,7 @@ local function addRow(rowToAdd)
 		else
 			newRow:SetPoint("TOPLEFT", SCForgeMainFrame.spellRows[numActiveRows-1], "BOTTOMLEFT", 0, 0)
 		end
-		newRow:SetWidth(MainFrame.size.x-50)
+		newRow:SetWidth(MainFrame.size.x - 50)
 		newRow:SetHeight(rowHeight)
 
 		genSpellRowTextures(newRow)
@@ -434,7 +435,7 @@ local function addRow(rowToAdd)
 					end
 					if _actionTypeData.example then
 						tinsert(strings, " ")
-						tinsert(strings, _actionTypeData.example)
+						tinsert(strings, Tooltip.genTooltipText("example", _actionTypeData.example))
 					end
 
 					return strings

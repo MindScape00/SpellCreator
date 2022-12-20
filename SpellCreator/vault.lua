@@ -33,6 +33,10 @@ local function deletePersonalSpell(commID)
 	SpellCreatorSavedSpells[commID] = nil
 end
 
+local function assignPersonalSpellAuthor(commID, author)
+	SpellCreatorSavedSpells[commID].author = author
+end
+
 --#endregion
 --#region Phase
 
@@ -88,6 +92,7 @@ ns.Vault = {
 		findSpellByID = findPersonalSpellByID,
 		saveSpell = savePersonalSpell,
 		deleteSpell = deletePersonalSpell,
+		assignPersonalSpellAuthor = assignPersonalSpellAuthor,
 	},
 	phase = {
 		isLoaded = false,

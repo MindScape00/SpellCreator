@@ -11,6 +11,7 @@ local ns = select(2, ...)
 
 local NineSlice = ns.Utils.NineSlice
 
+local Attic = ns.UI.MainFrame.Attic
 local Icons = ns.UI.Icons
 
 ---@class UI_IconPicker
@@ -28,7 +29,7 @@ local filteredList = nil
 function IconPicker.IconPickerButton_OnClick( self )
 	-- Apply the icon and close the picker.
 	SCForgeMainFrame.IconButton:SelectTex( self.realTex )
-	ns.UI.Attic.markEditorUnsaved()
+	Attic.markEditorUnsaved()
 	PlaySound(114990)
 	IconPicker.IconPicker_Close()
 end

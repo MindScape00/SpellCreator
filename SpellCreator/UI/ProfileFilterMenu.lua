@@ -1,8 +1,15 @@
 ---@class ns
 local ns = select(2, ...)
 
+local Constants = ns.Constants
 local ProfileFilter = ns.ProfileFilter
 local SavedVariables = ns.SavedVariables
+local VaultFilter = ns.VaultFilter
+
+local ADDON_COLORS = Constants.ADDON_COLORS
+
+local onProfileFilterChanged = VaultFilter.onProfileFilterChanged
+local regenProfileFilterDropdown
 
 ---@param profile DefaultProfileOption
 local function setDefaultProfile(self, profile)
@@ -20,7 +27,7 @@ local function createDefaultProfileMenuListItem(profile, currentDefaultProfile)
 		isNotRadio = isCurrent,
 		checked = isCurrent,
 		notClickable = isCurrent,
-		disablecolor = (isCurrent and ns.Constants.ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
+		disablecolor = (isCurrent and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
 		arg1= profile,
 		func = setDefaultProfile,
 	}
@@ -64,15 +71,14 @@ end
 
 ---@param text string
 ---@param filteredEnabled boolean
----@param updateUICallback function
 ---@return MenuItem
-local function genFilterItem(text, filteredEnabled, updateUICallback)
+local function genFilterItem(text, filteredEnabled)
 	return {
 		text = text,
 		isNotRadio=true,
 		checked = (filteredEnabled or ProfileFilter.isAllShown()),
 		keepShownOnClick = true,
-		arg1 = updateUICallback,
+		arg1 = onProfileFilterChanged,
 		func = selectProfile,
 	}
 end
@@ -87,37 +93,36 @@ local function genDivider()
 	}
 end
 
----@param updateUICallback function
 ---@return MenuItem
-local function genShowAllItem(updateUICallback)
+local function genShowAllItem()
 	return {
 		text = "Show All",
 		notCheckable = true,
 		fontObject = GameFontNormalSmallLeft,
 		func = function()
 			ProfileFilter.enableAll()
-			updateUICallback()
+			regenProfileFilterDropdown()
+			onProfileFilterChanged()
 		end,
 	}
 end
 
----@param updateUICallback function
 ---@return MenuItem
-local function genResetItem(updateUICallback)
+local function genResetItem()
 	return {
 		text = "Reset",
 		notCheckable = true,
 		fontObject = GameFontNormalSmallLeft,
 		func = function()
 			ProfileFilter.reset()
-			updateUICallback()
+			regenProfileFilterDropdown()
+			onProfileFilterChanged()
 		end,
 	}
 end
 
----@param updateUICallback function
 ---@return MenuItem[]
-local function genProfileFilterDropDown(updateUICallback)
+local function genProfileFilterDropDown()
 	local playerName = GetUnitName("player")
 	local isNotAllChecked
 	local menuList = {
@@ -126,8 +131,8 @@ local function genProfileFilterDropDown(updateUICallback)
 			notCheckable = true,
 			isTitle = true,
 		},
-		genFilterItem("Account", ProfileFilter.isAccountShown(), updateUICallback),
-		genFilterItem(playerName, ProfileFilter.isPlayerShown(), updateUICallback),
+		genFilterItem("Account", ProfileFilter.isAccountShown()),
+		genFilterItem(playerName, ProfileFilter.isPlayerShown()),
 	}
 
 	local profileNames = SavedVariables.getProfileNames(true, true)
@@ -137,20 +142,23 @@ local function genProfileFilterDropDown(updateUICallback)
 		if not ProfileFilter.isShown(profileName) then
 			isNotAllChecked = true
 		end
-		menuList[#menuList + 1] = genFilterItem(profileName, ProfileFilter.isShown(profileName), updateUICallback)
+		menuList[#menuList + 1] = genFilterItem(profileName, ProfileFilter.isShown(profileName))
 	end
 
 	menuList[#menuList + 1] = genDivider()
 
 	if isNotAllChecked and (not ProfileFilter.isAllShown()) then
-		menuList[#menuList + 1] = genShowAllItem(updateUICallback)
+		menuList[#menuList + 1] = genShowAllItem()
 	else
-		menuList[#menuList + 1] = genResetItem(updateUICallback)
+		menuList[#menuList + 1] = genResetItem()
 	end
 
 	return menuList
 end
 
+regenProfileFilterDropdown = function()
+	EasyMenu(genProfileFilterDropDown(), ARCProfileContextMenu, SCForgeMainFrame.LoadSpellFrame.profileButton, 0 , 0, "DROPDOWN"); -- that global ARCProfileContextMenu gets defined later, but still before we'll ever call this..
+end
 
 ---@class UI_ProfileFilterMenu
 ns.UI.ProfileFilterMenu = {
