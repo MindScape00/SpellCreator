@@ -1,0 +1,74 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+..\FrameXML\UI.xsd">
+  
+  <CheckButton name="SC_ExtraActionButtonTemplate" virtual="true">
+    <Size x="52" y="52"/>
+    <Layers>
+      <Layer level="BACKGROUND">
+        <Texture name="$parentIcon" parentKey="icon"/>
+      </Layer>
+      <Layer level="OVERLAY">
+        <Texture name="$parentFlash" parentKey="Flash" file="Interface\Buttons\UI-QuickslotRed" hidden="true"/>
+        <Texture file="Interface\UnitPowerBarAlt\SpellPush-Frame" parentKey="style">
+          <Size x="256" y="128"/>
+          <Anchors>
+            <Anchor point="CENTER" x="-2" y="0"/>
+          </Anchors>
+        </Texture>
+      </Layer>
+    </Layers>
+    <NormalTexture name="$parentNormalTexture" parentKey="NormalTexture" file="Interface\Buttons\UI-Quickslot2">
+      <Anchors>
+        <Anchor point="TOPLEFT" x="-15" y="15"/>
+        <Anchor point="BOTTOMRIGHT" x="15" y="-15"/>
+      </Anchors>
+    </NormalTexture>
+    <HighlightTexture alphaMode="ADD" file="Interface\Buttons\ButtonHilight-Square"/>
+    <CheckedTexture alphaMode="ADD" file="Interface\Buttons\CheckButtonHilight"/>
+    <Scripts>
+      <OnLoad>
+        self.isExtra = true;
+        self.buttonType = "EXTRAACTIONBUTTON";
+        self.flashing = 0;
+		self.flashtime = 0;
+		self:RegisterForDrag("LeftButton", "RightButton");
+		self:RegisterForClicks("AnyUp");
+      </OnLoad>
+    </Scripts>
+  </CheckButton>
+  
+  <Frame name="SC_ExtraActionBarFrameTemplate" virtual="true" frameStrata="LOW" parent="MainMenuBar" enableMouse="true" toplevel="true" hidden="true">
+    <Size x="64" y="64"/>
+    <Anchors>
+      <Anchor point="BOTTOM" x="0" y="160"/>
+    </Anchors>
+    <Animations>
+      <AnimationGroup parentKey="intro">
+        <Alpha fromAlpha="0" toAlpha="1" duration="0.3" order="1"/>
+        <Scripts>
+          <OnFinished>
+            self:GetParent():SetAlpha(1.0);
+          </OnFinished>
+        </Scripts>
+      </AnimationGroup>
+      <AnimationGroup parentKey="outro">
+        <Alpha fromAlpha="1" toAlpha="0" duration="0.3" order="1"/>
+        <Scripts>
+          <OnFinished>
+            self:GetParent():SetAlpha(0.0);
+            self:GetParent():Hide();
+          </OnFinished>
+        </Scripts>
+      </AnimationGroup>
+    </Animations>
+    <Scripts>
+      <OnLoad function="ExtraActionBar_OnLoad"/>
+      <OnHide function="ExtraActionBar_OnHide"/>
+    </Scripts>
+  </Frame>  
+  
+  <Script file="UI/SparkPopups/Init.lua"/>
+  <Script file="UI/SparkPopups/CreateSparkUI.lua"/>
+  <Script file="UI/SparkPopups/SparkManagerUI.lua"/>
+  <Script file="UI/SparkPopups/SparkPopups.lua"/>
+</Ui>

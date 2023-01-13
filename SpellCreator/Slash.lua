@@ -7,6 +7,7 @@ local ADDON_COLORS = ns.Constants.ADDON_COLORS
 local cprint = ns.Logging.cprint
 
 local AceConsole = ns.Libs.AceConsole
+local DataUtils = ns.Utils.Data
 
 local slashCommands = {
 	arcanum = {
@@ -30,6 +31,46 @@ local slashCommands = {
 }
 
 local arcCommands = {
+	phase = {
+		cmd = "phase ...",
+		desc = ("ARC:API Phase Commands - Use %s to see more."):format(ADDON_COLORS.TOOLTIP_CONTRAST:WrapTextInColorCode("/arc phase")),
+		subcommands = {
+			["if"] = {
+				cmd = "phase if $key $commandTrue [$commandFalse] [$varTrue] [$varFalse]",
+				desc = {
+					"Checks if the $key, in Phase ArcVars, is true and runs the $commandTrue (with $varTrue added if given),",
+					"or $commandFalse if not true and $commandFalse was given. (with $varFalse added ",
+					"if given, or $varTrue added if given and $varFalse was not). ",
+				},
+				fnTable = "PHASE",
+				fn = "IF",
+				numArgs = 5,
+			},
+			ifs = {
+				cmd = "phase ifs $key $check $commandTrue [$commandFalse] [$varTrue] [$varFalse]",
+				desc = {
+					"Same as ARC:IF but checks if the $key is equal to $check instead of just testing if it's true.",
+				},
+				fnTable = "PHASE",
+				fn = "IFS",
+				numArgs = 6,
+			},
+			tog = {
+				cmd = "phase tog $key",
+				desc = "Toggles the $key in the Phase ArcVars between true & false, used with ARC.PHASE:IF (/arc phase if).",
+				fn = "TOG",
+				fnTable = "PHASE",
+				numArgs = 1,
+			},
+			set = {
+				cmd = "phase set $key $value",
+				desc = "Sets the $key, in Phase ArcVars, to a specific \"$value\". Use with ARC.PHASE:GET or ARC.PHASE:IFS.",
+				fn = "SET",
+				fnTable = "PHASE",
+				numArgs = 2,
+			},
+		}
+	},
 	cast = {
 		cmd = "cast $commID",
 		desc = "Cast from your personal vault, same as /arcanum or /sf",
@@ -49,31 +90,32 @@ local arcCommands = {
 		numArgs = 1,
 	},
 	["if"] = {
-		cmd = "if $tag $commandTrue $commandFalse [$varTrue] [$varFalse]",
+		cmd = "if $key $commandTrue [$commandFalse] [$varTrue] [$varFalse]",
 		desc = {
-			"Checks if the $tag is true and runs the $commandTrue (with $var1 added if given),",
-			"or $commandFalse if not true (with $varTrue/$varFalse added if given).",
+			"Checks if the $key is true and runs the $commandTrue (with $varTrue added if given),",
+			"or $commandFalse if not true and $commandFalse was given. (with $varFalse added ",
+			"if given, or $varTrue added if given and $varFalse was not). ",
 		},
 		fn = "IF",
 		numArgs = 5,
 	},
 	ifs = {
-		cmd = "ifs $tag $check $commandTrue $commandFalse [$varTrue] [$varFalse]",
+		cmd = "ifs $key $check $commandTrue [$commandFalse] [$varTrue] [$varFalse]",
 		desc = {
-			"Same as ARC:IF but checks if the $tag is equal to $check instead of just testing if it's true.",
+			"Same as ARC:IF but checks if the $key is equal to $check instead of just testing if it's true.",
 		},
-		fn = "IF",
+		fn = "IFS",
 		numArgs = 6,
 	},
 	tog = {
-		cmd = "tog $tag",
-		desc = "Toggles the $tag between true & false, used with ARC:IF (/arc if).",
+		cmd = "tog $key",
+		desc = "Toggles the $key between true & false, used with ARC:IF (/arc if).",
 		fn = "TOG",
 		numArgs = 1,
 	},
 	set = {
-		cmd = "set $tag $value",
-		desc = "Sets the $tag to a specific \"$value\". Use with GET or IFS.",
+		cmd = "set $key $value",
+		desc = "Sets the $key to a specific \"$value\". Use with GET or IFS.",
 		fn = "SET",
 		numArgs = 2,
 	},
@@ -107,7 +149,8 @@ local arcCommandsList = {
 	"set",
 	"copy",
 	"getname",
-	"rand"
+	"rand",
+	"phase",
 }
 
 local function printMsg(msg)
@@ -132,7 +175,7 @@ local function printCmd(command)
 end
 
 local function printArcCmd(command)
-	local cmd, desc, fn = command.cmd, command.desc, command.fn
+	local cmd, desc, fn, fnTable = command.cmd, command.desc, command.fn, command.fnTable
 
 	if type(desc) == "table" then
 		printMsg("     .. " .. cmd)
@@ -144,14 +187,43 @@ local function printArcCmd(command)
 		printMsg("     .. " .. cmd .. "|r - " .. desc)
 	end
 
-	if fn then
-		print("               Direct Function: "..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup().."/run ARC:" .. fn .. "()|r")
+	if fn and fnTable then
+		print("               Direct Function: " .. ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. "/run ARC." .. fnTable .. ":" .. fn .. "()|r")
+	elseif fn then
+		print("               Direct Function: " .. ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. "/run ARC:" .. fn .. "()|r")
+	end
+end
+
+local function printArcSubCmd(command)
+	for k, v in pairs(command.subcommands) do
+		printArcCmd(v)
 	end
 end
 
 local function arcSlashCommandHandler(msg)
-	local command = AceConsole:GetArgs(msg)
-	if not command or command == "" then
+	local command, subcommand = AceConsole:GetArgs(msg, 2)
+	local args
+	if command and arcCommands[command] then
+		local arcCommand = arcCommands[command]
+		if arcCommand.subcommands then
+			local arcSubCommand = arcCommand.subcommands[subcommand]
+			if not arcSubCommand then
+				--arcSlashCommandHandler("")
+				cprint("ARC:API - " .. DataUtils.wordToProperCase(command) .. " Commands")
+				printMsg('NOTE: If you want to use a space, wrap your $variable in quotes (i.e., "command with spaces").')
+				printCmd(slashCommands.arc)
+				printArcSubCmd(arcCommands[command])
+				return
+			end
+			args = { AceConsole:GetArgs(msg, arcSubCommand.numArgs + 2) }
+			args = { unpack(args, 2, arcSubCommand.numArgs + 2) } -- drop the command, subcommand, and nextposition
+			ARC[arcSubCommand.fnTable][arcSubCommand.fn](unpack(args))
+		else
+			args = { AceConsole:GetArgs(msg, arcCommand.numArgs + 1) }
+			args = { unpack(args, 1, arcCommand.numArgs + 1) } -- drop the command and nextposition
+			ARC[arcCommand.fn](unpack(args))
+		end
+	else -- need to make this a general else instead of just a capture of nil because otherwise we miss if they do an invalid command also
 		cprint("Commands & API")
 		printMsg("Main Commands:")
 		printMsg('NOTE: If you want to use a space, wrap your $variable in quotes (i.e., "command with spaces").')
@@ -160,15 +232,10 @@ local function arcSlashCommandHandler(msg)
 		print(" ")
 		printMsg("ARC:API Commands:")
 		printCmd(slashCommands.arc)
-		for _, cmd in pairs(arcCommandsList) do printArcCmd(arcCommands[cmd]) end
+		for _, cmd in pairs(arcCommandsList) do
+			printArcCmd(arcCommands[cmd])
+		end
 		printCmd(slashCommands.debug)
-	elseif arcCommands[command] then
-		local arcCommand = arcCommands[command]
-
-		local args = {AceConsole:GetArgs(msg, arcCommand.numArgs + 1)}
-		args = {unpack(args, 1, arcCommand.numArgs + 1)} -- drop the command and nextposition
-
-		ARC[arcCommand.fn](unpack(args))
 	end
 end
 

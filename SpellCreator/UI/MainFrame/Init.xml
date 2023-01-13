@@ -3,6 +3,7 @@
 
 	<Script file="UI/MainFrame/MainFrame.lua"/>
 	<Script file="UI/MainFrame/TitleBar.lua"/>
+	<Script file="UI/MainFrame/AtticProfileDropdown.lua"/>
 	<Script file="UI/MainFrame/Attic.lua"/>
 	<Script file="UI/MainFrame/Basement.lua"/>
 </Ui>

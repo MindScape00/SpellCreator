@@ -92,6 +92,7 @@
 	<Script file="UI/Animation.lua"/>
 	<Script file="UI/Castbar.lua"/>
 	<Script file="UI/ChatLink.lua"/>
+	<Script file="UI/Dropdown.lua"/>
 	<Script file="UI/Gems.lua"/>
 	<Script file="UI/Icons.lua"/>
 	<Script file="UI/ImportExport.lua"/>
@@ -103,7 +104,9 @@
 	<Script file="UI/Popups.lua"/>
 	<Script file="UI/Portrait.lua"/>
 	<Script file="UI/ProfileFilterMenu.lua"/>
-	<Script file="UI/Quickcast.lua"/>
+	<Include file="UI/Quickcast/Init.xml" />
+	<Include file="UI/SparkPopups/SparkPopups.xml" />
+	<Script file="UI/SpellRowAction.lua"/>
 	<Script file="UI/SpellRow.lua"/>
 	<Script file="UI/SpellLoadRowContextMenu.lua"/>
 	<Script file="UI/SpellLoadRow.lua"/>

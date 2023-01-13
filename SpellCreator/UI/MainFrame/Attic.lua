@@ -4,34 +4,33 @@ local ns = select(2, ...)
 local Constants = ns.Constants
 local DataUtils = ns.Utils.Data
 local Localization = ns.Localization
-local ProfileFilter = ns.ProfileFilter
-local SavedVariables = ns.SavedVariables
 local Tooltip = ns.Utils.Tooltip
 
+local AtticProfileDropdown = ns.UI.MainFrame.AtticProfileDropdown
 local Icons = ns.UI.Icons
 local MainFrame = ns.UI.MainFrame.MainFrame
 
 local ADDON_COLORS = Constants.ADDON_COLORS
 local ASSETS_PATH = Constants.ASSETS_PATH
-local DEFAULT_PROFILE_NAME = ProfileFilter.DEFAULT_PROFILE_NAME
 local isNotDefined = DataUtils.isNotDefined
 
 local nameBox
 local commandBox
 local descBox
 local castbarCheckButton
-local profileDropdown
-local author = GetUnitName("player")
+local author = UnitName("player")
 local editCommID
 local iconButton
 local editorsaved = true
 
 local function markEditorSaved()
 	editorsaved = true
+	MainFrame.markTitleChanges(false)
 end
 
 local function markEditorUnsaved()
 	editorsaved = false
+	MainFrame.markTitleChanges(true)
 end
 
 local function getEditorSavedState()
@@ -47,7 +46,7 @@ local function getAuthor()
 end
 
 local function setAuthorMe()
-	author = GetUnitName("player")
+	author = UnitName("player")
 end
 
 ---@param mainFrame SCForgeMainFrame
@@ -58,7 +57,7 @@ local function createNameBox(mainFrame)
 	nameBox.disabledColor = GRAY_FONT_COLOR
 	nameBox.enabledColor = HIGHLIGHT_FONT_COLOR
 	nameBox.Instructions:SetText(Localization.SPELLNAME)
-	nameBox.Instructions:SetTextColor(0.5,0.5,0.5)
+	nameBox.Instructions:SetTextColor(0.5, 0.5, 0.5)
 	--nameBox.Title = nameBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
 	--nameBox.Title:SetText(NAME)
 	--nameBox.Title:SetPoint("BOTTOM", nameBox, "TOP", 0, 0)
@@ -85,13 +84,13 @@ local function createCommandBox(mainFrame)
 	commandBox.disabledColor = GRAY_FONT_COLOR
 	commandBox.enabledColor = HIGHLIGHT_FONT_COLOR
 	commandBox.Instructions:SetText(Localization.SPELLCOMM)
-	commandBox.Instructions:SetTextColor(0.5,0.5,0.5)
+	commandBox.Instructions:SetTextColor(0.5, 0.5, 0.5)
 	--commandBox.Title = commandBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
 	--commandBox.Title:SetText(COMMAND)
 	--commandBox.Title:SetPoint("BOTTOM", commandBox, "TOP", 0, 0)
 	commandBox:SetAutoFocus(false)
 	--commandBox:SetSize(mainFrame:GetWidth()/6,23)
-	commandBox:SetSize(mainFrame:GetWidth()/5,23)
+	commandBox:SetSize(mainFrame:GetWidth() / 5, 23)
 	commandBox:SetPoint("LEFT", nameBox, "RIGHT", 6, 0)
 
 	Tooltip.set(commandBox,
@@ -105,7 +104,7 @@ local function createCommandBox(mainFrame)
 
 	commandBox:HookScript("OnTextChanged", function(self, userInput)
 		local selfText = self:GetText();
-		if selfText:match(",") then self:SetText(selfText:gsub(",","")) end
+		if selfText:match(",") then self:SetText(selfText:gsub(",", "")) end
 		if userInput then markEditorUnsaved() end
 	end)
 
@@ -120,12 +119,12 @@ local function createInfoDescBox(mainFrame)
 	descBox.disabledColor = GRAY_FONT_COLOR
 	descBox.enabledColor = HIGHLIGHT_FONT_COLOR
 	descBox.Instructions:SetText("Description")
-	descBox.Instructions:SetTextColor(0.5,0.5,0.5)
+	descBox.Instructions:SetTextColor(0.5, 0.5, 0.5)
 	--infoDescBox.Title = infoDescBox:CreateFontString(nil, "OVERLAY", "GameTooltipText")
 	--infoDescBox.Title:SetText("Description")
 	--infoDescBox.Title:SetPoint("BOTTOM", infoDescBox, "TOP", 0, 0)
 	descBox:SetAutoFocus(false)
-	descBox:SetSize(mainFrame:GetWidth()/2.5,23)
+	descBox:SetSize(mainFrame:GetWidth() / 2.5, 23)
 	descBox.SetRelativePoints = function(self)
 		self:ClearAllPoints()
 		self:SetPoint("TOPLEFT", nameBox, "BOTTOMLEFT", 0, 4)
@@ -149,7 +148,7 @@ local function createCastbarCheckButton(mainFrame)
 	---@field checkTex Texture
 	---@type CastbarCheckButton
 	castbarCheckButton = CreateFrame("CheckButton", nil, mainFrame, "UICheckButtonTemplate")
-	castbarCheckButton:SetSize(20,20)
+	castbarCheckButton:SetSize(20, 20)
 	castbarCheckButton:SetPoint("LEFT", commandBox, "RIGHT", 0, 0)
 	castbarCheckButton.text:SetText(" Cast/Channel")
 	castbarCheckButton.checkState = 1 -- 0 = none, 1 = cast, 2 = channel; default to cast
@@ -170,7 +169,7 @@ local function createCastbarCheckButton(mainFrame)
 			self.checkTex:SetAtlas("common-checkbox-partial")
 			self.checkTex:ClearAllPoints()
 			self.checkTex:SetPoint("CENTER")
-			self.checkTex:SetSize(self:GetWidth()*0.5, self:GetHeight()*0.5)
+			self.checkTex:SetSize(self:GetWidth() * 0.5, self:GetHeight() * 0.5)
 		end
 	end
 	castbarCheckButton:UpdateCheckedTex()
@@ -193,7 +192,7 @@ local function createCastbarCheckButton(mainFrame)
 
 	Tooltip.set(castbarCheckButton,
 		"Castbar / Channelbar",
-		function (self)
+		function(self)
 			local castingStateText = "None"
 			if self.checkState == 1 then
 				castingStateText = "Cast"
@@ -203,7 +202,7 @@ local function createCastbarCheckButton(mainFrame)
 
 			return {
 				"Toggle the casting bar between:\rCast, Channel, or None.\n\rCastbars do not show, even if enabled, if the total spell length is under 0.25 seconds.",
-				"\nCurrent: "..ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup().."" .. castingStateText .. "|r",
+				"\nCurrent: " .. ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. "" .. castingStateText .. "|r",
 			}
 		end,
 		{ updateOnClick = true, delay = 0.3 }
@@ -216,15 +215,24 @@ end
 ---@param IconPicker UI_IconPicker
 local function createIconButton(mainFrame, IconPicker)
 	iconButton = CreateFrame("BUTTON", nil, mainFrame)
-	iconButton:SetSize(34,34)
+	iconButton:SetSize(34, 34)
 	iconButton:SetPoint("TOPRIGHT", nameBox, "TOPLEFT", -14, -6)
 	--iconButton:SetPoint("TOPLEFT", 70, -26)
 	iconButton:SetNormalTexture("Interface/Icons/inv_misc_questionmark")
+	iconButton.normal = iconButton:GetNormalTexture()
+	iconButton.normal:SetDrawLayer("BACKGROUND")
+	iconButton.mask = iconButton:CreateMaskTexture()
+	iconButton.mask:SetAllPoints(iconButton.normal)
+	iconButton.mask:SetTexture("interface/framegeneral/uiframeiconmask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+
+	iconButton.normal:AddMaskTexture(iconButton.mask)
+
 	iconButton.highlight = iconButton:CreateTexture(nil, "OVERLAY")
 	iconButton.highlight:SetTexture(ASSETS_PATH .. "/dm-trait-select")
 	iconButton.highlight:SetPoint("TOPLEFT", -4, 4)
 	iconButton.highlight:SetPoint("BOTTOMRIGHT", 4, -4)
 	iconButton.highlight:Hide()
+
 	iconButton.border = iconButton:CreateTexture(nil, "BORDER")
 	iconButton.border:SetTexture(ASSETS_PATH .. "/dm-trait-border")
 	iconButton.border:SetPoint("TOPLEFT", -6, 6)
@@ -236,10 +244,10 @@ local function createIconButton(mainFrame, IconPicker)
 		end
 		self.selected = selected
 		if selected then
-			self.highlight:SetTexture( ASSETS_PATH .. "/dm-trait-highlight" )
+			self.highlight:SetTexture(ASSETS_PATH .. "/dm-trait-highlight")
 			self.highlight:Show()
 		else
-			self.highlight:SetTexture( ASSETS_PATH .. "/dm-trait-select" )
+			self.highlight:SetTexture(ASSETS_PATH .. "/dm-trait-select")
 			self.highlight:Hide()
 		end
 	end
@@ -275,88 +283,11 @@ local function createIconButton(mainFrame, IconPicker)
 	end)
 	iconButton:RegisterForClicks("RightButtonUp", "LeftButtonUp")
 
-	Tooltip.set(iconButton, "Select an Icon", "Select an icon for your ArcSpell.\n\rThis will be shown across the addon to represent the spell (i.e., in the vault, castbar, Quickcast, chatlinks).\n\r"..Tooltip.genContrastText("Right-Click").." to remove the icon. You should probably have an icon tho..")
+	Tooltip.set(iconButton, "Select an Icon",
+		"Select an icon for your ArcSpell.\n\rThis will be shown across the addon to represent the spell (i.e., in the vault, castbar, Quickcast, chatlinks).\n\r" ..
+		Tooltip.genContrastText("Right-Click") .. " to remove the icon. You should probably have an icon tho..")
 
 	return iconButton
-end
-
----@return string profileName
-local function getEditorProfile()
-	return profileDropdown.Text:GetText()
-end
-
----@param profileName? string
-local function selectEditorProfile(profileName)
-	if not profileName then
-		profileName = DEFAULT_PROFILE_NAME
-	end
-
-	profileDropdown.Text:SetText(profileName)
-	markEditorUnsaved()
-end
-
----@param profileName string
----@return MenuItem
-local function genFilterItem(profileName)
-	local isActive = (getEditorProfile() == profileName)
-
-	return {
-		text = profileName,
-		isNotRadio = isActive,
-		checked = isActive,
-		disabled = isActive,
-		disablecolor = (isActive and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
-		func = function()
-			selectEditorProfile(profileName)
-			CloseDropDownMenus()
-		end,
-	}
-end
-
-local function genEditorProfileSelectMenu()
-	local menuList = {
-		{
-			text = "Select a Profile",
-			notCheckable=true,
-			isTitle=true,
-		},
-		genFilterItem("Account"),
-		genFilterItem(GetUnitName("player")),
-	}
-
-	local profileNames = SavedVariables.getProfileNames(true, true)
-	sort(profileNames)
-
-	for _, profileName in ipairs(profileNames) do
-		menuList[#menuList+1] = genFilterItem(profileName)
-	end
-
-	menuList[#menuList+1] = {
-		text = "Add New",
-		tooltipTitle = "New Profile",
-		tooltipText = "Set the spell you are currently editing to a new profile when saved.\n\r"..Tooltip.genTooltipText("norevert", "Profiles added here will not show in menus until the spell is created/saved."),
-		tooltipOnButton = true,
-		fontObject = GameFontNormalSmallLeft,
-		func = function() StaticPopup_Show("SCFORGE_ATTIC_PROFILE"); CloseDropDownMenus(); end,
-	}
-
-	return menuList
-end
-
----@param mainFrame SCForgeMainFrame
-local function createProfileDrownDown(mainFrame)
-	-- TODO move out of SpellRow
-	profileDropdown = ns.UI.SpellRow.genStaticDropdownChild( mainFrame, "SCForgeAtticProfileButton", genEditorProfileSelectMenu, DEFAULT_PROFILE_NAME, 75)
-	profileDropdown:SetPoint("BOTTOMRIGHT", mainFrame.Inset, "TOPRIGHT", 16, 0)
-
-	Tooltip.set(profileDropdown.Button,
-		"Assign Profile",
-		"Assign this spell to the selected profile when created or saved.", {
-			delay = 0.3
-		}
-	)
-
-	return profileDropdown
 end
 
 local function getEditCommId()
@@ -376,7 +307,7 @@ local function getInfo()
 	newSpellData.description = descBox:GetText()
 	newSpellData.castbar = castbarCheckButton:GetCheckState()
 	newSpellData.icon = iconButton:GetSelectedTexID()
-	newSpellData.profile = profileDropdown.Text:GetText()
+	newSpellData.profile = AtticProfileDropdown.getSelectedProfile()
 	newSpellData.author = author or nil
 
 	return newSpellData
@@ -391,7 +322,7 @@ local function updateInfo(spell)
 	if spell.description then
 		descBox:SetText(spell.description)
 	end
-	selectEditorProfile(spell.profile)
+	AtticProfileDropdown.setSelectedProfile(spell.profile)
 	editCommID = spell.commID
 	author = spell.author or nil
 end
@@ -404,14 +335,14 @@ end
 ---@param mainFrameWidth integer
 local function updateSize(mainFrameWidth)
 	local widthScale = mainFrameWidth / MainFrame.size.Xmin
-	local squareRootWidthScale = widthScale^0.5
-	local effectiveOffsetScale = widthScale^1.5
+	local squareRootWidthScale = widthScale ^ 0.5
+	local effectiveOffsetScale = widthScale ^ 1.5
 
-	commandBox:SetWidth( (mainFrameWidth / 5) * squareRootWidthScale)
+	commandBox:SetWidth((mainFrameWidth / 5) * squareRootWidthScale)
 	nameBox:SetWidth((mainFrameWidth / 4.5) * squareRootWidthScale)
 	descBox:SetWidth((mainFrameWidth / 2.5) * squareRootWidthScale)
 
-	iconButton:SetPoint("TOPRIGHT", nameBox, "TOPLEFT", -14*effectiveOffsetScale, -6)
+	iconButton:SetPoint("TOPRIGHT", nameBox, "TOPLEFT", -14 * effectiveOffsetScale, -6)
 	--print(widthScale, effectiveOffsetScale, squareRootWidthScale)
 end
 
@@ -433,7 +364,10 @@ local function init(mainFrame, IconPicker)
 	mainFrame.SpellInfoDescBox = createInfoDescBox(mainFrame)
 	mainFrame.CastBarCheckButton = createCastbarCheckButton(mainFrame)
 	mainFrame.IconButton = createIconButton(mainFrame, IconPicker)
-	mainFrame.ProfileSelectMenu = createProfileDrownDown(mainFrame)
+	mainFrame.ProfileSelectMenu = AtticProfileDropdown.createDropdown({
+		mainFrame = mainFrame,
+		markEditorUnsaved = markEditorUnsaved,
+	})
 
 	-- Enable Tabbing between editboxes
 	mainFrame.SpellInfoNameBox.nextEditBox = mainFrame.SpellInfoCommandBox
@@ -442,6 +376,8 @@ local function init(mainFrame, IconPicker)
 	mainFrame.SpellInfoDescBox.previousEditBox = mainFrame.SpellInfoCommandBox
 	mainFrame.SpellInfoCommandBox.previousEditBox = mainFrame.SpellInfoNameBox
 	mainFrame.SpellInfoNameBox.previousEditBox = mainFrame.SpellInfoDescBox
+
+	MainFrame.onSizeChanged(updateSize)
 end
 
 SCForgeMainFrame.ExpandAttic = function(self)
@@ -456,7 +392,7 @@ SCForgeMainFrame.CollapseAttic = function(self)
 	FrameTemplate_SetAtticHeight(self, 60)
 	descBox:SetMultiLine(false)
 	descBox:SetRelativePoints()
-	descBox:SetSize(SCForgeMainFrame:GetWidth()/2.5,23)
+	descBox:SetSize(SCForgeMainFrame:GetWidth() / 2.5, 23)
 end
 
 ---@class UI_MainFrame_Attic
@@ -467,13 +403,11 @@ ns.UI.MainFrame.Attic = {
 	isInfoValid = isInfoValid,
 	getEditCommId = getEditCommId,
 	setEditCommId = setEditCommId,
-	updateSize = updateSize,
 	onNameChange = onNameChange,
 	onCommandChange = onCommandChange,
 	markEditorSaved = markEditorSaved,
 	markEditorUnsaved = markEditorUnsaved,
 	getEditorSavedState = getEditorSavedState,
-	selectEditorProfile = selectEditorProfile,
 	setAuthor = setAuthor,
 	setAuthorMe = setAuthorMe,
 	getAuthor = getAuthor,

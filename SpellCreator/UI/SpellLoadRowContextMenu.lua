@@ -6,22 +6,23 @@ local Execute = ns.Actions.Execute
 local Gossip = ns.Gossip
 local SavedVariables = ns.SavedVariables
 local Vault = ns.Vault
+local Permissions = ns.Permissions
 
 local Tooltip = ns.Utils.Tooltip
 
 local ChatLink = ns.UI.ChatLink
+local Dropdown = ns.UI.Dropdown
 local ImportExport = ns.UI.ImportExport
 local LoadSpellFrame = ns.UI.LoadSpellFrame
 local Popups = ns.UI.Popups
-local Quickcast = ns.UI.Quickcast
 
 local ADDON_COLORS = ns.Constants.ADDON_COLORS
 local VAULT_TYPE = Constants.VAULT_TYPE
+local PLAYER_NAME = Constants.CHARACTER_NAME --[[@as string]]
 
 local executeSpell = Execute.executeSpell
 local getCurrentVault = LoadSpellFrame.getCurrentVault
-
-local contextDropDownMenu = CreateFrame("BUTTON", "ARCLoadRowContextMenu", UIParent, "UIDropDownMenuTemplate")
+local isOfficerPlus = Permissions.isOfficerPlus
 
 ---@type fun(index: integer)
 local downloadToPersonal
@@ -45,259 +46,276 @@ local function setSpellProfile(commID, profileName)
 	updateRows()
 end
 
----@param commID CommID
----@param profileName string?
-local function createAndSetProfile(commID, profileName)
-	if not profileName then
-		Popups.showNewProfilePopup(commID, setSpellProfile)
-		return
-	end
+---@param spell VaultSpell
+---@param profileName string
+---@return DropdownItem
+local function genProfileItem(spell, profileName)
+	return Dropdown.radio(profileName, {
+		get = function()
+			return spell.profile == profileName
+		end,
+		set = function()
+			setSpellProfile(spell.commID, profileName)
+		end,
+	})
+end
 
-	setSpellProfile(commID, profileName)
+---@return string[]
+local function getProfileNames()
+	local profileNames = SavedVariables.getProfileNames(true, true)
+	sort(SavedVariables.getProfileNames(true, true))
+	return profileNames
 end
 
 ---@param spell VaultSpell
-local function createOptions(spell)
-	local vault = getCurrentVault()
-	local menuList = {}
-	local item
-	local playerName = GetUnitName("player")
-	local _profile
-	if vault == VAULT_TYPE.PHASE then
-		menuList = {
-			{
-				text = spell.fullName,
-				notCheckable = true,
-				isTitle = true
-			},
-			{
-				text = "Cast",
-				notCheckable = true,
-				func = function()
-					executeSpell(spell.actions, nil, spell.fullName, spell)
-				end
-			},
-			{
-				text = "Edit",
-				notCheckable = true,
-				func = function()
-					loadSpell(spell)
-				end
-			},
-			{
-				text = "Transfer",
-				tooltipTitle = "Copy to Personal Vault",
-				tooltipOnButton = true,
-				notCheckable = true,
-				func = function()
-					downloadToPersonal(spell.commID)
-				end
-			},
-		}
-		item = {
-			text = "Add to Gossip",
-			notCheckable = true,
-			func = function()
+---@return table<string, AceConfigOptionsTable>
+local function getPhaseSpellArgs(spell)
+	return {
+		Dropdown.header(spell.fullName),
+		Dropdown.execute(
+			"Cast",
+			function()
+				executeSpell(spell.actions, nil, spell.fullName, spell)
+			end
+		),
+		Dropdown.execute(
+			"Edit",
+			function()
+				loadSpell(spell)
+			end
+		),
+		Dropdown.execute(
+			function()
+				return Gossip.isLoaded() and "Add to Gossip" or "(Open a Gossip Menu)"
+			end,
+			function()
 				_G["scForgeLoadRow" .. spell.commID].gossipButton:Click()
 			end,
-		}
-
-		if not Gossip.isLoaded() then
-			item.disabled = true
-			item.text = "(Open a Gossip Menu)"
-		end
-
-		tinsert(menuList, item)
-	else
-		_profile = spell.profile
-		menuList = {
 			{
-				text = spell.fullName,
-				notCheckable = true,
-				isTitle = true
-			},
-			{
-				text = "Cast",
-				notCheckable = true,
-				func = function()
-					ARC:CAST(spell.commID)
-				end
-			},
-			{
-				text = "Edit",
-				notCheckable = true,
-				func = function()
-					loadSpell(spell)
-				end,
-			},
-			{
-				text = "Transfer",
-				tooltipTitle = "Copy to Phase Vault",
-				tooltipOnButton = true,
-				notCheckable = true,
-				func = function()
-					upload(spell.commID)
-				end,
-			},
-		}
-
-		-- Profiles Menu
-		item = {
-			text = "Profile",
-			notCheckable = true,
-			hasArrow = true,
-			keepShownOnClick = true,
-			menuList = {
-				{
-					text = "Account",
-					isNotRadio = (_profile == "Account"),
-					checked = (_profile == "Account"),
-					disabled = (_profile == "Account"),
-					disablecolor = ((_profile == "Account") and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
-					func = function()
-						setSpellProfile(spell.commID, "Account")
-						CloseDropDownMenus()
-					end
-				},
-				{
-					text = playerName,
-					isNotRadio = (_profile == playerName),
-					checked = (_profile == playerName),
-					disabled = (_profile == playerName),
-					disablecolor = ((_profile == playerName) and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
-					func = function()
-						setSpellProfile(spell.commID, playerName)
-						CloseDropDownMenus()
-					end
-				},
-			},
-		}
-
-		local profileNames = SavedVariables.getProfileNames(true, true)
-		sort(profileNames)
-
-		for _, profileName in ipairs(profileNames) do
-			item.menuList[#item.menuList + 1] = {
-				text = profileName,
-				isNotRadio = (_profile == profileName),
-				checked = (_profile == profileName),
-				disabled = (_profile == profileName),
-				disablecolor = ((_profile == profileName) and ADDON_COLORS.MENU_SELECTED:GenerateHexColorMarkup() or nil),
-				func = function()
-					setSpellProfile(spell.commID, profileName)
-					CloseDropDownMenus()
-				end
-			}
-		end
-
-		item.menuList[#item.menuList + 1] = {
-			text = "Add New",
-			fontObject = GameFontNormalSmallLeft,
-			func = function()
-				createAndSetProfile(spell.commID)
-				CloseDropDownMenus()
-			end
-		}
-
-		tinsert(menuList, item)
-
-		if not spell.author then
-			local item = {
-				text = "Assign Author",
-				tooltipTitle = "Assign Author",
-				tooltipText = "This spell has no assigned author. You can manually set the author now.",
-				tooltipOnButton = true,
-				notCheckable = true,
-				func = function()
-					Popups.showAssignPersonalSpellAuthorPopup(spell.commID)
+				disabled = function()
+					return not (Gossip.isLoaded() and Permissions.isMemberPlus())
 				end,
 			}
-			menuList[#menuList + 1] = item
-		else
-			local item = {
-				text = "Change Author",
-				tooltipTitle = "Change Author",
-				tooltipText = "You can change the author of this spell. If you did not author this spell, please respect the original author and leave their credit.\n\rCurrent Author: "
-					.. Tooltip.genContrastText(spell.author),
-				tooltipOnButton = true,
-				notCheckable = true,
-				func = function()
-					Popups.showAssignPersonalSpellAuthorPopup(spell.commID, spell.author)
-				end,
-			}
-			menuList[#menuList + 1] = item
-		end
-
-		-- Tags Menu
-		--[[
-		item = {text = "Edit Tags", notCheckable=true, hasArrow=true, keepShownOnClick=true,
-			menuList = {}
-		}
-		for k,v in ipairs(baseVaultFilterTags) do
-			interTagTable[v] = false
-		end
-		if spell.tags then
-			for k,v in pairs(spell.tags) do
-				interTagTable[k] = true
-			end
-		end
-		for k,v in orderedPairs(interTagTable) do
-			tinsert(item.menuList, { text = k, checked = v, keepShownOnClick=true, func = function(self) editVaultTags(k, spellCommID, 1); end })
-		end
-		--tinsert(item.menuList, { })
-		--tinsert(item.menuList, { text = "Add New", })
-		tinsert(menuList, item)
-		--]]
-		if tContains(SpellCreatorMasterTable.quickCastSpells, spell.commID) then
-			menuList[#menuList + 1] = {
-				text = "Remove from QuickCast",
-				notCheckable = true,
-				func = function()
-					tDeleteItem(SpellCreatorMasterTable.quickCastSpells, spell.commID)
-					Quickcast.hideCastCuttons()
-				end,
-			}
-		else
-			menuList[#menuList + 1] = {
-				text = "Add to QuickCast",
-				notCheckable = true,
-				func = function()
-					tinsert(SpellCreatorMasterTable.quickCastSpells, spell.commID);
-				end,
-			}
-		end
-
-		menuList[#menuList + 1] = {
-			text = "Link Hotkey",
-			notCheckable = true,
-			func = function()
-				Popups.showLinkHotkeyDialog(spell.commID)
+		),
+		Dropdown.execute(
+			"Create Spark",
+			function()
+				ns.UI.SparkPopups.CreateSparkUI.openSparkCreationUI(spell.commID)
 			end,
-		}
-	end
-
-	menuList[#menuList + 1] = {
-		text = "Chatlink",
-		notCheckable = true,
-		func = function()
-			ChatLink.linkSpell(spell, vault)
-		end,
+			{
+				tooltipTitle = "Create a Spark!",
+				tooltipText = "Sparks are Pop-up ArcSpell Icons that trigger when a player gets within range of the trigger location. Players can click the Spark's Icon to then cast the spell directly.\n\r"
+					.. Tooltip.genTooltipText("example", "Set a Spark for a dark ritual ArcSpell at the center of a ritual circle!"),
+				hidden = function()
+					return not isOfficerPlus()
+				end,
+			}
+		),
 	}
-
-	menuList[#menuList + 1] = {
-		text = "Export",
-		notCheckable = true,
-		func = function()
-			ImportExport.exportSpell(spell)
-		end,
-	}
-
-	return menuList
 end
 
 ---@param spell VaultSpell
-local function show(spell)
-	EasyMenu(createOptions(spell), contextDropDownMenu, "cursor", 0, 0, "MENU");
+---@return DropdownItem
+local function createProfileMenu(spell)
+	local items = {
+		Dropdown.header("Select a Profile"),
+		genProfileItem(spell, "Account"),
+		genProfileItem(spell, PLAYER_NAME),
+	}
+
+	for _, profileName in ipairs(getProfileNames()) do
+		tinsert(items, genProfileItem(spell, profileName))
+	end
+
+	tinsert(items, Dropdown.input(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Add New"), {
+		tooltipTitle = "New Profile",
+		tooltipText = "Assign this to a new profile.",
+		placeholder = "New Profile Name",
+		get = function() end,
+		set = function(text)
+			setSpellProfile(spell.commID, text)
+		end,
+	}))
+
+	return Dropdown.submenu("Profile", items)
+end
+
+local function doesPageContainSpell(spell, page)
+	if page.spells and tContains(page.spells, spell.commID) then
+		return true
+	end
+	return false
+end
+
+---@param spell VaultSpell
+---@param book QuickcastBook
+---@return DropdownItem
+local function genQCBookItem(spell, book)
+	local items = {}
+
+	for k, page in ipairs(book.savedData._pages) do
+		local title = "Page " .. k .. (page.profileName and "* (" .. page.profileName .. ")" or "")
+		tinsert(items, Dropdown.checkbox(title,
+			{
+				get = function() return doesPageContainSpell(spell, page) end,
+				set = function(value)
+					local spells = page.spells
+					if value then
+						tinsert(spells, spell.commID)
+					else
+						tremove(spells, tIndexOf(spells, spell.commID))
+					end
+				end,
+				disabled = function() return page.profileName and true or false end
+			}
+		))
+	end
+
+	return Dropdown.selectmenu(book.savedData.name, items)
+end
+
+---@param spell VaultSpell
+---@return DropdownItem
+local function createAddQCMenu(spell)
+	local items = {
+		Dropdown.header("Assign to Quickcast Pages"),
+	}
+
+	for _, book in ipairs(ns.UI.Quickcast.Book.booksDB) do
+		tinsert(items, genQCBookItem(spell, book))
+	end
+
+	return Dropdown.submenu("Assign Quickcast", items)
+end
+
+---@param spell VaultSpell
+---@return DropdownItem[]
+local function getPersonalSpellItems(spell)
+	local inQuickcast = tContains(SpellCreatorMasterTable.quickCastSpells, spell.commID)
+
+	return {
+		Dropdown.header(spell.fullName),
+		Dropdown.execute(
+			"Cast",
+			function()
+				ARC:CAST(spell.commID)
+			end
+		),
+		Dropdown.execute(
+			"Edit",
+			function()
+				loadSpell(spell)
+			end
+		),
+		createProfileMenu(spell),
+		-- TODO change to input
+		Dropdown.execute(
+			function()
+				return spell.author and "Change Author" or "Assign Author"
+			end,
+			function()
+				if spell.author then
+					Popups.showAssignPersonalSpellAuthorPopup(spell.commID, spell.author)
+				else
+					Popups.showAssignPersonalSpellAuthorPopup(spell.commID)
+				end
+			end,
+			{
+				tooltipTitle = function()
+					if spell.author then
+						return "Change Author"
+					end
+
+					return "Assign Author"
+				end,
+				tooltipText = function()
+					if spell.author then
+						return "You can change the author of this spell. If you did not author this spell, please respect the original author and leave their credit.\n\rCurrent Author: " ..
+							Tooltip.genContrastText(spell.author)
+					end
+
+					return "This spell has no assigned author. You can manually set the author now."
+				end,
+			}
+		),
+		Dropdown.divider(),
+
+		createAddQCMenu(spell),
+		--[[
+		Dropdown.execute(
+			inQuickcast and "Remove from QuickCast" or "Add to QuickCast",
+			function()
+				if inQuickcast then
+					tDeleteItem(SpellCreatorMasterTable.quickCastSpells, spell.commID)
+				else
+					tinsert(SpellCreatorMasterTable.quickCastSpells, spell.commID);
+				end
+			end
+		),
+		--]]
+
+		Dropdown.execute(
+			"Link Hotkey",
+			function()
+				Popups.showLinkHotkeyDialog(spell.commID)
+			end
+		),
+	}
+end
+
+---@param spell VaultSpell
+---@return DropdownItem[]
+local function createMenu(spell)
+	local dropdownItems
+
+	local vault = getCurrentVault()
+	local isPhaseVault = (vault == VAULT_TYPE.PHASE)
+
+	if isPhaseVault then
+		dropdownItems = getPhaseSpellArgs(spell)
+	else
+		dropdownItems = getPersonalSpellItems(spell)
+	end
+
+	tAppendAll(dropdownItems, {
+		Dropdown.divider(),
+		Dropdown.execute(
+			isPhaseVault and "Copy to Personal Vault" or "Copy to Phase Vault",
+			function()
+				if isPhaseVault then
+					downloadToPersonal(Vault.phase.findSpellIndexByID(spell.commID))
+				else
+					upload(spell.commID)
+				end
+			end
+		),
+		Dropdown.execute(
+			"Chatlink",
+			function()
+				ChatLink.linkSpell(spell, vault)
+			end
+		),
+		Dropdown.execute(
+			"Export",
+			function()
+				ImportExport.exportSpell(spell)
+			end
+		),
+	})
+
+	return dropdownItems
+end
+
+---@param row SpellLoadRow
+---@param rowNum integer
+local function createFor(row, rowNum)
+	return Dropdown.create(row, "SCSpellLoadRowContextMenu" .. rowNum)
+end
+
+---@param row SpellLoadRow
+---@param spell VaultSpell
+local function show(row, spell)
+	Dropdown.open(createMenu(spell), row.contextMenu, "cursor", 0, 0, "MENU")
 end
 
 ---@param inject { loadSpell: fun(spell: VaultSpell), downloadToPersonal: fun(index: integer), upload: fun(commID: CommID), updateRows: fun() }
@@ -311,5 +329,6 @@ end
 ---@class UI_SpellLoadRowContextMenu
 ns.UI.SpellLoadRowContextMenu = {
 	init = init,
+	createFor = createFor,
 	show = show,
 }

@@ -5,6 +5,7 @@ local ns = select(2, ...)
 ---@field Animation UI_Animation
 ---@field Castbar UI_Castbar
 ---@field ChatLink UI_ChatLink
+---@field Dropdown UI_Dropdown
 ---@field Gems UI_Gems
 ---@field IconPicker UI_IconPicker
 ---@field Icons UI_Icons
@@ -20,5 +21,7 @@ local ns = select(2, ...)
 ---@field SpellLoadRow UI_SpellLoadRow
 ---@field SpellLoadRowContextMenu UI_SpellLoadRowContextMenu
 ---@field SpellRow UI_SpellRow
+---@field SpellRowAction UI_SpellRowAction
 ---@field SpellVaultFrame UI_SpellVaultFrame
+---@field SparkPopups UI_SparkPopups
 ns.UI = {}

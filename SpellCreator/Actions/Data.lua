@@ -6,6 +6,9 @@ local Cmd = ns.Cmd
 local Logging = ns.Logging
 local Vault = ns.Vault
 
+local Constants = ns.Constants
+local AceConsole = ns.Libs.AceConsole
+
 local cmd, cmdWithDotCheck = Cmd.cmd, Cmd.cmdWithDotCheck
 local runMacroText = Cmd.runMacroText
 local cprint = Logging.cprint
@@ -13,31 +16,13 @@ local Tooltip = ns.Utils.Tooltip
 
 ---@enum ActionType
 local ACTION_TYPE = {
-	SpellHeader = "SpellHeader",
-	AuraMenu = "AuraMenu",
-	CastMenu = "CastMenu",
-	MorphMenu = "MorphMenu",
-	CharacterHeader = "CharacterHeader",
-	AnimationMenu = "AnimationMenu",
-	AnimationHeader = "AnimationHeader",
-	WeaponHeader = "WeaponHeader",
-	ItemsMenu = "ItemsMenu",
-	InventoryHeader = "InventoryHeader",
-	EquipmentHeader = "EquipmentHeader",
-	SpeedMenu = "SpeedMenu",
-	TRP3Menu = "TRP3Menu",
-	RunHeader = "RunHeader",
-	CheatMenu = "CheatMenu",
 	MacroText = "MacroText",
 	Command = "Command",
-	ARCAPIMenu = "ARCAPIMenu",
-
-	ArcMenu = "ArcMenu",
 	ArcSpell = "ArcSpell",
+	ArcSpellPhase = "ArcSpellPhase",
+	ArcSaveFromPhase = "ArcSaveFromPhase",
 	ArcCastbar = "ArcCastbar",
 	ArcStopSpells = "ArcStopSpells",
-
-	Spacer = "Spacer",
 
 	Anim = "Anim",
 	Standstate = "Standstate",
@@ -50,6 +35,10 @@ local ACTION_TYPE = {
 	ToggleAuraSelf = "ToggleAuraSelf",
 	RemoveAura = "RemoveAura",
 	RemoveAllAuras = "RemoveAllAuras",
+	PhaseAura = "PhaseAura",
+	PhaseUnaura = "PhaseUnaura",
+	GroupAura = "GroupAura",
+	GroupUnaura = "GroupUnaura",
 
 	SpellCast = "SpellCast",
 	SpellTrig = "SpellTrig",
@@ -63,17 +52,13 @@ local ACTION_TYPE = {
 
 	Scale = "Scale",
 
-	AllSpeedHeader = "AllSpeedHeader",
 	Speed = "Speed",
-	SpecificSpeedHeader = "SpecificSpeedHeader",
 	SpeedWalk = "SpeedWalk",
 	SpeedBackwalk = "SpeedBackwalk",
 	SpeedFly = "SpeedFly",
 	SpeedSwim = "SpeedSwim",
 
-	TRP3ProfileHeader = "TRP3ProfileHeader",
 	TRP3Profile = "TRP3Profile",
-	TRP3StatusHeader = "TRP3StatusHeader",
 	TRP3StatusToggle = "TRP3StatusToggle",
 	TRP3StatusIC = "TRP3StatusIC",
 	TRP3StatusOOC = "TRP3StatusOOC",
@@ -82,38 +67,29 @@ local ACTION_TYPE = {
 	Native = "Native",
 	Unmorph = "Unmorph",
 
+	PlayLocalSoundKit = "PlayLocalSoundKit",
+	PlayLocalSoundFile = "PlayLocalSoundFile",
+	--StopLocalSound = "StopLocalSound",
+	PlayPhaseSound = "PlayPhaseSound",
+
 	CheatOn = "CheatOn",
 	CheatOff = "CheatOff",
 
 	ARCSet = "ARCSet",
 	ARCTog = "ARCTog",
 	ARCCopy = "ARCCopy",
+
+	ARCPhaseSet = "ARCPhaseSet",
+	ARCPhaseTog = "ARCPhaseTog",
+
+	PrintMsg = "PrintMsg",
+	RaidMsg = "RaidMsg",
+	BoxMsg = "BoxMsg",
+
+	QCBookToggle = "QCBookToggle",
+	QCBookStyle = "QCBookStyle",
+	QCBookSwitchPage = "QCBookSwitchPage",
 }
-
----@param name string
----@return HeaderActionTypeData
-local function header(name)
-	return {
-		name = name,
-		type = "header",
-	}
-end
-
----@param name string
----@param actions ActionType[]
----@param dependency string?
----@return MenuActionTypeData
-local function subMenu(name, actions, dependency)
-	local menu = {
-		name = name,
-		type = "submenu",
-		menuDataList = actions,
-	}
-
-	if dependency then menu.dependency = dependency end
-
-	return menu
-end
 
 ---@param name string
 ---@param data ServerActionTypeData
@@ -135,120 +111,13 @@ local function scriptAction(name, data)
 	return data
 end
 
----@type ActionType[]
-local actionTypeDataList = { -- formatted for easier sorting - whatever order they are here is the order they show up in dropdown as.
-	ACTION_TYPE.SpellHeader,
-	ACTION_TYPE.AuraMenu,
-	ACTION_TYPE.CastMenu,
-	ACTION_TYPE.MorphMenu,
-	ACTION_TYPE.CharacterHeader,
-	ACTION_TYPE.AnimationMenu,
-	ACTION_TYPE.ItemsMenu,
-	ACTION_TYPE.Scale,
-	ACTION_TYPE.SpeedMenu,
-	ACTION_TYPE.TRP3Menu,
-	ACTION_TYPE.RunHeader,
-	ACTION_TYPE.CheatMenu,
-	ACTION_TYPE.MacroText,
-	ACTION_TYPE.Command,
-	ACTION_TYPE.ARCAPIMenu,
-	ACTION_TYPE.ArcMenu,
-}
-
----@type table<ActionType, FunctionActionTypeData | ServerActionTypeData | HeaderActionTypeData | MenuActionTypeData | SpacerActionTypeData>
+---@type table<ActionType, FunctionActionTypeData | ServerActionTypeData>
 local actionTypeData = {
-	[ACTION_TYPE.SpellHeader] = header("Spells and effects"),
-	[ACTION_TYPE.CharacterHeader] = header("Character"),
-	[ACTION_TYPE.RunHeader] = header("Run"),
-	[ACTION_TYPE.AnimationHeader] = header("Animation"),
-	[ACTION_TYPE.WeaponHeader] = header("Weapon"),
-	[ACTION_TYPE.InventoryHeader] = header("Inventory"),
-	[ACTION_TYPE.EquipmentHeader] = header("Equipment"),
-	[ACTION_TYPE.AllSpeedHeader] = header("All types"),
-	[ACTION_TYPE.SpecificSpeedHeader] = header("Per mode"),
-	[ACTION_TYPE.TRP3ProfileHeader] = header("Profile"),
-	[ACTION_TYPE.TRP3StatusHeader] = header("Status"),
-
-	[ACTION_TYPE.AnimationMenu] = subMenu("Animation", {
-		ACTION_TYPE.AnimationHeader,
-		ACTION_TYPE.Anim,
-		ACTION_TYPE.Standstate,
-		ACTION_TYPE.Spacer,
-		ACTION_TYPE.ResetAnim,
-		ACTION_TYPE.ResetStandstate,
-		ACTION_TYPE.WeaponHeader,
-		ACTION_TYPE.ToggleSheath,
-	}),
-	[ACTION_TYPE.AuraMenu] = subMenu("Aura", {
-		ACTION_TYPE.SpellAura,
-		ACTION_TYPE.ToggleAura,
-		ACTION_TYPE.ToggleAuraSelf,
-		ACTION_TYPE.Spacer,
-		ACTION_TYPE.RemoveAura,
-		ACTION_TYPE.RemoveAllAuras,
-	}),
-	[ACTION_TYPE.CastMenu] = subMenu("Cast", {
-		ACTION_TYPE.SpellCast,
-		ACTION_TYPE.SpellTrig,
-	}),
-	[ACTION_TYPE.ItemsMenu] = subMenu("Items", {
-		ACTION_TYPE.InventoryHeader,
-		ACTION_TYPE.AddItem,
-		ACTION_TYPE.RemoveItem,
-		ACTION_TYPE.EquipmentHeader,
-		ACTION_TYPE.Equip,
-		ACTION_TYPE.EquipSet,
-		ACTION_TYPE.MogitEquip,
-		ACTION_TYPE.Spacer,
-		ACTION_TYPE.Unequip,
-	}),
-	[ACTION_TYPE.SpeedMenu] = subMenu("Speed", {
-		ACTION_TYPE.AllSpeedHeader,
-		ACTION_TYPE.Speed,
-		ACTION_TYPE.SpecificSpeedHeader,
-		ACTION_TYPE.SpeedWalk,
-		ACTION_TYPE.SpeedBackwalk,
-		ACTION_TYPE.SpeedFly,
-		ACTION_TYPE.SpeedSwim,
-	}),
-	[ACTION_TYPE.TRP3Menu] = subMenu("Total RP 3", {
-		ACTION_TYPE.TRP3ProfileHeader,
-		ACTION_TYPE.TRP3Profile,
-		ACTION_TYPE.TRP3StatusHeader,
-		ACTION_TYPE.TRP3StatusToggle,
-		ACTION_TYPE.TRP3StatusIC,
-		ACTION_TYPE.TRP3StatusOOC,
-	}, "totalRP3"),
-	[ACTION_TYPE.MorphMenu] = subMenu("Morph", {
-		ACTION_TYPE.Morph,
-		ACTION_TYPE.Native,
-		ACTION_TYPE.Spacer,
-		ACTION_TYPE.Unmorph,
-	}),
-	[ACTION_TYPE.CheatMenu] = subMenu("Cheat", {
-		ACTION_TYPE.CheatOn,
-		ACTION_TYPE.CheatOff,
-	}),
-	[ACTION_TYPE.ARCAPIMenu] = subMenu("ARC:API", {
-		ACTION_TYPE.ARCSet,
-		ACTION_TYPE.ARCTog,
-		ACTION_TYPE.ARCCopy,
-	}),
-	[ACTION_TYPE.ArcMenu] = subMenu("Arcanum", {
-		ACTION_TYPE.ArcSpell,
-		ACTION_TYPE.ArcCastbar,
-		ACTION_TYPE.ArcStopSpells,
-	}),
-
-	[ACTION_TYPE.Spacer] = {
-		["type"] = "spacer",
-	},
-
 	[ACTION_TYPE.SpellCast] = serverAction("Cast Spell", {
 		command = "cast @N@", -- The chat command, or Lua function to process
 		description = "Cast a spell using a Spell ID, to selected target, or self if no target.", -- Description for on-mouse-over
 		dataName = "Spell ID(s)", -- Label for the ID Box, nil to disable the ID box
-		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse "..Tooltip.genContrastText('.look spell').." to find IDs.", -- Description of the input for GameTooltip
+		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.", -- Description of the input for GameTooltip
 		revert = "unaura @N@", -- The command that reverts it, i.e, 'unaura' for 'aura'
 		revertDesc = "unaura",
 		selfAble = true, -- True/False - if able to use the self-toggle checkbox
@@ -257,7 +126,7 @@ local actionTypeData = {
 		command = "cast @N@ trig",
 		description = "Cast a spell using a Spell ID, to selected target, or self if no target, using the triggered flag.",
 		dataName = "Spell ID(s)",
-		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse "..Tooltip.genContrastText('.look spell').." to find IDs.",
+		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
 		revert = "unaura @N@",
 		revertDesc = "unaura",
 		selfAble = true,
@@ -266,42 +135,85 @@ local actionTypeData = {
 		command = "aura @N@",
 		description = "Applies an Aura from a Spell ID on your target if able, or yourself otherwise.",
 		dataName = "Spell ID(s)",
-		inputDescription = "Accepts multiple IDs, separated by commas, to apply multiple auras at once.\n\rUse "..Tooltip.genContrastText('.look spell').." to find IDs.",
+		inputDescription = "Accepts multiple IDs, separated by commas, to apply multiple auras at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
 		revert = "unaura @N@",
 		revertDesc = "unaura",
 		selfAble = true,
 	}),
+	[ACTION_TYPE.PhaseAura] = serverAction("Phase Aura", {
+		command = "phase aura @N@",
+		description = "Applies an Aura to everyone in the phase.",
+		dataName = "Spell ID(s)",
+		inputDescription = "Accepts multiple IDs, separated by commas, to apply multiple auras at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
+		revert = "phase unaura @N@",
+		revertDesc = "phase unaura",
+		selfAble = false,
+	}),
+	[ACTION_TYPE.PhaseUnaura] = serverAction("Phase Unaura", {
+		command = "phase unaura @N@",
+		description = "Removes an Aura from everyone in the phase.",
+		dataName = "Spell ID(s)",
+		inputDescription = "Accepts multiple IDs, separated by commas, to remove multiple auras at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
+		revert = "phase aura @N@",
+		revertDesc = "phase aura",
+		selfAble = false,
+	}),
+	[ACTION_TYPE.GroupAura] = serverAction("Group Aura", {
+		command = "group aura @N@",
+		description = "Applies an Aura to everyone in the group.",
+		dataName = "Spell ID(s)",
+		inputDescription = "Accepts multiple IDs, separated by commas, to apply multiple auras at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
+		revert = "group unaura @N@",
+		revertDesc = "group unaura",
+		selfAble = false,
+	}),
+	[ACTION_TYPE.GroupUnaura] = serverAction("Group Unaura", {
+		command = "group unaura @N@",
+		description = "Removes an Aura from everyone in the group.",
+		dataName = "Spell ID(s)",
+		inputDescription = "Accepts multiple IDs, separated by commas, to remove multiple auras at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
+		revert = "group aura @N@",
+		revertDesc = "group aura",
+		selfAble = false,
+	}),
 	[ACTION_TYPE.ToggleAura] = scriptAction("Toggle Aura", {
 		command = function(spellID) if Aura.checkForAuraID(tonumber(spellID)) then cmd("unaura " .. spellID) else cmd("aura "
-			.. spellID) end end,
+					.. spellID)
+			end
+		end,
 		description = "Toggles an Aura on / off.\n\rApplies to your target if you have Phase DM on & Officer+",
 		dataName = "Spell ID",
-		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse "..Tooltip.genContrastText('.look spell').." to find IDs.",
+		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
 		revert = function(spellID) if Aura.checkForAuraID(tonumber(spellID)) then cmd("unaura " .. spellID) else cmd("aura "
-			.. spellID) end end,
+					.. spellID)
+			end
+		end,
 		revertDesc = "Toggles the Aura again",
 	}),
 	[ACTION_TYPE.ToggleAuraSelf] = scriptAction("Toggle Aura (Self)", {
 		command = function(spellID) if Aura.checkForAuraID(tonumber(spellID)) then cmd("unaura " .. spellID .. " self") else cmd("aura "
-			.. spellID .. " self") end end,
+					.. spellID .. " self")
+			end
+		end,
 		description = "Toggles an Aura on / off.\n\rAlways applies on yourself.",
 		dataName = "Spell ID",
-		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse"..Tooltip.genContrastText('.look spell').." to find IDs.",
+		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse" .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
 		revert = function(spellID) if Aura.checkForAuraID(tonumber(spellID)) then cmd("unaura " .. spellID .. " self") else cmd("aura " .. spellID .. " self") end end,
 		revertDesc = "Toggles the Aura again",
 	}),
 	[ACTION_TYPE.Anim] = serverAction("Emote/Anim", {
 		command = "mod anim @N@",
-		description = "Modifies target's current animation using 'mod anim'.\n\rUse "..Tooltip.genContrastText('.look emote').." to find IDs.",
+		description = "Modifies target's current animation using 'mod anim'.\n\rUse " .. Tooltip.genContrastText('.look emote') .. " to find IDs.",
 		dataName = "Emote ID",
-		inputDescription = "Accepts multiple IDs, separated by commas, to do multiple anims at once -- but the second usually over-rides the first anyways.\n\rUse "..Tooltip.genContrastText('.look emote').." to find IDs.",
-		revert = "mod anim 0",
-		revertDesc = "Reset to Anim 0 (none)",
+		inputDescription = "Accepts multiple IDs, separated by commas, to do multiple anims at once -- but the second usually over-rides the first anyways.\n\rUse " ..
+			Tooltip.genContrastText('.look emote') .. " to find IDs.",
+		revert = "mod stand 30",
+		revertDesc = "Reset to Standstate 30 (none)",
 		selfAble = false,
 	}),
 	[ACTION_TYPE.ResetAnim] = serverAction("Reset Emote/Anim", {
-		command = "mod anim 0",
-		description = "Reset target's current animation to Anim 0 (none).",
+		command = "mod stand 30",
+		description = "Reset target's current animation to Standstate 30 (none).",
 		dataName = nil,
 		revert = nil,
 		revertAlternative = "another emote action",
@@ -317,7 +229,7 @@ local actionTypeData = {
 		command = "morph @N@",
 		description = "Morph into a Display ID.",
 		dataName = "Display ID",
-		inputDescription = "No, you can't put multiple to become a hybrid monster..\n\rUse "..Tooltip.genContrastText('.look displayid').." to find IDs.",
+		inputDescription = "No, you can't put multiple to become a hybrid monster..\n\rUse " .. Tooltip.genContrastText('.look displayid') .. " to find IDs.",
 		revert = "demorph",
 		revertDesc = "demorph",
 		selfAble = false,
@@ -326,7 +238,7 @@ local actionTypeData = {
 		command = "mod native @N@",
 		description = "Modifies your Native to specified Display ID.",
 		dataName = "Display ID",
-		inputDescription = "Use "..Tooltip.genContrastText('.look displayid').." to find IDs.",
+		inputDescription = "Use " .. Tooltip.genContrastText('.look displayid') .. " to find IDs.",
 		revert = "demorph",
 		revertDesc = "demorph",
 		selfAble = false,
@@ -335,20 +247,22 @@ local actionTypeData = {
 		command = "mod standstate @N@",
 		description = "Change the emote of your character while standing to an Emote ID.",
 		dataName = "Standstate ID",
-		inputDescription = "Accepts multiple IDs, separated by commas, to set multiple standstates at once.. but you can't have two, so probably don't try it.\n\rUse "..Tooltip.genContrastText('.look emote').." to find IDs.",
+		inputDescription = "Accepts multiple IDs, separated by commas, to set multiple standstates at once.. but you can't have two, so probably don't try it.\n\rUse " ..
+			Tooltip.genContrastText('.look emote') .. " to find IDs.",
 		revert = "mod stand 0",
 		revertDesc = "Set Standstate to 0 (none)",
 		selfAble = false,
 	}),
 	[ACTION_TYPE.ToggleSheath] = scriptAction("Sheath/Unsheath Weapon", {
-		command =  function() ToggleSheath() end,
+		command = function() ToggleSheath() end,
 		description = "Sheath or unsheath your weapon.",
 	}),
 	[ACTION_TYPE.Equip] = scriptAction("Equip Item", {
 		command = function(vars) EquipItemByName(vars) end,
 		description = "Equip an Item by name or ID. Item must be in your inventory.\n\rName is a search in your inventory by keyword - using ID is recommended.",
 		dataName = "Item ID or Name(s)",
-		inputDescription = "Accepts multiple IDs/Names, separated by commas, to equip multiple items at once.\n\rUse "..Tooltip.genContrastText('.look item')..", or mouse-over an item in your inventory for IDs.",
+		inputDescription = "Accepts multiple IDs/Names, separated by commas, to equip multiple items at once.\n\rUse " ..
+			Tooltip.genContrastText('.look item') .. ", or mouse-over an item in your inventory for IDs.",
 		example = "You want to equip 'Violet Guardian's Helm', ID: 141357, but have 'Guardian's Leather Belt', ID: 35156 in your inventory also, using 'Guardian' as the text will equip the belt, so you'll want to use the full name, or better off just use the actual item ID.",
 		revert = nil,
 		revertAlternative = "a separate unequip item action",
@@ -358,8 +272,8 @@ local actionTypeData = {
 		command = "additem @N@",
 		description = "Add an item to your inventory.\n\rYou may specify multiple items separated by commas, and may specify item count & bonusID per item as well.",
 		dataName = "Item ID(s)",
-		inputDescription = "Accepts multiple IDs, separated by commas, to add multiple items at once.\n\rUse "..Tooltip.genContrastText('.look item')..", or mouse-over an item in your inventory for IDs.",
-		example = Tooltip.genContrastText("125775 1 449, 125192 1 449").." will add 1 of each item with Heroic (449) tier",
+		inputDescription = "Accepts multiple IDs, separated by commas, to add multiple items at once.\n\rUse " .. Tooltip.genContrastText('.look item') .. ", or mouse-over an item in your inventory for IDs.",
+		example = Tooltip.genContrastText("125775 1 449, 125192 1 449") .. " will add 1 of each item with Heroic (449) tier",
 		revert = nil,
 		revertAlternative = "a separate remove item action",
 		selfAble = false,
@@ -368,8 +282,9 @@ local actionTypeData = {
 		command = "additem @N@ -1",
 		description = "Remove an item from your inventory.\n\rYou may specify multiple items separated by commas, and may optionally specify item count as a negative number to remove that many of the item.",
 		dataName = "Item ID(s)",
-		inputDescription = "Accepts multiple IDs, separated by commas, to remove multiple items at once.\n\rUse "..Tooltip.genContrastText('.look item')..", or mouse-over an item in your inventory for IDs.",
-		example = Tooltip.genContrastText("125775 -10").." to remove 10 of that item.",
+		inputDescription = "Accepts multiple IDs, separated by commas, to remove multiple items at once.\n\rUse " ..
+			Tooltip.genContrastText('.look item') .. ", or mouse-over an item in your inventory for IDs.",
+		example = Tooltip.genContrastText("125775 -10") .. " to remove 10 of that item.",
 		revert = nil,
 		revertAlternative = "a separate add item action",
 		selfAble = false,
@@ -503,22 +418,55 @@ local actionTypeData = {
 
 	[ACTION_TYPE.CheatOn] = serverAction("Enable Cheat", {
 		command = "cheat @N@ on",
-		description = "Enables the specified cheat.\n\rUse "..Tooltip.genContrastText('.cheat').." to view available cheats.",
+		description = "Enables the specified cheat.\n\rUse " .. Tooltip.genContrastText('.cheat') .. " to view available cheats.",
 		dataName = "Cheat",
-		inputDescription = "The cheat command to enable.\n\rCommon Cheats:\r"..Tooltip.genContrastText({"casttime","cooldown","god","waterwalk","duration","slowcast"}).."\n\rUse "..Tooltip.genContrastText(".cheat").." to view all available cheats.",
-		example = "\r"..Tooltip.genContrastText("cast").." will enable instant cast cheat\r"..Tooltip.genContrastText("cool").." will enable no cooldowns cheat",
+		inputDescription = "The cheat command to enable.\n\rCommon Cheats:\r" ..
+			Tooltip.genContrastText({ "casttime", "cooldown", "god", "waterwalk", "duration", "slowcast" }) .. "\n\rUse " .. Tooltip.genContrastText(".cheat") .. " to view all available cheats.",
+		example = "\r" .. Tooltip.genContrastText("cast") .. " will enable instant cast cheat\r" .. Tooltip.genContrastText("cool") .. " will enable no cooldowns cheat",
 		revert = "cheat @N@ off",
 		revertDesc = "Disable the cheat",
 		selfAble = false,
 	}),
 	[ACTION_TYPE.CheatOff] = serverAction("Disable Cheat", {
 		command = "cheat @N@ off",
-		description = "Disables the specified cheat.\n\rUse "..Tooltip.genContrastText('.cheat').." to view available cheats.",
+		description = "Disables the specified cheat.\n\rUse " .. Tooltip.genContrastText('.cheat') .. " to view available cheats.",
 		dataName = "Cheat",
-		inputDescription = "The cheat command to disable.\n\rUse "..Tooltip.genContrastText('.cheat').." to view available cheats.",
-		example = "\r"..Tooltip.genContrastText("cast").." will disable instant cast cheat\r"..Tooltip.genContrastText("cool").." will disable no cooldowns cheat",
+		inputDescription = "The cheat command to disable.\n\rUse " .. Tooltip.genContrastText('.cheat') .. " to view available cheats.",
+		example = "\r" .. Tooltip.genContrastText("cast") .. " will disable instant cast cheat\r" .. Tooltip.genContrastText("cool") .. " will disable no cooldowns cheat",
 		revert = "cheat @N@ on",
 		revertDesc = "Enable the cheat",
+		selfAble = false,
+	}),
+	[ACTION_TYPE.PlayLocalSoundKit] = scriptAction("Local Sound (Kit)", {
+		command = function(vars) if tonumber(vars) then PlaySound(vars) else PlaySound(SOUNDKIT[vars]) end end,
+		description = "Play a sound locally (to yourself only), by SoundKit/Sound ID or SoundKit Constant.",
+		dataName = "SoundKit ID / Name",
+		inputDescription = "Accepts multiple IDs/Names, separated by commas, to play multiple sounds at once.",
+		example = "Use " ..
+			Tooltip.genContrastText("IG_BACKPACK_OPEN") ..
+			" or SoundKit ID " ..
+			Tooltip.genContrastText("862") .. " to play the Backpack Opened sound.\n\rUse " .. Tooltip.genContrastText('wowhead.com/sounds') .. " or similar to search for SoundKit/Sound IDs.",
+		revert = nil,
+		selfAble = false,
+	}),
+	[ACTION_TYPE.PlayLocalSoundFile] = scriptAction("Local Sound (File)", {
+		command = function(vars) PlaySoundFile(vars) end,
+		description = "Play a sound locally (to yourself only), by File ID.",
+		dataName = "File ID",
+		inputDescription = "Accepts multiple IDs, separated by commas, to equip multiple items at once.",
+		example = "Use File ID " .. Tooltip.genContrastText("569593") .. " to play the Level-Up sound.\n\rUse " .. Tooltip.genContrastText('WoW.tools') .. " or similar to look for sound File IDs.",
+		revert = nil,
+		selfAble = false,
+	}),
+	[ACTION_TYPE.PlayPhaseSound] = serverAction("Phase Sound", {
+		command = "phase playsound @N@",
+		description = "Play a sound to the whole phase. Requires Phase Officer permissions.",
+		dataName = "Sound ID",
+		inputDescription = "The sound ID to play to the phase.",
+		example = "Use Sound ID " ..
+			Tooltip.genContrastText("11466") ..
+			" to play Illidan's 'You are Not Prepared!' voice line to the entire phase.\n\rUse " .. Tooltip.genContrastText('wowhead.com/sounds') .. " to find Sound IDs to use.",
+		revert = nil,
 		selfAble = false,
 	}),
 	[ACTION_TYPE.MacroText] = scriptAction("Macro Script", {
@@ -526,7 +474,7 @@ local actionTypeData = {
 		description = "Any line that can be processed in a macro (any slash commands & macro flags).\n\rYou can use this for pretty much ANYTHING, technically, including custom short Lua scripts.",
 		dataName = "/command",
 		inputDescription = "Any /commands that can be processed in a macro-script, including emotes, addon commands, Lua run scripts, etc.\n\rYou can use any part of the ARC:API here as well. Use /arc for more info.",
-		example = Tooltip.genContrastText("/emote begins to conjur up a fireball in their hand.").." to perform the emote.",
+		example = Tooltip.genContrastText("/emote begins to conjur up a fireball in their hand.") .. " to perform the emote.",
 		revert = nil,
 		doNotDelimit = true,
 	}),
@@ -544,7 +492,7 @@ local actionTypeData = {
 		description = "Equip a saved Mogit Wishlist set.\n\rMust specify the character name (profile) it's saved under first, then the set name.",
 		dataName = "Profile & Set",
 		inputDescription = "The Mogit Profile, and set name, just as if using the /moge chat command.",
-		example = Tooltip.genContrastText(GetUnitName("player") .. " Cool Armor Set").." to equip Cool Armor Set from this character.",
+		example = Tooltip.genContrastText(Constants.CHARACTER_NAME .. " Cool Armor Set") .. " to equip Cool Armor Set from this character.",
 		revert = nil,
 		dependency = "MogIt",
 	}),
@@ -556,27 +504,54 @@ local actionTypeData = {
 		revert = nil,
 		revertAlternative = "a series of unequip actions",
 	}),
-	[ACTION_TYPE.ArcSpell] = scriptAction("Arc Spell", {
-		["command"] = function(commID)
+	[ACTION_TYPE.ArcSpell] = scriptAction("Cast ArcSpell (Personal)", {
+		command = function(commID)
 			local spell = Vault.personal.findSpellByID(commID)
 			if not spell then
-				cprint("No spell with command '"..commID.."' found in your Personal Vault.")
+				cprint("No spell with command '" .. commID .. "' found in your Personal Vault.")
 				return
 			end
 			ns.Actions.Execute.executeSpell(spell.actions, nil, spell.fullName, spell)
 		end,
-		["description"] = "Cast another Arcanum Spell from your Personal Vault.",
-		["dataName"] = "Spell Command",
-		["inputDescription"] = "The command ID (commID) used to cast the ArcSpell",
-		["example"] = "From "..Tooltip.genContrastText('/sf MySpell')..", input just "..Tooltip.genContrastText("MySpell").." as this input.",
-		["revert"] = nil,
+		description = "Cast another Arcanum Spell from your Personal Vault.",
+		dataName = "Spell Command",
+		inputDescription = "The command ID (commID) used to cast the ArcSpell",
+		example = "From " .. Tooltip.genContrastText('/sf MySpell') .. ", input just " .. Tooltip.genContrastText("MySpell") .. " as this input.",
+		revert = nil,
 	}),
-	[ACTION_TYPE.ArcCastbar] = scriptAction("Castbar", {
+	[ACTION_TYPE.ArcSpellPhase] = scriptAction("Cast ArcSpell (Phase)", {
+		command = function(commID)
+			local spell = Vault.phase.findSpellByID(commID)
+			if not spell then
+				cprint("No spell with command '" .. commID .. "' found in your current phase's Phase Vault.")
+				return
+			end
+			ns.Actions.Execute.executeSpell(spell.actions, nil, spell.fullName, spell)
+		end,
+		description = "Cast another Arcanum Spell from your Personal Vault.",
+		dataName = "Spell Command",
+		inputDescription = "The command ID (commID) used to cast the ArcSpell",
+		example = "From " .. Tooltip.genContrastText('/sf MySpell') .. ", input just " .. Tooltip.genContrastText("MySpell") .. " as this input.",
+		revert = nil,
+	}),
+	[ACTION_TYPE.ArcSaveFromPhase] = scriptAction("Save ArcSpell (Phase)", {
 		command = function(data)
-			local length, text, iconPath, channeled, showIcon, showShield = strsplit(",",data,6)
+			local commID, vocal = strsplit(",", data, 2)
+			if vocal and (vocal == "false" or vocal == "nil" or vocal == "0") then vocal = nil end
+			ARC:SAVE(commID, vocal)
+		end,
+		description = "Save an Arcanum Spell from the Phase Vault, with an optional message to let them know they learned a new ArcSpell!",
+		dataName = "Spell Command, [send message (true/false)]",
+		inputDescription = "Syntax: The command ID (commID) used to cast the ArcSpell, [print a 'New Spell Learned' message (true/false)]",
+		example = "My Cool Spell, true",
+		revert = nil,
+	}),
+	[ACTION_TYPE.ArcCastbar] = scriptAction("Show Castbar", {
+		command = function(data)
+			local length, text, iconPath, channeled, showIcon, showShield = strsplit(",", data, 6)
 			if length then length = strtrim(length) end
 			if text then text = strtrim(text) end
-			if iconPath then iconPath = {["icon"] = strtrim(iconPath)} end
+			if iconPath then iconPath = { ["icon"] = strtrim(iconPath) } end
 			if channeled then channeled = ns.Utils.Data.toboolean(strtrim(channeled)) end
 			if showIcon then showIcon = ns.Utils.Data.toboolean(strtrim(showIcon)) end
 			if showShield then showShield = ns.Utils.Data.toboolean(strtrim(showShield)) end
@@ -585,7 +560,9 @@ local actionTypeData = {
 		description = "Show a custom Arcanum Castbar with your own settings & duration.\n\rSyntax: duration, [title, [iconPath/FileID, [channeled (true/false), [showIcon (true/false), [showShield (true/false)]]]]]\n\rDuration is the only required input.",
 		dataName = "Castbar Settings",
 		inputDescription = "Syntax: duration, [title, [iconPath/FileID, [channeled (true/false), [showIcon (true/false), [showShield (true/false)]]]]]\n\rDuration is the only required input.",
-		example = Tooltip.genContrastText("5, Cool Spell!, 1, true, true, false").." will show a Castbar for 5 seconds, named 'Cool Spell!', with a gem icon, but no shield frame.\n\r"..Tooltip.genTooltipText("lpurple", "Icon ID's "..Tooltip.genContrastText("1 - 10").." can be used for Arcanum's custom Icons."),
+		example = Tooltip.genContrastText("5, Cool Spell!, 1, true, true, false") ..
+			" will show a Castbar for 5 seconds, named 'Cool Spell!', with a gem icon, but no shield frame.\n\r" ..
+			Tooltip.genTooltipText("lpurple", "Icon ID's " .. Tooltip.genContrastText("1 - 10") .. " can be used for Arcanum's custom Icons."),
 		revert = nil,
 		doNotDelimit = true,
 	}),
@@ -594,26 +571,49 @@ local actionTypeData = {
 		description = "Stops all currently running ArcSpells - including this spell if called on a delay.\n\rUse it as the first action with a delay of 0 if you want to cancel any other running ArcSpells before you cast this spell.",
 		revert = nil,
 	}),
-	[ACTION_TYPE.ARCSet] = scriptAction("Set Variable", {
+	[ACTION_TYPE.ARCSet] = scriptAction("Set My Variable", {
 		command = function(data)
 			local var, val = strsplit("|", data, 2);
 			var = strtrim(var, " \t\r\n\124");
 			val = strtrim(val, " \t\r\n\124");
 			ARC:SET(var, val);
 		end,
-		description = "Set an ARCVAR to a specific value.",
+		description = "Set a Personal ARCVAR to a specific value.\n\rMy ARCVARs can be accessed via the table ARC.VAR, or via ARC:GET() in a macro script.\n\rPersonal ArcVars do not save between sessions.",
 		dataName = "VarName | Value",
-		inputDescription = "Provide the variable name & the value to set it as, separated by a | character.",
+		inputDescription = "Provide the variable name & the value to set it as, separated by a | character. Inputs are trimmed of leading & trailing spaces.",
 		revert = nil,
 		revertAlternative = "another Set Variable action",
+		example = "KeysCollected | 3",
 	}),
-	[ACTION_TYPE.ARCTog] = scriptAction("Toggle Variable", {
+	[ACTION_TYPE.ARCTog] = scriptAction("Toggle My Variable", {
 		command = function(var) ARC:TOG(var) end,
-		description = "Toggle an ARCVAR, like a light switch.",
+		description = "Toggle a Personal ARCVAR, like a light switch.\n\rMy ARCVARs can be accessed via the table ARC.VAR, or via ARC:GET() in a macro script.\n\rPersonal ArcVars do not save between sessions.",
 		dataName = "Variable Name",
 		inputDescription = "The variable name to toggle.",
 		revert = function(var) ARC:TOG(var) end,
 		revertDesc = "Toggles the ARCVAR again.",
+	}),
+	[ACTION_TYPE.ARCPhaseSet] = scriptAction("Set Phase Variable", {
+		command = function(data)
+			local var, val = strsplit("|", data, 2);
+			var = strtrim(var, " \t\r\n\124");
+			val = strtrim(val, " \t\r\n\124");
+			ARC.PHASE:SET(var, val);
+		end,
+		description = "Set a Phase ARCVAR to a specific value.\n\rPhase ARCVARS can be accessed via the table ARC.PHASEVAR, or via ARC.PHASE:GET() in a macro script.\n\rPhase ArcVars are saved between sessions, but should not be considered secure as a user can manipulate them as well.",
+		dataName = "VarName | Value",
+		inputDescription = "Provide the variable name & the value to set it as, separated by a | character.",
+		revert = nil,
+		revertAlternative = "another Phase Set Variable action",
+		example = "KeysCollected | 3",
+	}),
+	[ACTION_TYPE.ARCPhaseTog] = scriptAction("Toggle Phase Variable", {
+		command = function(var) ARC.PHASE:TOG(var) end,
+		description = "Toggle a Phase ARCVAR, like a light switch.\n\rPhase ARCVARS can be accessed via the table ARC.PHASEVAR, or via ARC.PHASE:GET() in a macro script.\n\rPhase ArcVars are saved between sessions, but should not be considered secure as a user can manipulate them as well.",
+		dataName = "Variable Name",
+		inputDescription = "The variable name to toggle.",
+		revert = function(var) ARC.PHASE:TOG(var) end,
+		revertDesc = "Toggles the Phase ARCVAR again.",
 	}),
 	[ACTION_TYPE.ARCCopy] = scriptAction("Copy Text/URL", {
 		command = function(text) ARC:COPY(text) end,
@@ -623,10 +623,74 @@ local actionTypeData = {
 		example = "https://discord.gg/C8DZ7AxxcG",
 		revert = nil,
 	}),
+	[ACTION_TYPE.PrintMsg] = scriptAction("Chatbox Message", {
+		command = print,
+		description = "Prints a message in the chatbox.",
+		dataName = "Text",
+		inputDescription = "The text to print into the chatbox.",
+		revert = nil,
+	}),
+	[ACTION_TYPE.RaidMsg] = scriptAction("Raid Message", {
+		command = function(msg)
+			RaidNotice_AddMessage(RaidWarningFrame, msg, ChatTypeInfo["RAID_WARNING"])
+		end,
+		description = "Shows a custom Raid Warning message, only to the persoon casting the spell.",
+		dataName = "Text",
+		inputDescription = "The text to show as the raid warning.",
+		revert = nil,
+	}),
+	[ACTION_TYPE.BoxMsg] = scriptAction("Popup Box Message", {
+		command = function(msg)
+			ns.UI.Popups.showCustomGenericConfirmation({
+				text = msg,
+				acceptText = OKAY,
+				cancelText = false,
+			})
+		end,
+		description = "Shows a pop-up box with a customo message.",
+		dataName = "Text",
+		inputDescription = "The text to show in the popup box.",
+		revert = nil,
+	}),
+	[ACTION_TYPE.QCBookToggle] = scriptAction("Toggle Book", {
+		command = function(bookName)
+			ns.UI.Quickcast.Book.toggleBookByName(bookName)
+		end,
+		description = "Toggle a Quickcast Book from being displayed on this character.",
+		dataName = "Book Name",
+		inputDescription = "The name of the Quickcast Book",
+		revert = function(bookName)
+			ns.UI.Quickcast.Book.toggleBookByName(bookName)
+		end,
+	}),
+	[ACTION_TYPE.QCBookStyle] = scriptAction("Change Book Style", {
+		command = function(vars)
+			local bookName, pageNumber = AceConsole:GetArgs(vars, 2)
+			ns.UI.Quickcast.Book.changeBookStyle(bookName, pageNumber)
+		end,
+		description = "Toggle a Quickcast Book from being displayed on this character.",
+		dataName = "Book Name",
+		inputDescription = "The name of the Quickcast Book & style name. If either have spaces, enclose them in quotations.",
+		example = '"Quickcast Book 1" Arcwolf',
+		revert = nil,
+		revertAlternative = "another Change Style action"
+	}),
+	[ACTION_TYPE.QCBookSwitchPage] = scriptAction("Switch Page", {
+		command = function(vars)
+			local bookName, pageNumber = AceConsole:GetArgs(vars, 2)
+			ns.UI.Quickcast.Book.setPageInBook(bookName, pageNumber)
+		end,
+		description = "Toggle a Quickcast Book from being displayed on this character.",
+		dataName = "BookName PageNumber",
+		inputDescription = "The name of the Quickcast Book & the page number. If your book name has spaces, enclose it in quotations.",
+		example = '"Quickcast Book 1" 2',
+		revert = nil,
+		revertAlternative = "another Switch Page action"
+	}),
 }
 
 ---@class Actions_Data
 ns.Actions.Data = {
-	actionTypeDataList = actionTypeDataList,
+	ACTION_TYPE = ACTION_TYPE,
 	actionTypeData = actionTypeData,
 }

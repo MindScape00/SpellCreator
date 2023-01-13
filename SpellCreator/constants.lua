@@ -5,16 +5,18 @@ local ns = select(2, ...)
 ---@type string
 local addonPath = "Interface/AddOns/" .. tostring(addonName)
 
+local ADDON_TITLE = GetAddOnMetadata(addonName, "Title")
+
 ---@enum SpellVisibility
 local SPELL_VISIBILITY = {
-    PRIVATE = "Private",
-    PUBLIC = "Public"
+	PRIVATE = "Private",
+	PUBLIC = "Public"
 }
 
 ---@enum VaultType
 local VAULT_TYPE = {
-    PERSONAL = "PERSONAL",
-    PHASE = "PHASE",
+	PERSONAL = "PERSONAL",
+	PHASE = "PHASE",
 }
 
 local ADDON_COLORS = {
@@ -28,18 +30,34 @@ local ADDON_COLORS = {
 	TOOLTIP_REVERT = CreateColorFromHexString("ffFFA600"), -- FFA600 : Orange-Gold
 	TOOLTIP_NOREVERT = CreateColorFromHexString("ffAAAAAA"), -- AAAAAA : Mid Grey
 	TOOLTIP_CONTRAST = CreateColorFromHexString("FFFFAAAA"), -- FFAAAA : Light Red
+	TOOLTIP_WARNINGRED = CreateColorFromHexString("FFFF0000"), -- FF0000 : Bright Red
+	GEM_BOOK = {
+		--PRISMATIC = CreateColorFromBytes(),
+		PINK = CreateColorFromBytes(240, 24, 216, 255),
+		INDIGO = CreateColorFromBytes(64, 48, 208, 255),
+		VIOLET = CreateColorFromBytes(152, 24, 240, 255),
+		BLUE = CreateColorFromBytes(40, 188, 216, 255),
+		GREEN = CreateColorFromBytes(96, 216, 48, 255),
+		JADE = CreateColorFromBytes(46, 216, 128, 255),
+		YELLOW = CreateColorFromBytes(240, 212, 24, 255),
+		ORANGE = CreateColorFromBytes(205, 123, 56, 255),
+		RED = CreateColorFromBytes(224, 36, 32, 255),
+	}
 }
 
 local addonChannel = GetChannelName("scforge_comm") -- This will be reset later in SpellCreator.lua, however we need to access it in other modules. It's not technically a constant but we can treat it as such because it will should never change in a session? That's my excuse for putting it here.
 
 ns.Constants = {
-    ADDON_COLOR = ADDON_COLORS.ADDON_COLOR:GenerateHexColorMarkup(),
+	ADDON_COLOR = ADDON_COLORS.ADDON_COLOR:GenerateHexColorMarkup(),
 	ADDON_COLORS = ADDON_COLORS,
-    ADDON_PATH = addonPath,
+	ADDON_PATH = addonPath,
 	ADDON_CHANNEL = addonChannel,
-    ADDON_TITLE = GetAddOnMetadata(addonName, "Title"),
-    ASSETS_PATH = addonPath .. "/assets",
+	---@cast ADDON_TITLE -nil
+	ADDON_TITLE = ADDON_TITLE,
+	ASSETS_PATH = addonPath .. "/assets",
 	SPELL_VISIBILITY = SPELL_VISIBILITY,
 	START_ZONE_NAME = "Dranosh Valley",
-    VAULT_TYPE = VAULT_TYPE,
+	DEFAULT_QC_BOOK_NAME = "Quickcast Book %s",
+	VAULT_TYPE = VAULT_TYPE,
+	CHARACTER_NAME = UnitName("player"),
 }

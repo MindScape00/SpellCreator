@@ -1,17 +1,6 @@
----@class HeaderActionTypeData: ActionTypeDataBase
----@field type "header"
----@field name string
-
----@class MenuActionTypeData: ActionTypeDataBase
----@field type "submenu"
----@field name string
----@field menuDataLis? ActionType[]
-
----@class SpacerActionTypeData: ActionTypeDataBase
----@field type "spacer"
-
 ---@class ActionTypeDataBase
 ---@field name string
+---@field description string
 ---@field command string | function
 ---@field dataName? string
 ---@field selfAble boolean

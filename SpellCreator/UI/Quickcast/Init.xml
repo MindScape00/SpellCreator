@@ -1,0 +1,13 @@
+<Ui xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd" xmlns="http://www.blizzard.com/wow/ui/">
+	<Script file="UI/Quickcast/Init.lua"/>
+
+	<Script file="UI/Quickcast/QuickcastAnimation.lua"/>
+	<Script file="UI/Quickcast/QuickcastStyle.lua"/>
+	<Script file="UI/Quickcast/QuickcastButton.lua"/>
+	<Script file="UI/Quickcast/QuickcastContextMenu.lua"/>
+	<Script file="UI/Quickcast/QuickcastPage.lua"/>
+	<Script file="UI/Quickcast/QuickcastBook.lua"/>
+	<Script file="UI/Quickcast/Quickcast.lua"/>
+	<Script file="UI/Quickcast/QuickcastManagerUI.lua"/>
+	
+</Ui>

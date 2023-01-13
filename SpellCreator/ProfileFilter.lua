@@ -1,13 +1,13 @@
 ---@class ns
 local ns = select(2, ...)
 
+local Constants = ns.Constants
 local Logging = ns.Logging
 local SavedVariables = ns.SavedVariables
 
-local DEFAULT_PROFILE_NAME = GetUnitName("player")
+local DEFAULT_PROFILE_NAME = Constants.CHARACTER_NAME
 
 ---@class ActiveProfileFilter
----@field showAll boolean
 ---@field Account boolean
 local selectedProfileFilter = {}
 
@@ -19,7 +19,7 @@ end
 
 ---@param enabled true | nil
 local function togglePlayer(enabled)
-    toggleFilter(GetUnitName("player"), enabled)
+    toggleFilter(Constants.CHARACTER_NAME, enabled)
 end
 
 ---@param showAll true | nil
@@ -33,17 +33,14 @@ local function isShown(filter)
     return selectedProfileFilter[filter]
 end
 
----@return boolean isShown
-local function isPlayerShown()
-    return selectedProfileFilter[GetUnitName("player")]
-end
+local function isAllEnabled()
+	for _, profileName in ipairs(SavedVariables.getProfileNames()) do
+        if not selectedProfileFilter[profileName] then
+			return false
+		end
+	end
 
-local function isAllShown()
-    return selectedProfileFilter.showAll
-end
-
-local function isAccountShown()
-    return selectedProfileFilter.Account
+    return true
 end
 
 local function enableAll()
@@ -53,6 +50,7 @@ local function enableAll()
         selectedProfileFilter[profileName] = true
 	end
 
+	toggleFilter("Account", true) -- this is needed if you don't have any spells stored in your Account profile, it won't come on otherwise
     togglePlayer(true)
 end
 
@@ -94,7 +92,7 @@ end
 
 ---@param spell VaultSpell
 local function shouldFilterFromPersonalVault(spell)
-    return not selectedProfileFilter.showAll and not selectedProfileFilter[spell.profile]
+    return not selectedProfileFilter[spell.profile]
 end
 
 local function init()
@@ -105,11 +103,9 @@ local function init()
         selectedProfileFilter.Account = true
 	elseif defaultProfile == "All" then
 		enableAll()
-	else -- default filter -- REMINDER: CHANGE THIS TO THE CHARACTER SETTINGS AFTER NEXT UPDATE
-        --SpellCreatorMasterTable.Options.defaultProfile = "Character"
-		--selectedProfileFilter[GetUnitName("player")] = true
-        SavedVariables.setDefaultProfile("All")
-        toggleShowAll(true)
+	else -- default filter
+        SavedVariables.setDefaultProfile("Character")
+        togglePlayer(true)
 	end
 end
 
@@ -118,13 +114,10 @@ ns.ProfileFilter = {
 	DEFAULT_PROFILE_NAME = DEFAULT_PROFILE_NAME,
 
     isShown = isShown,
-    isAllShown = isAllShown,
-    isAccountShown = isAccountShown,
-    isPlayerShown = isPlayerShown,
+    isAllEnabled = isAllEnabled,
     enableAll = enableAll,
     reset = reset,
     toggleFilter = toggleFilter,
-    toggleShowAll = toggleShowAll,
 
 
     ensureProfile = ensureProfile,

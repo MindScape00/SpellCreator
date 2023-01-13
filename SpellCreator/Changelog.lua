@@ -8,7 +8,48 @@ ns.ChangelogText = [[
 
 {h1:c} Changelog {/h1}
 {h2:c} __________________________________________________________ {/h2}
-##v1.2.0 (December 17th, 2022)
+##v1.2.1 (January 9th, 2023)
+
+### - Changes:
+
+    - SPARKS!  Arcanum Sparks are a new, innovative way to provide interaction
+               between players & ArcSpells in a phase!
+           - When a player walks over a |cffFFA500Spark Trigger|r, they will be prompted with a
+             non-intrusive, clickable |cffFFA500extrabar button|r to cast that ArcSpell from the Phase!
+           - Sparks can be placed anywhere, and have a customizable activation radius
+             for how close a player must be to activate the trigger & show the Spark!
+                 - To create a Spark, |cffFFA500right-click|r a spell in your phase's Phase Vault and
+                   select |cffFFA500Create Spark|r!
+                 - You can manage sparks in your phase using the 'Spark' |cffFFA500lightning|r
+                   |cffFFA500bolt icon|r in the bottom right of your Phase Vault.
+
+    - Quickcast Expansion!  |cffFFA500Quickcast|r has been expanded to allow multiple |cffFFA500Books|r,
+                as well as multiple |cffFFA500Pages|r in each book!
+            - You can manage your books, and pages, by |cffFFA500right-clicking|r a book.
+            - Books can be |cffFF6B6Bs|cffFFFF6Bt|cff6BFF6By|cff6BFFFFl|cff6B6BFFe|cffFF6BFFd|r with various skins via the Right-Click menu on them!
+            - You can create |cffFFA500Dynamic Pages|r based on Profiles, which will always show all the
+                 ArcSpells in that profile.
+            - Accidentally closed all your Books? You can reopen them from the settings menu.
+            - Books & Pages are saved across your entire account, but which Books are shown
+                 is saved per-character, so each character can have their own Book if you want!
+            - A Book Manager UI is available to help manage pages & books via AddOn Settings.
+
+    - ARC.PHASE:API - We've added support for new |cffFFA500ARC.PHASE|r Vars in the ARC:API system.
+            - These are accessed via new actions, or in Macro Scripts using ARC.PHASE
+                functions, or directly using "/arc phase" commands.
+            - You can see more info in the updated |cffFFA500user-guide|r (links above).
+
+    - More Actions!  We've added more actions to help you accomplish tasks you
+            may not have even thought of yet because you didn't realize you could.
+
+    - Behind-the-scenes improvements!  Shout-out to |cff57F287Iyadriel|r for providing immense support
+        on improving the 'behind the scenes' code, including rewriting the entire drop-down
+        menu system - twice! You'll see this bring some UI improvements, and allows us too
+        do cool things, like adding input boxes directly into the drop-downs!
+        Arcanum would not be as great as it is with their amazing help <3
+
+{h2:c} __________________________________________________________ {/h2}
+##v1.2.0 (December 21st, 2022)
 
 ### - Highlights:
 

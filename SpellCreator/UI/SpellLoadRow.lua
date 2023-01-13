@@ -91,7 +91,7 @@ local function onRowClick(self, button)
 			LoadSpellFrame.selectRow(nil)
 		end
 	elseif button == "RightButton" then
-		SpellLoadRowContextMenu.show(spell)
+		SpellLoadRowContextMenu.show(self, spell)
 		self:SetChecked(not self:GetChecked())
 	end
 end
@@ -113,7 +113,7 @@ local function onIconClick(self, button)
 			ARC:CAST(self.commID)
 		end
 	elseif button == "RightButton" then
-		SpellLoadRowContextMenu.show(spell)
+		SpellLoadRowContextMenu.show(self:GetParent()--[[@as SpellLoadRow]] , spell)
 	end
 end
 
@@ -246,7 +246,8 @@ local function createDeleteButton(row)
 	Tooltip.set(
 		deleteButton,
 		function(self)
-			return "Delete '" .. self.commID .. "'"
+			local spell = getSpell(self.commID)
+			return "Delete '" .. spell.commID .. "'"
 		end
 	)
 
@@ -268,6 +269,7 @@ local function createLoadButton(row)
 		local spell = getSpell(self.commID)
 
 		if button == "RightButton" then
+			spell = CopyTable(spell) -- this is so it does not impact the original spell table at all
 			table.sort(spell.actions, function(k1, k2) return k1.delay < k2.delay end)
 		end
 		loadSpell(spell)
@@ -277,7 +279,8 @@ local function createLoadButton(row)
 	Tooltip.set(
 		loadButton,
 		function(self)
-			return "Load '" .. self.commID .. "'"
+			local spell = getSpell(self.commID)
+			return "Load '" .. spell.commID .. "'"
 		end,
 		{
 			"Load the spell into the Forge UI so you can edit it.",
@@ -435,6 +438,7 @@ local function createRow(parent, rowNum)
 	thisRow.loadButton = createLoadButton(thisRow)
 	thisRow.gossipButton = createGossipButton(thisRow)
 	thisRow.privateIconButton = createPrivateIconButton(thisRow)
+	thisRow.contextMenu = SpellLoadRowContextMenu.createFor(thisRow, rowNum)
 
 	setTooltip(thisRow, false)
 	thisRow:SetScript("OnClick", onRowClick)

@@ -26,7 +26,7 @@ local function generateSpellLink(spell, vaultType)
 	if vaultType == VAULT_TYPE.PHASE then
 		charOrPhase = C_Epsilon.GetPhaseId()
 	else
-		charOrPhase = GetUnitName("player",false)
+		charOrPhase = UnitName("player")
 	end
 	local numActions = #spell.actions
 	local chatLink = ADDON_COLOR.."|HarcSpell:"..spellComm..":"..charOrPhase..":"..numActions..":"..spellIcon.."|h["..spellName.."]|h|r"
@@ -150,7 +150,7 @@ local function chatMessageSendLinkHook(msg, chatType, languageID, target)
 		if not spellComm or not charOrPhase then eprint("Erorr in Link: No Valid SpellComm or charOrPhase.") return end
 
 		if msg:find("^%.") then chatType = "EPSI_ANNOUNCE"; dprint("Arc SCM Hook: Sent as command, sending global cache") end
-		if charOrPhase == GetUnitName("player") or (tonumber(charOrPhase) == tonumber(C_Epsilon.GetPhaseId()) and ns.Vault.phase.isLoaded == true) then -- make sure we are sending our own spell or our current phases vault, and not sending another person's link..
+		if charOrPhase == UnitName("player") or (tonumber(charOrPhase) == tonumber(C_Epsilon.GetPhaseId()) and ns.Vault.phase.isLoaded == true) then -- make sure we are sending our own spell or our current phases vault, and not sending another person's link..
 			Comms.sendSpellForCache(spellComm, charOrPhase, chatType, target)
 		else
 			dprint(nil, "Spell Link caught, but not ours or not the phase we are in, or phase vault not loaded. ("..spellComm.." from "..charOrPhase.."'s vault)")

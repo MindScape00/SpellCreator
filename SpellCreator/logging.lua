@@ -9,47 +9,48 @@ local ADDON_COLOR, ADDON_TITLE = ns.Constants.ADDON_COLOR, ns.Constants.ADDON_TI
 local prefix = ADDON_COLOR .. ADDON_TITLE
 
 local function cprint(text)
-	print(prefix..": "..(text and text or "ERROR").."|r")
+	text = text:gsub("|r", "|r" .. ADDON_COLOR)
+	print(prefix .. ": " .. (text and text or "ERROR") .. "|r")
 end
 
 local function dprint(force, text, ...)
 	if text then
 		if force == true or SpellCreatorMasterTable.Options["debug"] then
 			local rest = ... or ""
-			local line = strmatch(debugstack(2),":(%d+):")
-			local file = strmatch(debugstack(2),"AddOns\\"..addonNameSearch.."\\(.-%.lua)") or ""
+			local line = strmatch(debugstack(2), ":(%d+):")
+			local file = strmatch(debugstack(2), "AddOns\\" .. addonNameSearch .. "\\(.-%.lua)") or ""
 			if line then
-				print(prefix.." DEBUG "..file..":"..line.." | "..text, rest, " |r")
+				print(prefix .. " DEBUG " .. file .. ":" .. line .. " | " .. text, rest, " |r")
 			else
-				print(prefix.." DEBUG: "..text, rest, " |r")
+				print(prefix .. " DEBUG: " .. text, rest, " |r")
 				print(debugstack(2))
 			end
 		end
 	elseif SpellCreatorMasterTable.Options["debug"] then
-		local line = strmatch(debugstack(2),":(%d+):")
-		local file = strmatch(debugstack(2),"AddOns\\"..addonNameSearch.."\\(.-%.lua)") or ""
+		local line = strmatch(debugstack(2), ":(%d+):")
+		local file = strmatch(debugstack(2), "AddOns\\" .. addonNameSearch .. "\\(.-%.lua)") or ""
 		if line then
-			print(prefix.." DEBUG "..file..":"..line.." | "..force.." |r")
+			print(prefix .. " DEBUG " .. file .. ":" .. line .. " | " .. force .. " |r")
 		else
-			print(prefix.." DEBUG: "..force.." |r")
+			print(prefix .. " DEBUG: " .. force .. " |r")
 			print(debugstack(2))
 		end
 	end
 end
 
-local function eprint(text,rest)
-	local line = strmatch(debugstack(2),":(%d+):")
-	local file = strmatch(debugstack(2),"AddOns\\"..addonNameSearch.."\\(.-)%.lua") or ""
+local function eprint(text, rest)
+	local line = strmatch(debugstack(2), ":(%d+):")
+	local file = strmatch(debugstack(2), "AddOns\\" .. addonNameSearch .. "\\(.-)%.lua") or ""
 	if line then
-		print(prefix.." Error @ "..file..":"..line.." | "..text..""..(rest and " | "..rest or "").." |r")
+		print(prefix .. " Error @ " .. file .. ":" .. line .. " | " .. text .. "" .. (rest and " | " .. rest or "") .. " |r")
 	else
-		print(prefix.." @ ERROR: "..text.." | "..rest.." |r")
+		print(prefix .. " @ ERROR: " .. text .. " | " .. rest .. " |r")
 		print(debugstack(2))
 	end
 end
 
 ns.Logging = {
-    cprint = cprint,
-    dprint = dprint,
-    eprint = eprint,
+	cprint = cprint,
+	dprint = dprint,
+	eprint = eprint,
 }

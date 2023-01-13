@@ -46,7 +46,7 @@ end
 local function createSaveButton(mainFrame, saveSpell)
 	saveButton = CreateFrame("BUTTON", nil, mainFrame, "UIPanelButtonTemplate")
 	saveButton:SetPoint("BOTTOMLEFT", 20, 3)
-	saveButton:SetSize(24*4,24)
+	saveButton:SetSize(24 * 4, 24)
 	saveButton:SetText(BATTLETAG_CREATE)
 	saveButton:SetMotionScriptsWhileDisabled(true)
 	saveButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -65,7 +65,7 @@ local function createSaveButton(mainFrame, saveSpell)
 			local spellInfo = Attic.getInfo()
 
 			if self:IsEnabled() then
-				local castHelp = "\rYou can cast it using '/sf "..(spellInfo.commID or "commID").."' for quick use!"
+				local castHelp = "\rYou can cast it using '/sf " .. (spellInfo.commID or "commID") .. "' for quick use!"
 
 				if isSaving() then
 					return {
@@ -86,7 +86,11 @@ local function createSaveButton(mainFrame, saveSpell)
 	)
 
 	saveButton.UpdateIfValid = function(self)
-		self:SetEnabled(Attic.isInfoValid())
+		if Attic.isInfoValid() and ns.UI.SpellRow.isAnyActionRowValid() then
+			self:SetEnabled(true)
+		else
+			self:SetEnabled(false)
+		end
 		if self:IsEnabled() then
 			self:SetText(isSaving() and "Save" or "Create")
 		end
@@ -126,7 +130,7 @@ end
 local function createExecuteSpellButton(mainFrame, getForgeActions)
 	executeSpellButton = CreateFrame("BUTTON", nil, mainFrame, "UIPanelButtonTemplate")
 	executeSpellButton:SetPoint("BOTTOM", 0, 3)
-	executeSpellButton:SetSize(24*4,24)
+	executeSpellButton:SetSize(24 * 4, 24)
 	executeSpellButton:SetText(ACTION_SPELL_CAST_SUCCESS:gsub("^%l", string.upper))
 	executeSpellButton:SetMotionScriptsWhileDisabled(true)
 
@@ -141,7 +145,7 @@ local function createExecuteSpellButton(mainFrame, getForgeActions)
 
 		local spellInfo = Attic.getInfo()
 		local spellName = spellInfo.fullName
-		local spellData = {["icon"] = Icons.getFinalIcon(spellInfo.icon)}
+		local spellData = { ["icon"] = Icons.getFinalIcon(spellInfo.icon) }
 
 		Execute.executeSpell(actionsToCommit, nil, spellName, nil)
 
@@ -172,7 +176,7 @@ end
 local function createResetButton(mainFrame, resetUI)
 	local resetButton = CreateFrame("BUTTON", nil, mainFrame)
 	resetButton:SetPoint("BOTTOMRIGHT", -40, 2)
-	resetButton:SetSize(24,24)
+	resetButton:SetSize(24, 24)
 
 	UIHelpers.setupCoherentButtonTextures(resetButton, "transmog-icon-revert", true)
 	resetButton:SetMotionScriptsWhileDisabled(true)
@@ -185,9 +189,9 @@ local function createResetButton(mainFrame, resetUI)
 
 	Tooltip.set(resetButton,
 		"Clear & Reset the Forge UI!", {
-			"Use this to clear the action rows & spell info, and start a fresh new spell!",
-			"\nWARNING: You'll lose any data that hasn't been saved yet using 'Create' or 'Save'!",
-		}
+		"Use this to clear the action rows & spell info, and start a fresh new spell!",
+		"\nWARNING: You'll lose any data that hasn't been saved yet using 'Create' or 'Save'!",
+	}
 	)
 
 	return resetButton

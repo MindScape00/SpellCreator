@@ -8,6 +8,8 @@ local Tooltip = ns.Utils.Tooltip
 local UIHelpers = ns.Utils.UIHelpers
 local VaultFilter = ns.VaultFilter
 
+local Dropdown = ns.UI.Dropdown
+
 local ASSETS_PATH = Constants.ASSETS_PATH
 local SPELL_VISIBILITY = Constants.SPELL_VISIBILITY
 local VAULT_TYPE = Constants.VAULT_TYPE
@@ -57,7 +59,7 @@ local function selectRow(rowID)
 	end
 end
 
----@param frame Frame
+---@param frame LoadSpellFrame
 ---@param import fun()
 local function createImportButton(frame, import)
 	local importButton = CreateFrame("BUTTON", nil, frame)
@@ -91,7 +93,35 @@ local function createImportButton(frame, import)
 	return importButton
 end
 
----@param frame Frame
+---@param frame LoadSpellFrame
+local function createSparkButton(frame)
+	local sparkButton = CreateFrame("BUTTON", nil, frame)
+	sparkButton:SetPoint("BOTTOMRIGHT", -3, 3)
+	sparkButton:SetSize(24, 24)
+	sparkButton:SetText("Spark")
+	sparkButton:SetMotionScriptsWhileDisabled(true)
+
+	UIHelpers.setupCoherentButtonTextures(sparkButton, ASSETS_PATH .. "/spark")
+	sparkButton.PushedTexture:SetTexture(ASSETS_PATH .. "/spark2")
+
+	sparkButton.UpdateEnabled = function(self)
+		self:SetEnabled(not ns.UI.SparkPopups.SparkPopups.getSparkLoadingStatus() and (Permissions.isOfficerPlus() or SpellCreatorMasterTable.Options["debug"]))
+	end
+
+	sparkButton:SetScript("OnClick", ns.UI.SparkPopups.SparkManagerUI.showSparkManagerUI)
+	sparkButton:SetScript("OnShow", function(self)
+		self:UpdateEnabled()
+	end)
+
+	Tooltip.set(sparkButton,
+		"Open Spark Manager",
+		{ "Manage your phase's Spark Triggers\n", string.format("%s an ArcSpell above to create a new Spark!", Tooltip.genContrastText("Right-Click")) }
+	)
+
+	return sparkButton
+end
+
+---@param frame LoadSpellFrame
 ---@param upload fun(commID: CommID)
 local function createUploadToPhaseButton(frame, upload)
 	local uploadButton = CreateFrame("BUTTON", nil, frame, "UIPanelButtonNoTooltipTemplate")
@@ -190,7 +220,7 @@ local function createPrivateUploadToggle(frame)
 	return privateUploadToggle
 end
 
----@param frame Frame
+---@param frame LoadSpellFrame
 ---@param downloadToPersonal fun(index: integer)
 local function createDownloadToPersonalButton(frame, downloadToPersonal)
 	local downloadToPersonalButton = CreateFrame("BUTTON", nil, frame, "UIPanelButtonNoTooltipTemplate")
@@ -236,7 +266,7 @@ local function createDownloadToPersonalButton(frame, downloadToPersonal)
 	return downloadToPersonalButton
 end
 
----@param frame Frame
+---@param frame LoadSpellFrame
 local function createSearchBox(frame)
 	local searchBox = CreateFrame("EditBox", nil, frame, "SearchBoxTemplate")
 	searchBox:SetPoint("TOPLEFT", frame.Inset, 11, -6)
@@ -249,6 +279,44 @@ local function createSearchBox(frame)
 	end)
 
 	return searchBox
+end
+
+---@param frame LoadSpellFrame
+local function createProfileButton(frame)
+	local profileButton = CreateFrame("BUTTON", nil, frame)
+	profileButton:SetPoint("BOTTOMRIGHT", frame.Inset, "TOPRIGHT", -5, 2)
+	profileButton:SetSize(24, 24)
+
+	-- PartySizeIcon; QuestSharing-QuestLog-Active; QuestSharing-DialogIcon; socialqueuing-icon-group
+	UIHelpers.setupCoherentButtonTextures(profileButton, "socialqueuing-icon-group", true)
+	profileButton.NormalTexture:SetDesaturated(true)
+	profileButton.NormalTexture:SetVertexColor(1, 0.8, 0)
+	profileButton.PushedTexture:SetVertexColor(1, 0.8, 0)
+
+	local profileDropDownMenu = CreateFrame("BUTTON", "ARCProfileContextMenu", UIParent, "UIDropDownMenuTemplate")
+
+	---@cast profileDropDownMenu -BUTTON
+
+	profileButton:SetScript("OnClick", function(self, button)
+		if button == "LeftButton" then
+			Dropdown.open(ns.UI.ProfileFilterMenu.createProfileFilterMenu(), profileDropDownMenu, self, 0, 0, "MENU")
+		elseif button == "RightButton" then
+			Dropdown.open(ns.UI.ProfileFilterMenu.createChangeDefaultProfileMenu(), profileDropDownMenu, self, 0, 0, "MENU")
+		end
+	end)
+	profileButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+	Tooltip.set(
+		profileButton,
+		"Change Profile",
+		{
+			"Switch to another profile to view that profiles vault.",
+			"Right-Click to change your default selected profile.",
+		},
+		{ delay = 0.3 }
+	)
+
+	return profileButton
 end
 
 ---@param callbacks { import: fun(), upload: fun(commID: CommID), downloadToPersonal: fun(index: integer) }
@@ -282,10 +350,12 @@ local function init(callbacks)
 	loadSpellFrame.TitleBgColor:SetColorTexture(0.40, 0.10, 0.50, 0.5)
 
 	loadSpellFrame.ImportSpellButton = createImportButton(loadSpellFrame, callbacks.import)
+	loadSpellFrame.SparkManagerButton = createSparkButton(loadSpellFrame)
 	loadSpellFrame.UploadToPhaseButton = createUploadToPhaseButton(loadSpellFrame, callbacks.upload)
 	loadSpellFrame.PrivateUploadToggle = createPrivateUploadToggle(loadSpellFrame)
 	loadSpellFrame.DownloadToPersonalButton = createDownloadToPersonalButton(loadSpellFrame, callbacks.downloadToPersonal)
 	loadSpellFrame.searchBox = createSearchBox(loadSpellFrame)
+	loadSpellFrame.profileButton = createProfileButton(loadSpellFrame)
 
 	loadSpellFrame.UploadToPhaseButton:SetScript("OnShow", function(self)
 		if not getSelectedSpellCommID() then self:Disable() end

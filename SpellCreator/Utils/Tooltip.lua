@@ -21,7 +21,15 @@ local function addLine(line)
 	end
 end
 
----@alias TooltipStyle "contrast" | "example" | "norevert" | "revert" | "lpurple"
+---Concat the two texts together with a strchar(31) as a delimiter to create a double line.
+---@param text1 string
+---@param text2 string
+---@return string
+local function createDoubleLine(text1, text2)
+	return text1 .. strchar(31) .. text2
+end
+
+---@alias TooltipStyle "contrast" | "example" | "norevert" | "revert" | "lpurple" | "warning"
 
 ---@class TooltipStyleData
 ---@field color string
@@ -53,7 +61,11 @@ local tooltipTextStyles = {
 	},
 	lpurple = {
 		color = ADDON_COLORS.LIGHT_PURPLE:GenerateHexColor(),
-	}
+	},
+	warning = {
+		tag = "Warning: ",
+		color = ADDON_COLORS.TOOLTIP_WARNINGRED:GenerateHexColor(),
+	},
 }
 
 ---@param style TooltipStyle
@@ -86,7 +98,7 @@ local function genTooltipText(style, text)
 	return text
 end
 
----@param text string
+---@param text string | table
 local function genContrastText(text)
 	if type(text) == "table" then
 		local finalText
@@ -135,12 +147,24 @@ local function setTooltip(self, title, lines)
 	GameTooltip:Show()
 end
 
+---@class TooltipOptions
+---@field updateOnClick boolean
+---@field delay integer | function
+---@field forced boolean
+---@field anchor string
+---@field predicate function
+
 ---@param title string | fun(self): string
 ---@param lines? string[] | string | fun(self): (string[] | string)
-local function onEnter(title, lines, delay)
-	if not delay then delay = 0.7 end
+---@param options? TooltipOptions
+local function onEnter(title, lines, options)
 	return function(self)
+		local delay = options and options.delay or 0.7
+		if type(delay) == "function" then delay = delay(self) end
 		if not SpellCreatorMasterTable.Options["showTooltips"] and not self.tooltipForced then return end
+		if options and options.predicate then
+			if not options.predicate(self) then return end
+		end
 
 		if timer then timer:Cancel() end
 
@@ -155,16 +179,18 @@ end
 local function onLeave(self)
 	if not SpellCreatorMasterTable.Options["showTooltips"] and not self.tooltipForced then return end
 	GameTooltip_Hide()
-	timer:Cancel()
+	if timer then
+		timer:Cancel()
+	end
 end
 
 ---@generic F
 ---@param frame F | Frame | Button
 ---@param title string | fun(self: F): string | nil
 ---@param lines? string[] | string | fun(self: F): (string[] | string)
----@param options? { updateOnClick?: boolean, delay?: integer, forced?: boolean, anchor?: string}
+---@param options? TooltipOptions
 local function set(frame, title, lines, options)
-	frame:HookScript("OnEnter", onEnter(title, lines, options and options.delay or nil))
+	frame:HookScript("OnEnter", onEnter(title, lines, options))
 
 	if options then
 		if options.updateOnClick then
@@ -188,4 +214,5 @@ ns.Utils.Tooltip = {
 	set = set,
 	genTooltipText = genTooltipText,
 	genContrastText = genContrastText,
+	createDoubleLine = createDoubleLine,
 }

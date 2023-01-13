@@ -10,29 +10,153 @@ local dprint = ns.Logging.dprint
 
 local Attic = ns.UI.MainFrame.Attic
 
-StaticPopupDialogs["SCFORGE_RELOADUI_REQUIRED"] = {
-	text = "A UI Reload is Required to Change Input Boxes.\n\rReload Now?\r[Warning: All un-saved data will be wiped]",
-	showAlert = true,
-	button1 = YES,
-	button2 = NO,
-	OnAccept = function(self, data, data2)
-		ReloadUI();
+-- //  Generic Popups System - this is a copy of Blizzard's GENERIC_CONFIRMATION and GENERIC_INPUT_BOX system added in Dragonflight, modified for BFA/SL compatibility
+
+local function standardNonEmptyTextHandler(self)
+	local parent = self:GetParent();
+	parent.button1:SetEnabled(strtrim(parent.editBox:GetText()) ~= "");
+end
+
+local function standardEditBoxOnEscapePressed(self)
+	self:GetParent():Hide();
+end
+
+StaticPopupDialogs["SCFORGE_GENERIC_INPUT_BOX"] = {
+	text = "", -- supplied dynamically.
+	button1 = "", -- supplied dynamically.
+	button2 = "", -- supplied dynamically.
+	hasEditBox = 1,
+	OnShow = function(self, data)
+		self.text:SetFormattedText(data.text, data.text_arg1, data.text_arg2);
+		self.button1:SetText(data.acceptText or DONE);
+		self.button2:SetText(data.cancelText or CANCEL);
+		self.editBox:SetMaxLetters(data.maxLetters or 24);
+		self.editBox:SetCountInvisibleLetters(not not data.countInvisibleLetters);
 	end,
+	OnAccept = function(self, data)
+		local text = self.editBox:GetText();
+		data.callback(text);
+	end,
+	OnCancel = function(self, data)
+		local cancelCallback = data.cancelCallback;
+		if cancelCallback ~= nil then
+			cancelCallback();
+		end
+	end,
+	EditBoxOnEnterPressed = function(self, data)
+		local parent = self:GetParent();
+		if parent.button1:IsEnabled() then
+			local text = parent.editBox:GetText();
+			data.callback(text);
+			parent:Hide();
+		end
+	end,
+	EditBoxOnTextChanged = standardNonEmptyTextHandler,
+	EditBoxOnEscapePressed = standardEditBoxOnEscapePressed,
+	hideOnEscape = 1,
 	timeout = 0,
-	cancels = true,
-	whileDead = true,
-	hideOnEscape = true,
-	preferredIndex = 3,
-}
+	exclusive = 1,
+	whileDead = 1,
+};
+
+---@class GenericInputCustomData
+---@field text string the text for the confirmation
+---@field text_arg1 string formatted into text if provided
+---@field text_arg2 string formatted into text if provided
+---@field callback fun(text: string) the callback when the player accepts
+---@field cancelCallback fun() the callback when the player cancels / not called on accept
+---@field acceptText string custom text for the accept button
+---@field cancelText string custom text for the cancel button
+---@field maxLetters integer the maximum text length that can be entered
+---@field countInvisibleLetters boolean used in tandem with maxLetters
+
+---@param customData GenericInputCustomData
+---@param insertedFrame frame?
+local function showCustomGenericInputBox(customData, insertedFrame)
+	StaticPopup_Show("SCFORGE_GENERIC_INPUT_BOX", nil, nil, customData, insertedFrame);
+end
+
+StaticPopupDialogs["SCFORGE_GENERIC_CONFIRMATION"] = {
+	text = "", -- supplied dynamically.
+	button1 = "", -- supplied dynamically.
+	button2 = "", -- supplied dynamically.
+	OnShow = function(self, data)
+		self.text:SetFormattedText(data.text, data.text_arg1, data.text_arg2);
+		self.button1:SetText(data.acceptText or YES);
+		self.button2:SetText(data.cancelText or NO);
+
+		self.AlertIcon = _G[self:GetName() .. "AlertIcon"]; -- fix for this not being defined in the frame table before DF
+		if data.showAlert then
+			self.AlertIcon:SetTexture(STATICPOPUP_TEXTURE_ALERT);
+			if (self.button3:IsShown()) then
+				self.AlertIcon:SetPoint("LEFT", 24, 10);
+			else
+				self.AlertIcon:SetPoint("LEFT", 24, 0);
+			end
+			self.AlertIcon:Show();
+		else
+			self.AlertIcon:Hide();
+		end
+	end,
+	OnAccept = function(self, data)
+		if data.callback then
+			data.callback();
+		end
+	end,
+	OnCancel = function(self, data)
+		local cancelCallback = data.cancelCallback;
+		if cancelCallback ~= nil then
+			cancelCallback();
+		end
+	end,
+	hideOnEscape = 1,
+	timeout = 0,
+	multiple = 1,
+	whileDead = 1,
+	wide = 1, -- Always wide to accomodate the alert icon if it is present.
+};
+
+---@class GenericConfirmationCustomData
+---@field text string? the text for the confirmation
+---@field text_arg1 string? formatted into text if provided
+---@field text_arg2 string? formatted into text if provided
+---@field callback fun()? the callback when the player accepts
+---@field cancelCallback fun()? the callback when the player cancels / not called on accept
+---@field acceptText string? custom text for the accept button
+---@field cancelText string|boolean? custom text for the cancel button - provide false to hide the cancel button
+---@field showAlert boolean? whether or not the alert texture should show
+---@field referenceKey string? used with StaticPopup_IsCustomGenericConfirmationShown / not implemented here
+
+---@param customData GenericConfirmationCustomData
+---@param insertedFrame? frame
+local function showCustomGenericConfirmation(customData, insertedFrame)
+	if customData.cancelText == false then
+		StaticPopupDialogs["SCFORGE_GENERIC_CONFIRMATION"].button2 = nil
+		StaticPopup_Show("SCFORGE_GENERIC_CONFIRMATION", nil, nil, customData, insertedFrame);
+		StaticPopupDialogs["SCFORGE_GENERIC_CONFIRMATION"].button2 = ""
+	else
+		StaticPopup_Show("SCFORGE_GENERIC_CONFIRMATION", nil, nil, customData, insertedFrame);
+	end
+end
+
+---@param text string the text for the confirmation
+---@param callback fun() the callback when the player accepts
+---@param insertedFrame? frame
+local function showGenericConfirmation(text, callback, insertedFrame)
+	local data = { text = text, callback = callback, };
+	showCustomGenericConfirmation(data, insertedFrame);
+end
+
+-- //
 
 ---@param newname string
 ---@param oldname string
 ---@return string
 local function genOverwriteString(newname, oldname)
 	if not oldname or (newname == oldname) then
-		return "Do you want to overwrite the spell ("..newname..")?"
+		return "Do you want to overwrite the spell (" .. newname .. ")?"
 	else
-		return "Do you want to overwrite the spell?\rOld: "..oldname.."\rNew: "..newname
+		return "Do you want to overwrite the spell?\rOld: " .. oldname .. "\rNew: " .. newname
 	end
 end
 
@@ -54,7 +178,7 @@ StaticPopupDialogs["SCFORGE_CONFIRM_OVERWRITE"] = {
 ---@param callback fun()
 local function showPersonalVaultOverwritePopup(newSpellData, oldSpellData, fromPhaseVaultID, manualData, callback)
 	local text1, text2 = Tooltip.genContrastText(newSpellData.commID), genOverwriteString(newSpellData.fullName, oldSpellData.fullName)
-	local data = {fromPhaseVaultID = fromPhaseVaultID, manualData = manualData, callback = callback}
+	local data = { fromPhaseVaultID = fromPhaseVaultID, manualData = manualData, callback = callback }
 	StaticPopup_Show("SCFORGE_CONFIRM_OVERWRITE", text1, text2, data)
 end
 
@@ -102,7 +226,7 @@ local function showPhaseVaultOverwritePopup(commID, callback)
 end
 
 local hotkeyModInsertFrame = CreateFrame("Frame", nil, UIParent)
-hotkeyModInsertFrame:SetSize(300,68)
+hotkeyModInsertFrame:SetSize(300, 68)
 hotkeyModInsertFrame:SetPoint("CENTER")
 hotkeyModInsertFrame.hotkey = nil
 hotkeyModInsertFrame.CurrentKeyText = hotkeyModInsertFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -160,15 +284,16 @@ end)
 
 local function hotkeyModInsertFrame_OnKeyDown(self, keyOrButton)
 	local parent = self:GetParent()
-    if keyOrButton == "ESCAPE" then
-        StaticPopup_Hide("SCFORGE_LINK_HOTKEY")
-        return
-    end
+	if keyOrButton == "ESCAPE" then
+		StaticPopup_Hide("SCFORGE_LINK_HOTKEY")
+		self:Hide()
+		return
+	end
 
-    if GetBindingFromClick(keyOrButton) == "SCREENSHOT" then
-        RunBinding("SCREENSHOT");
-        return;
-    end
+	if GetBindingFromClick(keyOrButton) == "SCREENSHOT" then
+		RunBinding("SCREENSHOT");
+		return;
+	end
 
 	if keyOrButton == "ENTER" then
 		if self.hotkey then
@@ -180,54 +305,55 @@ local function hotkeyModInsertFrame_OnKeyDown(self, keyOrButton)
 		return;
 	end
 
-    local keyPressed = keyOrButton;
+	local keyPressed = keyOrButton;
 
-    if keyPressed == "UNKNOWN" then
-        return;
-    end
+	if keyPressed == "UNKNOWN" then
+		return;
+	end
 
-    -- Convert the mouse button names
-    if keyPressed == "LeftButton" then
-        keyPressed = "BUTTON1";
-    elseif keyPressed == "RightButton" then
-        keyPressed = "BUTTON2";
-    elseif keyPressed == "MiddleButton" then
-        keyPressed = "BUTTON3";
-    end
+	-- Convert the mouse button names
+	if keyPressed == "LeftButton" then
+		keyPressed = "BUTTON1";
+	elseif keyPressed == "RightButton" then
+		keyPressed = "BUTTON2";
+	elseif keyPressed == "MiddleButton" then
+		keyPressed = "BUTTON3";
+	end
 
-    if keyPressed == "LSHIFT" or
-        keyPressed == "RSHIFT" or
-        keyPressed == "LCTRL" or
-        keyPressed == "RCTRL" or
-        keyPressed == "LALT" or
-        keyPressed == "RALT" then
-        return;
-    end
+	if keyPressed == "LSHIFT" or
+		keyPressed == "RSHIFT" or
+		keyPressed == "LCTRL" or
+		keyPressed == "RCTRL" or
+		keyPressed == "LALT" or
+		keyPressed == "RALT" then
+		return;
+	end
 
-    if IsShiftKeyDown() then
-        keyPressed = "SHIFT-"..keyPressed
-    end
+	if IsShiftKeyDown() then
+		keyPressed = "SHIFT-" .. keyPressed
+	end
 
-    if IsControlKeyDown() then
-        keyPressed = "CTRL-"..keyPressed
-    end
+	if IsControlKeyDown() then
+		keyPressed = "CTRL-" .. keyPressed
+	end
 
-    if IsAltKeyDown() then
-        keyPressed = "ALT-"..keyPressed
-    end
+	if IsAltKeyDown() then
+		keyPressed = "ALT-" .. keyPressed
+	end
 
-    if keyPressed == "BUTTON1" or keyPressed == "BUTTON2" then
-        return;
-    end
+	if keyPressed == "BUTTON1" or keyPressed == "BUTTON2" then
+		return;
+	end
 
-    if not keyPressed then
-        return;
-    end
+	if not keyPressed then
+		return;
+	end
 
 	self.hotkey = keyPressed
 	self:Update()
 
 end
+
 hotkeyModInsertFrame:SetScript("OnKeyDown", hotkeyModInsertFrame_OnKeyDown)
 --hooksecurefunc(hotkeyModInsertFrame.KeyBindText, "SetText", function(self) self:GetParent():Update() end)
 
@@ -262,154 +388,67 @@ local function showLinkHotkeyDialog(commID)
 	dialog.insertedFrame:Update()
 end
 
-StaticPopupDialogs["SCFORGE_NEW_PROFILE"] = {
-	text = "Assign %s to a new Profile",
-	closeButton = true,
-	hasEditBox = true,
-	enterClicksFirstButton = true,
-	editBoxInstructions = "New Profile Name",
-	--editBoxWidth = 310,
-	maxLetters = 50,
-	OnButton1 = function(self, data)
-		local text = self.editBox:GetText();
-		data.onNewProfileSave(data.comm, text)
-	end,
-	EditBoxOnTextChanged = function (self)
-		local text = self:GetText();
-		if #text > 0 and text:gsub(" ", "") ~= "" then
-			self:GetParent().button1:Enable()
-		else
-			self:GetParent().button1:Disable()
-		end
-	end,
-
-	button1 = ADD,
-	button2 = CANCEL,
-	hideOnEscape = true,
-	EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
-	EditBoxOnEnterPressed = function(self)
-		local parent = self:GetParent();
-		if parent.button1:IsEnabled() then
-			parent.button1:Click()
-		end
-	end,
-	whileDead = true,
-	OnShow = function (self, data)
-		self.button1:Disable()
-		if data and data.subText then
-			self.SubText:SetText(data.subText)
-		end
-	end,
-}
-
----@param spellCommID CommID
----@param onNewProfileSave fun(commID: CommID, newProfileName: string)
-local function showNewProfilePopup(spellCommID, onNewProfileSave)
-	local dialog = StaticPopup_Show("SCFORGE_NEW_PROFILE", Tooltip.genContrastText(Vault.personal.findSpellByID(spellCommID).fullName))
-	dialog.data = {
-		comm = spellCommID,
-		onNewProfileSave = onNewProfileSave,
-	}
-end
-
-StaticPopupDialogs["SCFORGE_ATTIC_PROFILE"] = {
-	text = "Set a New Profile:",
-	closeButton = true,
-	hasEditBox = true,
-	enterClicksFirstButton = true,
-	editBoxInstructions = "New Profile Name",
-	--editBoxWidth = 310,
-	maxLetters = 50,
-	OnButton1 = function(self, data)
-		local text = self.editBox:GetText();
-		Attic.selectEditorProfile(text)
-	end,
-	EditBoxOnTextChanged = function (self)
-		local text = self:GetText();
-		if #text > 0 and text:gsub(" ", "") ~= "" then
-			self:GetParent().button1:Enable()
-		else
-			self:GetParent().button1:Disable()
-		end
-	end,
-
-	button1 = ADD,
-	button2 = CANCEL,
-	hideOnEscape = true,
-	EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
-	EditBoxOnEnterPressed = function(self)
-		local parent = self:GetParent();
-		if parent.button1:IsEnabled() then
-			parent.button1:Click()
-		end
-	end,
-	whileDead = true,
-	OnShow = function (self, data)
-		self.button1:Disable()
-		if data and data.subText then
-			self.SubText:SetText(data.subText)
-		end
-	end,
-}
-
 local gossipAddMenuInsert = CreateFrame("FRAME")
-gossipAddMenuInsert:SetSize(300,68)
+gossipAddMenuInsert:SetSize(300, 68)
 gossipAddMenuInsert:Hide()
 
 gossipAddMenuInsert.vertDivLine = gossipAddMenuInsert:CreateTexture(nil, "ARTWORK")
-	gossipAddMenuInsert.vertDivLine:SetPoint("TOP", -30, -4)
-	gossipAddMenuInsert.vertDivLine:SetPoint("BOTTOM", -30, 18)
-	gossipAddMenuInsert.vertDivLine:SetWidth(2)
-	gossipAddMenuInsert.vertDivLine:SetColorTexture(1,1,1,0.2)
+gossipAddMenuInsert.vertDivLine:SetPoint("TOP", -30, -4)
+gossipAddMenuInsert.vertDivLine:SetPoint("BOTTOM", -30, 18)
+gossipAddMenuInsert.vertDivLine:SetWidth(2)
+gossipAddMenuInsert.vertDivLine:SetColorTexture(1, 1, 1, 0.2)
 
 gossipAddMenuInsert.horizDivLine = gossipAddMenuInsert:CreateTexture(nil, "ARTWORK")
-	gossipAddMenuInsert.horizDivLine:SetPoint("BOTTOMLEFT", 26, 16)
-	gossipAddMenuInsert.horizDivLine:SetPoint("BOTTOMRIGHT", -26, 16)
-	gossipAddMenuInsert.horizDivLine:SetHeight(2)
-	gossipAddMenuInsert.horizDivLine:SetColorTexture(1,1,1,0.2)
+gossipAddMenuInsert.horizDivLine:SetPoint("BOTTOMLEFT", 26, 16)
+gossipAddMenuInsert.horizDivLine:SetPoint("BOTTOMRIGHT", -26, 16)
+gossipAddMenuInsert.horizDivLine:SetHeight(2)
+gossipAddMenuInsert.horizDivLine:SetColorTexture(1, 1, 1, 0.2)
 
 gossipAddMenuInsert.hideButton = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
-	gossipAddMenuInsert.hideButton:SetSize(26,26)
-	gossipAddMenuInsert.hideButton:SetPoint("BOTTOM", -50, -12)
-	gossipAddMenuInsert.hideButton.text:SetText("Hide after Casting")
-	gossipAddMenuInsert.hideButton:SetHitRectInsets(0,-gossipAddMenuInsert.hideButton.text:GetWidth(),0,0)
-	Tooltip.set(gossipAddMenuInsert.hideButton, "Hide the Gossip menu after Casting/Saving", "\n\rFor On Click: The Gossip menu will close after you click, and then the spell will be casted or saved.\n\rFor On Open: The Gossip menu will close immediately after opening, usually before it can be seen, and the spell will be casted or saved." )
-	gossipAddMenuInsert.hideButton:SetScript("OnShow", function(self)
-		self:SetChecked(false)
-		self.text:SetText("Hide after Casting")
-	end)
+gossipAddMenuInsert.hideButton:SetSize(26, 26)
+gossipAddMenuInsert.hideButton:SetPoint("BOTTOM", -50, -12)
+gossipAddMenuInsert.hideButton.text:SetText("Hide after Casting")
+gossipAddMenuInsert.hideButton:SetHitRectInsets(0, -gossipAddMenuInsert.hideButton.text:GetWidth(), 0, 0)
+Tooltip.set(gossipAddMenuInsert.hideButton, "Hide the Gossip menu after Casting/Saving",
+	"\n\rFor On Click: The Gossip menu will close after you click, and then the spell will be casted or saved.\n\rFor On Open: The Gossip menu will close immediately after opening, usually before it can be seen, and the spell will be casted or saved.")
+gossipAddMenuInsert.hideButton:SetScript("OnShow", function(self)
+	self:SetChecked(false)
+	self.text:SetText("Hide after Casting")
+end)
 
 gossipAddMenuInsert.RadioOption = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
-	gossipAddMenuInsert.RadioOption.text:SetText("..On Click (Option)")
-	gossipAddMenuInsert.RadioOption:SetSize(26,26)
-	gossipAddMenuInsert.RadioOption:SetChecked(true)
-	gossipAddMenuInsert.RadioOption:SetHitRectInsets(0,-gossipAddMenuInsert.RadioOption.text:GetWidth(),0,0)
-	gossipAddMenuInsert.RadioOption:SetPoint("TOPLEFT", gossipAddMenuInsert, "TOP", -13, 0)
-	gossipAddMenuInsert.RadioOption.CheckedTex = gossipAddMenuInsert.RadioOption:GetCheckedTexture()
-	gossipAddMenuInsert.RadioOption.CheckedTex:SetAtlas("common-checkbox-partial")
-	gossipAddMenuInsert.RadioOption.CheckedTex:ClearAllPoints()
-	gossipAddMenuInsert.RadioOption.CheckedTex:SetPoint("CENTER", -1, 0)
-	gossipAddMenuInsert.RadioOption.CheckedTex:SetSize(12,12)
-	Tooltip.set(gossipAddMenuInsert.RadioOption, "..OnClick", "\nAdds the ArcSpell & Tag to a Gossip Option. When that option is clicked, the spell will be cast.\n\rRequires Gossip Text, otherwise it's un-clickable.")
-	gossipAddMenuInsert.RadioOption:SetScript("OnShow", function(self)
-		self:SetChecked(true)
-	end)
+gossipAddMenuInsert.RadioOption.text:SetText("..On Click (Option)")
+gossipAddMenuInsert.RadioOption:SetSize(26, 26)
+gossipAddMenuInsert.RadioOption:SetChecked(true)
+gossipAddMenuInsert.RadioOption:SetHitRectInsets(0, -gossipAddMenuInsert.RadioOption.text:GetWidth(), 0, 0)
+gossipAddMenuInsert.RadioOption:SetPoint("TOPLEFT", gossipAddMenuInsert, "TOP", -13, 0)
+gossipAddMenuInsert.RadioOption.CheckedTex = gossipAddMenuInsert.RadioOption:GetCheckedTexture()
+gossipAddMenuInsert.RadioOption.CheckedTex:SetAtlas("common-checkbox-partial")
+gossipAddMenuInsert.RadioOption.CheckedTex:ClearAllPoints()
+gossipAddMenuInsert.RadioOption.CheckedTex:SetPoint("CENTER", -1, 0)
+gossipAddMenuInsert.RadioOption.CheckedTex:SetSize(12, 12)
+Tooltip.set(gossipAddMenuInsert.RadioOption, "..OnClick",
+	"\nAdds the ArcSpell & Tag to a Gossip Option. When that option is clicked, the spell will be cast.\n\rRequires Gossip Text, otherwise it's un-clickable.")
+gossipAddMenuInsert.RadioOption:SetScript("OnShow", function(self)
+	self:SetChecked(true)
+end)
 
 gossipAddMenuInsert.RadioBody = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
-	gossipAddMenuInsert.RadioBody.text:SetText("..On Open (Auto/Text)")
-	gossipAddMenuInsert.RadioBody:SetSize(26,26)
-	gossipAddMenuInsert.RadioBody:SetChecked(false)
-	gossipAddMenuInsert.RadioBody:SetHitRectInsets(0,-gossipAddMenuInsert.RadioBody.text:GetWidth(),0,0)
-	gossipAddMenuInsert.RadioBody:SetPoint("TOPLEFT", gossipAddMenuInsert.RadioOption, "BOTTOMLEFT", 0, 4)
-	gossipAddMenuInsert.RadioBody.CheckedTex = gossipAddMenuInsert.RadioBody:GetCheckedTexture()
-	gossipAddMenuInsert.RadioBody.CheckedTex:SetAtlas("common-checkbox-partial")
-	gossipAddMenuInsert.RadioBody.CheckedTex:ClearAllPoints()
-	gossipAddMenuInsert.RadioBody.CheckedTex:SetPoint("CENTER", -1, 0)
-	gossipAddMenuInsert.RadioBody.CheckedTex:SetSize(12,12)
-	Tooltip.set(gossipAddMenuInsert.RadioBody, "..On Open (Auto)", "\nAdds the ArcSpell & Tag to the Gossip main menu, casting them atuotmaically from the Phase Vault when it is shown.\n\rDoes not require Gossip Text, you can add a tag without any additional text.")
-	gossipAddMenuInsert.RadioBody:SetScript("OnShow", function(self)
-		self:SetChecked(false)
-	end)
+gossipAddMenuInsert.RadioBody.text:SetText("..On Open (Auto/Text)")
+gossipAddMenuInsert.RadioBody:SetSize(26, 26)
+gossipAddMenuInsert.RadioBody:SetChecked(false)
+gossipAddMenuInsert.RadioBody:SetHitRectInsets(0, -gossipAddMenuInsert.RadioBody.text:GetWidth(), 0, 0)
+gossipAddMenuInsert.RadioBody:SetPoint("TOPLEFT", gossipAddMenuInsert.RadioOption, "BOTTOMLEFT", 0, 4)
+gossipAddMenuInsert.RadioBody.CheckedTex = gossipAddMenuInsert.RadioBody:GetCheckedTexture()
+gossipAddMenuInsert.RadioBody.CheckedTex:SetAtlas("common-checkbox-partial")
+gossipAddMenuInsert.RadioBody.CheckedTex:ClearAllPoints()
+gossipAddMenuInsert.RadioBody.CheckedTex:SetPoint("CENTER", -1, 0)
+gossipAddMenuInsert.RadioBody.CheckedTex:SetSize(12, 12)
+Tooltip.set(gossipAddMenuInsert.RadioBody, "..On Open (Auto)",
+	"\nAdds the ArcSpell & Tag to the Gossip main menu, casting them atuotmaically from the Phase Vault when it is shown.\n\rDoes not require Gossip Text, you can add a tag without any additional text.")
+gossipAddMenuInsert.RadioBody:SetScript("OnShow", function(self)
+	self:SetChecked(false)
+end)
 
 gossipAddMenuInsert.RadioOption:SetScript("OnClick", function(self)
 	self:SetChecked(true)
@@ -429,36 +468,36 @@ end)
 
 
 gossipAddMenuInsert.RadioCast = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
-	gossipAddMenuInsert.RadioCast.text:SetText("Cast Spell")
-	gossipAddMenuInsert.RadioCast:SetSize(26,26)
-	gossipAddMenuInsert.RadioCast:SetChecked(true)
-	gossipAddMenuInsert.RadioCast:SetHitRectInsets(0,-gossipAddMenuInsert.RadioCast.text:GetWidth(),0,0)
-	gossipAddMenuInsert.RadioCast:SetPoint("TOPLEFT", 26, 0)
-	gossipAddMenuInsert.RadioCast.CheckedTex = gossipAddMenuInsert.RadioCast:GetCheckedTexture()
-	gossipAddMenuInsert.RadioCast.CheckedTex:SetAtlas("common-checkbox-partial")
-	gossipAddMenuInsert.RadioCast.CheckedTex:ClearAllPoints()
-	gossipAddMenuInsert.RadioCast.CheckedTex:SetPoint("CENTER", -1, 0)
-	gossipAddMenuInsert.RadioCast.CheckedTex:SetSize(12,12)
-	Tooltip.set(gossipAddMenuInsert.RadioCast, "Cast Spell", "\nCasts the ArcSpell from the Phase Vault.")
-	gossipAddMenuInsert.RadioCast:SetScript("OnShow", function(self)
-		self:SetChecked(true)
-	end)
+gossipAddMenuInsert.RadioCast.text:SetText("Cast Spell")
+gossipAddMenuInsert.RadioCast:SetSize(26, 26)
+gossipAddMenuInsert.RadioCast:SetChecked(true)
+gossipAddMenuInsert.RadioCast:SetHitRectInsets(0, -gossipAddMenuInsert.RadioCast.text:GetWidth(), 0, 0)
+gossipAddMenuInsert.RadioCast:SetPoint("TOPLEFT", 26, 0)
+gossipAddMenuInsert.RadioCast.CheckedTex = gossipAddMenuInsert.RadioCast:GetCheckedTexture()
+gossipAddMenuInsert.RadioCast.CheckedTex:SetAtlas("common-checkbox-partial")
+gossipAddMenuInsert.RadioCast.CheckedTex:ClearAllPoints()
+gossipAddMenuInsert.RadioCast.CheckedTex:SetPoint("CENTER", -1, 0)
+gossipAddMenuInsert.RadioCast.CheckedTex:SetSize(12, 12)
+Tooltip.set(gossipAddMenuInsert.RadioCast, "Cast Spell", "\nCasts the ArcSpell from the Phase Vault.")
+gossipAddMenuInsert.RadioCast:SetScript("OnShow", function(self)
+	self:SetChecked(true)
+end)
 
 gossipAddMenuInsert.RadioSave = CreateFrame("CHECKBUTTON", nil, gossipAddMenuInsert, "UICheckButtonTemplate")
-	gossipAddMenuInsert.RadioSave.text:SetText("Save Spell")
-	gossipAddMenuInsert.RadioSave:SetSize(26,26)
-	gossipAddMenuInsert.RadioSave:SetChecked(false)
-	gossipAddMenuInsert.RadioSave:SetHitRectInsets(0,-gossipAddMenuInsert.RadioSave.text:GetWidth(),0,0)
-	gossipAddMenuInsert.RadioSave:SetPoint("TOPLEFT", gossipAddMenuInsert.RadioCast, "BOTTOMLEFT", 0, 4)
-	gossipAddMenuInsert.RadioSave.CheckedTex = gossipAddMenuInsert.RadioSave:GetCheckedTexture()
-	gossipAddMenuInsert.RadioSave.CheckedTex:SetAtlas("common-checkbox-partial")
-	gossipAddMenuInsert.RadioSave.CheckedTex:ClearAllPoints()
-	gossipAddMenuInsert.RadioSave.CheckedTex:SetPoint("CENTER", -1, 0)
-	gossipAddMenuInsert.RadioSave.CheckedTex:SetSize(12,12)
-	Tooltip.set(gossipAddMenuInsert.RadioSave, "Save Spell from Phase Vault", "\nSaves the ArcSpell, from the Phase Vault, to the player's Personal Vault.")
-	gossipAddMenuInsert.RadioSave:SetScript("OnShow", function(self)
-		self:SetChecked(false)
-	end)
+gossipAddMenuInsert.RadioSave.text:SetText("Save Spell")
+gossipAddMenuInsert.RadioSave:SetSize(26, 26)
+gossipAddMenuInsert.RadioSave:SetChecked(false)
+gossipAddMenuInsert.RadioSave:SetHitRectInsets(0, -gossipAddMenuInsert.RadioSave.text:GetWidth(), 0, 0)
+gossipAddMenuInsert.RadioSave:SetPoint("TOPLEFT", gossipAddMenuInsert.RadioCast, "BOTTOMLEFT", 0, 4)
+gossipAddMenuInsert.RadioSave.CheckedTex = gossipAddMenuInsert.RadioSave:GetCheckedTexture()
+gossipAddMenuInsert.RadioSave.CheckedTex:SetAtlas("common-checkbox-partial")
+gossipAddMenuInsert.RadioSave.CheckedTex:ClearAllPoints()
+gossipAddMenuInsert.RadioSave.CheckedTex:SetPoint("CENTER", -1, 0)
+gossipAddMenuInsert.RadioSave.CheckedTex:SetSize(12, 12)
+Tooltip.set(gossipAddMenuInsert.RadioSave, "Save Spell from Phase Vault", "\nSaves the ArcSpell, from the Phase Vault, to the player's Personal Vault.")
+gossipAddMenuInsert.RadioSave:SetScript("OnShow", function(self)
+	self:SetChecked(false)
+end)
 
 gossipAddMenuInsert.RadioCast:SetScript("OnClick", function(self)
 	self:SetChecked(true)
@@ -479,8 +518,8 @@ StaticPopupDialogs["SCFORGE_ADD_GOSSIP"] = {
 	enterClicksFirstButton = true,
 	editBoxInstructions = "Gossip Text (i.e., 'Cast the Spell!')",
 	editBoxWidth = 310,
-	maxLetters = 255-25-20-25, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
-	EditBoxOnTextChanged = function (self, data)
+	maxLetters = 255 - 25 - 20 - 25, -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
+	EditBoxOnTextChanged = function(self, data)
 		local text = self:GetText();
 		if #text > 0 and text:gsub(" ", "") ~= "" then
 			self:GetParent().button1:Enable()
@@ -491,13 +530,13 @@ StaticPopupDialogs["SCFORGE_ADD_GOSSIP"] = {
 	OnButton1 = function(self, data)
 		local text = self.editBox:GetText();
 		local tag = "<arc_"
-		if self.insertedFrame.RadioCast:GetChecked() then tag = tag.."cast"; elseif self.insertedFrame.RadioSave:GetChecked() then tag = tag.."save"; end
-		if self.insertedFrame.hideButton:GetChecked() then tag = tag.."_hide" end
-		tag = tag..":"
+		if self.insertedFrame.RadioCast:GetChecked() then tag = tag .. "cast"; elseif self.insertedFrame.RadioSave:GetChecked() then tag = tag .. "save"; end
+		if self.insertedFrame.hideButton:GetChecked() then tag = tag .. "_hide" end
+		tag = tag .. ":"
 		local command
 		if self.insertedFrame.RadioOption:GetChecked() then command = "ph fo np go op ad "; elseif self.insertedFrame.RadioBody:GetChecked() then command = "ph fo np go te ad "; end
 
-		local finalCommand = command..text.." "..tag..data.commID..">"
+		local finalCommand = command .. text .. " " .. tag .. data.commID .. ">"
 		ns.Cmd.cmd(finalCommand)
 
 		--if self.insertedFrame.hideButton:GetChecked() then cmd("ph fo np go op ad "..text.."<arcanum_cast_hide:"..savedSpellFromVault[data].commID..">") else cmd("ph fo np go op ad "..text.."<arcanum_cast:"..savedSpellFromVault[data].commID..">") end
@@ -508,10 +547,10 @@ StaticPopupDialogs["SCFORGE_ADD_GOSSIP"] = {
 	hideOnEscape = true,
 	EditBoxOnEscapePressed = function(self) self:GetParent():Hide(); end,
 	whileDead = true,
-	OnShow = function (self, data)
+	OnShow = function(self, data)
 		self.button1:Disable()
 		self.SubText:SetText(string.format(self.SubText:GetText(), Tooltip.genContrastText(data.fullName), Tooltip.genContrastText(data.commID)))
-		self.editBox:SetMaxLetters(255-25-20-#data.commID) -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
+		self.editBox:SetMaxLetters(255 - 25 - 20 - #data.commID) -- 255 minus 25 for the max <arcanum> tag size, minus '.ph fo np go op ad ' size, minus spellCommID size.
 	end,
 }
 
@@ -522,20 +561,19 @@ local function showAddGossipPopup(commID)
 	StaticPopup_Show("SCFORGE_ADD_GOSSIP", nil, nil, spell, gossipAddMenuInsert)
 end
 
-
 -- Confirm Deletion Popup Dialog
 StaticPopupDialogs["SCFORGE_CONFIRM_DELETE"] = {
 	text = "Are you sure you want to delete the spell from the %s Vault?\n\r%s\r",
 	showAlert = true,
-	button1 = "Delete",
-	button2 = "Cancel",
+	button1 = DELETE,
+	button2 = CANCEL,
 	OnAccept = function(self, data, data2)
 		if data2 == VAULT_TYPE.PERSONAL then
 			Vault.personal.deleteSpell(data)
 			ns.MainFuncs.updateSpellLoadRows()
 			Hotkeys.deregisterHotkeyByComm(data)
 		elseif data2 == VAULT_TYPE.PHASE then
-			dprint("Deleting '"..data.."' from Phase Vault.")
+			dprint("Deleting '" .. data .. "' from Phase Vault.")
 			ns.MainFuncs.deleteSpellFromPhaseVault(data, ns.MainFuncs.updateSpellLoadRows)
 		end
 	end,
@@ -564,7 +602,7 @@ StaticPopupDialogs["SCFORGE_RESETFORGE_CONFIRM"] = {
 local function showResetForgeConfirmation(text, callback, ...)
 	local data = callback
 	local dialog = StaticPopup_Show("SCFORGE_RESETFORGE_CONFIRM", text, nil, data)
-	dialog.data2 = {...}
+	dialog.data2 = { ... }
 end
 
 local function checkAndShowResetForgeConfirmation(text, callback, ...)
@@ -574,7 +612,7 @@ local function checkAndShowResetForgeConfirmation(text, callback, ...)
 end
 
 StaticPopupDialogs["SCFORGE_ASSIGN_AUTHOR"] = {
-	text = "Assign Author to spell "..Tooltip.genContrastText("%s"),
+	text = "Assign Author to spell " .. Tooltip.genContrastText("%s"),
 	closeButton = true,
 	hasEditBox = true,
 	enterClicksFirstButton = true,
@@ -585,7 +623,7 @@ StaticPopupDialogs["SCFORGE_ASSIGN_AUTHOR"] = {
 		local text = self.editBox:GetText();
 		Vault.personal.assignPersonalSpellAuthor(data.commID, text)
 	end,
-	EditBoxOnTextChanged = function (self)
+	EditBoxOnTextChanged = function(self)
 		local text = self:GetText();
 		if #text > 0 and text:gsub(" ", "") ~= "" then
 			self:GetParent().button1:Enable()
@@ -605,7 +643,7 @@ StaticPopupDialogs["SCFORGE_ASSIGN_AUTHOR"] = {
 		end
 	end,
 	whileDead = true,
-	OnShow = function (self, data)
+	OnShow = function(self, data)
 		self.button1:Disable()
 		if data then
 			if data.subText then
@@ -618,7 +656,7 @@ StaticPopupDialogs["SCFORGE_ASSIGN_AUTHOR"] = {
 	end,
 }
 local function showAssignPersonalSpellAuthorPopup(spellCommID, author)
-	local data = {commID = spellCommID, author = author}
+	local data = { commID = spellCommID, author = author }
 	StaticPopup_Show("SCFORGE_ASSIGN_AUTHOR", spellCommID, nil, data)
 end
 
@@ -628,8 +666,10 @@ ns.UI.Popups = {
 	showCommOverwritePopup = showCommOverwritePopup,
 	showPhaseVaultOverwritePopup = showPhaseVaultOverwritePopup,
 	showLinkHotkeyDialog = showLinkHotkeyDialog,
-	showNewProfilePopup = showNewProfilePopup,
 	showAddGossipPopup = showAddGossipPopup,
 	checkAndShowResetForgeConfirmation = checkAndShowResetForgeConfirmation,
 	showAssignPersonalSpellAuthorPopup = showAssignPersonalSpellAuthorPopup,
+	showCustomGenericInputBox = showCustomGenericInputBox,
+	showCustomGenericConfirmation = showCustomGenericConfirmation,
+	showGenericConfirmation = showGenericConfirmation,
 }

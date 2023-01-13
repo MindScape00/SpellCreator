@@ -316,6 +316,7 @@ local function init(callbacks)
 		},
 		extensions = {
 			{ ext = "hide", script = gossipScript.hide_check },
+			-- auto is also a legacy tag, defined below. They shouldn't really use it but it's still useful for making gob tele's with auto.
 		},
 	}
 end

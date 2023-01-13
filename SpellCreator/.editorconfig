@@ -1,0 +1,4 @@
+[*.lua]
+
+# hush
+max_line_length = 200

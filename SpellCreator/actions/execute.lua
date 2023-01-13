@@ -24,7 +24,7 @@ local function stopRunningActions()
 	for i = 1, #runningActions do
 		if runningActions[i] then
 			runningActions[i]:Cancel()
-			runningActions[i]=nil
+			runningActions[i] = nil
 			didStopSomething = true
 		end
 	end
@@ -33,11 +33,10 @@ local function stopRunningActions()
 end
 
 local function executeAction(varTable, actionData, selfOnly, isRevert, runningActionID)
-	if runningActionID then runningActions[runningActionID] = nil end
 	local comTarget = actionData.comTarget
 	for i = 1, #varTable do
 		local v = varTable[i]
-		if string.byte(v,1) == 32 then v = strtrim(v, " ") end
+		if string.byte(v, 1) == 32 then v = strtrim(v, " ") end
 		if comTarget == "func" then
 			if isRevert then
 				actionData.revert(v)
@@ -48,23 +47,24 @@ local function executeAction(varTable, actionData, selfOnly, isRevert, runningAc
 			if isRevert then
 				local finalCommand = tostring(actionData.revert)
 				finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
-				if selfOnly then finalCommand = finalCommand.." self" end
+				if selfOnly then finalCommand = finalCommand .. " self" end
 				cmd(finalCommand)
 			else
 				local finalCommand = tostring(actionData.command)
 				finalCommand = finalCommand:gsub(sfCmd_ReplacerChar, v)
-				if selfOnly then finalCommand = finalCommand.." self" end
+				if selfOnly then finalCommand = finalCommand .. " self" end
 				cmd(finalCommand)
 			end
 		end
 	end
+	if runningActionID then runningActions[runningActionID] = nil end
 end
 
 local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	if not actionType then return; end
 	local actionData = actionTypeData[actionType]
 	if revertDelay then revertDelay = tonumber(revertDelay) end
-	if actionData.dependency and not IsAddOnLoaded(actionData.dependency) then eprint("AddOn " .. actionData.dependency .. " required for action "..actionData.name); return; end
+	if actionData.dependency and not IsAddOnLoaded(actionData.dependency) then eprint("AddOn " .. actionData.dependency .. " required for action " .. actionData.name); return; end
 	local varTable
 
 	if vars then
@@ -78,15 +78,15 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	if delay == 0 then
 		executeAction(varTable, actionData, selfOnly, nil, nil)
 		if revertDelay and revertDelay > 0 then
-			local runningActionID = #runningActions+1
+			local runningActionID = #runningActions + 1
 			runningActions[runningActionID] = C_Timer.NewTimer(revertDelay, function() executeAction(varTable, actionData, selfOnly, true, runningActionID) end)
 		end
 	else
-		local runningActionID = #runningActions+1
+		local runningActionID = #runningActions + 1
 		runningActions[runningActionID] = C_Timer.NewTimer(delay, function()
 			executeAction(varTable, actionData, selfOnly, nil, runningActionID)
 			if revertDelay and revertDelay > 0 then
-				runningActionID = #runningActions+1
+				runningActionID = #runningActions + 1
 				runningActions[runningActionID] = C_Timer.NewTimer(revertDelay, function() executeAction(varTable, actionData, selfOnly, true, runningActionID) end)
 			end
 		end)
@@ -101,11 +101,11 @@ local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 	local longestDelay = 0
 	if ((not bypassCheck) and (not SpellCreatorMasterTable.Options["debug"])) then
 		if not Permissions.canExecuteSpells() then
-			cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than " .. START_ZONE_NAME.. ".")
+			cprint("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than " .. START_ZONE_NAME .. ".")
 			return
 		end
 	end
-	for _,spell in pairs(actionsToCommit) do
+	for _, spell in pairs(actionsToCommit) do
 		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, DataUtils.sanitizeNewlinesToCSV(spell.vars))
 		if spell.delay > longestDelay then
 			longestDelay = spell.delay
@@ -133,7 +133,7 @@ local function executePhaseSpell(commID)
 	if spell then
 		executeSpell(spell.actions, true, spell.fullName, spell);
 	else
-		cprint("No spell with command ".. commID .." found in the Phase Vault (or vault was not loaded). Please let a phase officer know.")
+		cprint("No spell with command " .. commID .. " found in the Phase Vault (or vault was not loaded). Please let a phase officer know.")
 	end
 end
 
