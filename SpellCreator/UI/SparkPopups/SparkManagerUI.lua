@@ -1,11 +1,13 @@
 ---@class ns
 local ns = select(2, ...)
+local addonName = ...
 
 local DataUtils = ns.Utils.Data
 local AceGUI = ns.Libs.AceGUI
 local SparkPopups = ns.UI.SparkPopups
 local Tooltip = ns.Utils.Tooltip
 local Popups = ns.UI.Popups
+local Permissions = ns.Permissions
 
 local ADDON_COLORS = ns.Constants.ADDON_COLORS
 
@@ -163,7 +165,9 @@ local function drawMapGroup(group, mapID, callback)
 
 		do
 			local styleBorder = AceGUI:Create("Label")
-			styleBorder:SetImage(triggerData[6])
+			local styleBorderImage = triggerData[6]
+			if type(styleBorderImage) == "string" then styleBorderImage = styleBorderImage:gsub("SpellCreator%-dev", "SpellCreator"):gsub("SpellCreator", addonName) end
+			styleBorder:SetImage(styleBorderImage)
 			styleBorder:SetImageSize(128, 64)
 			styleBorder:SetRelativeWidth(1)
 			if triggerData[7] then -- if there's a color hex code
@@ -179,7 +183,7 @@ local function drawMapGroup(group, mapID, callback)
 			local theSpell = ns.Vault.phase.findSpellByID(triggerData[1])
 			if theSpell then
 				spellIcon:SetImage(ns.UI.Icons.getFinalIcon(theSpell.icon))
-				spellIcon:SetImageSize(28, 28)
+				spellIcon:SetImageSize(24, 24)
 			end
 			spellIcon:SetHeight(0)
 			spellIcon:SetRelativeWidth(1)
@@ -191,6 +195,9 @@ local function drawMapGroup(group, mapID, callback)
 			C_Timer.After(0, function()
 				spellIcon.image:ClearAllPoints()
 				spellIcon.image:SetPoint("CENTER", styleBorder.image, "CENTER")
+				spellIcon.image:SetSize(24, 24)
+				local layer, sublayer = styleBorder.image:GetDrawLayer()
+				spellIcon.image:SetDrawLayer(layer, sublayer - 1)
 			end)
 		end
 
@@ -206,11 +213,13 @@ local function drawMapGroup(group, mapID, callback)
 			editButton:SetText("Edit")
 			editButton:SetRelativeWidth(1)
 			editButton:SetCallback("OnClick", function() sparkEditButtonClick(mapID, k) end)
+			editButton:SetDisabled((not Permissions.isOfficerPlus() and not SpellCreatorMasterTable.Options["debug"]))
 			triggerButtonsSection:AddChild(editButton)
 
 			local gotoButton = AceGUI:Create("Button")
 			gotoButton:SetText("Go To")
 			gotoButton:SetRelativeWidth(1)
+			gotoButton:SetDisabled((not Permissions.isMemberPlus() and not SpellCreatorMasterTable.Options["debug"]))
 			gotoButton:SetCallback("OnClick", function()
 				cmd(string.format("worldport %s %s %s %s", triggerData[2], triggerData[3], triggerData[4], mapID))
 			end)
@@ -219,6 +228,7 @@ local function drawMapGroup(group, mapID, callback)
 			local deleteButton = AceGUI:Create("Button")
 			deleteButton:SetText("Delete")
 			deleteButton:SetRelativeWidth(1)
+			deleteButton:SetDisabled((not Permissions.isOfficerPlus() and not SpellCreatorMasterTable.Options["debug"]))
 			deleteButton:SetCallback("OnClick", function()
 				Popups.showGenericConfirmation(
 					("Are you sure you want to delete this Spark Trigger for %s?"):format(Tooltip.genContrastText(triggerData[1])),
@@ -234,12 +244,12 @@ local function drawMapGroup(group, mapID, callback)
 end
 
 local function hideSparkManagerUI()
-	if sparkManagerUI then sparkManagerUI:Release() end
+	if sparkManagerUI and sparkManagerUI:IsShown() then sparkManagerUI:Release() end
 end
 
 ---@param mapSelectOverride integer? The map ID to open the UI to
 local function showSparkManagerUI(mapSelectOverride)
-	if sparkManagerUI and sparkManagerUI:IsShown() then hideSparkManagerUI() end
+	hideSparkManagerUI()
 
 	local frame = AceGUI:Create("Frame")
 	frame:SetTitle("Arcanum - Spark Manager")
@@ -286,4 +296,5 @@ end
 ns.UI.SparkPopups.SparkManagerUI = {
 	showSparkManagerUI = showSparkManagerUI,
 	refreshSparkManagerUI = refreshSparkManagerUI,
+	hideSparkManagerUI = hideSparkManagerUI,
 }

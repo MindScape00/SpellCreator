@@ -7,13 +7,16 @@ local AceConfigDialog = ns.Libs.AceConfigDialog
 local SparkPopups = ns.UI.SparkPopups
 local ASSETS_PATH = ns.Constants.ASSETS_PATH
 local ADDON_COLORS = ns.Constants.ADDON_COLORS
+local SPARK_ASSETS_PATH = ASSETS_PATH .. "/Sparks/"
 
 local getPlayerPositionData = C_Epsilon.GetPosition or function() return UnitPosition("player") end
 
 local theUIDialogName = "ARCANUM_SPARK_CREATE"
 local defaultSparkPopupStyle = 629199 -- "Interface\\ExtraButton\\Default";
+local addNewSparkPopupStyleTex = 308477
+local customStyleTexIter = 0
 
-local sparkPopupStyles = { -- You can still use one not listed here, but this is for giving them UI to choose one easier later
+local sparkPopupStyles = { -- You can still use one not listed here technically, but these are the ones supported in the UI. No simple way to use their own.
 	{ 629199, "Default" },
 	{ 629198, "Champion Light" },
 	{ 629200, "Feng Barrier" },
@@ -29,22 +32,45 @@ local sparkPopupStyles = { -- You can still use one not listed here, but this is
 	{ 774879, "Engineering" },
 	{ 796702, "Soulswap" },
 	{ 876185, "Amber" },
-	{ 1016651, "Garrison Armory" },
-	{ 1016652, "Garrison Alliance" },
-	{ 1016653, "Garrison Horde" },
-	{ 1016654, "Garrison Inn (Hearthstone)" },
-	{ 1016655, "Garrison Lumbermill" },
-	{ 1016656, "Garrison Mage Tower" },
-	{ 1016657, "Garrison Stables" },
-	{ 1016658, "Garrison Trading Post" },
-	{ 1016659, "Garrison Training Pit" },
-	{ 1016660, "Garrison Workshop" },
+	{ 1016651, "Garr. Armory" },
+	{ 1016652, "Garr. Alliance" },
+	{ 1016653, "Garr. Horde" },
+	{ 1016654, "Garr. Inn (Hearthstone)" },
+	{ 1016655, "Garr. Lumbermill" },
+	{ 1016656, "Garr. Mage Tower" },
+	{ 1016657, "Garr. Stables" },
+	{ 1016658, "Garr. Trading Post" },
+	{ 1016659, "Garr. Training Pit" },
+	{ 1016660, "Garr. Workshop" },
 	{ 1129687, "Eye of Terrok" },
 	{ 1466424, "Fel" },
 	{ 1589183, "Soulcage" },
-	{ 2203955, "Heart of Azeroth (Active)" },
-	{ 2203956, "Heart of Azeroth (Min)" },
-	-- 	{ ASSETS_PATH .. "/CustomFrame", "Custom Frame 1"}
+	{ 2203955, "Heart of Az. Active" },
+	{ 2203956, "Heart of Az. Minimal" },
+	{ SPARK_ASSETS_PATH .. "1Simple", "Arcanum - Simple" },
+	{ SPARK_ASSETS_PATH .. "1Ornate", "Arcanum - Ornate" },
+	{ SPARK_ASSETS_PATH .. "1OrnateBG", "Arcanum - Aurora" },
+	{ SPARK_ASSETS_PATH .. "2Simple", "Arc Lens - Simple" },
+	{ SPARK_ASSETS_PATH .. "2CustomRed", "Arc Lens - Red" },
+	{ SPARK_ASSETS_PATH .. "2CustomOrange", "Arc Lens - Orange" },
+	{ SPARK_ASSETS_PATH .. "2CustomYellow", "Arc Lens - Yellow" },
+	{ SPARK_ASSETS_PATH .. "2CustomGreen", "Arc Lens - Green" },
+	{ SPARK_ASSETS_PATH .. "2CustomJade", "Arc Lens - Jade" },
+	{ SPARK_ASSETS_PATH .. "2CustomBlue", "Arc Lens - Blue" },
+	{ SPARK_ASSETS_PATH .. "2CustomIndigo", "Arc Lens - Indigo" },
+	{ SPARK_ASSETS_PATH .. "2CustomViolet", "Arc Lens - Violet" },
+	{ SPARK_ASSETS_PATH .. "2CustomPink", "Arc Lens - Pink" },
+	{ SPARK_ASSETS_PATH .. "2CustomPrismatic", "Arc Lens - Prismatic" },
+	{ SPARK_ASSETS_PATH .. "dicemaster_sanctum", "DiceMaster Sanctum" },
+	{ SPARK_ASSETS_PATH .. "ethereal-xtrabtn", "Arc+Dice - Ethereal" },
+	{ SPARK_ASSETS_PATH .. "nzoth-xtrabtn", "Arc+Dice - Nzoth" },
+	{ SPARK_ASSETS_PATH .. "forsaken-xtrabtn", "Arc+Dice - Forsaken" },
+	{ SPARK_ASSETS_PATH .. "worgen-xtrabtn", "Arc+Dice - Worgen" },
+
+
+	-- always last
+	{ addNewSparkPopupStyleTex, "Add Other/Custom" },
+	-- 	{ ASSETS_PATH .. "/CustomFrame", "Custom Frame 1"},
 }
 
 local sparkPopupStylesKVTable = {}
@@ -116,7 +142,29 @@ local uiOptionsTable = {
 					values = sparkPopupStylesKVTable,
 					sorting = sparkPopupStylesSortTable,
 					order = autoOrder(),
-					set = function(info, val) sparkUI_Helper.style = val end,
+					set = function(info, val)
+						if val == addNewSparkPopupStyleTex then
+							ns.UI.Popups.showCustomGenericInputBox({
+								text = "Texture Path or FileID:",
+								acceptText = ADD,
+								maxLetters = 999,
+								callback = function(texPath)
+									if tonumber(texPath) then texPath = tonumber(texPath) end
+									local newKey = texPath -- path
+									if not sparkPopupStylesKVTable[newKey] then
+										customStyleTexIter = customStyleTexIter + 1
+										local newVal = CreateTextureMarkup(texPath, 48, 24, 48, 24, 0, 1, 0, 1) .. " Custom Texture " .. customStyleTexIter -- texture markup + name
+										sparkPopupStylesKVTable[newKey] = newVal
+										tinsert(sparkPopupStylesSortTable, newKey)
+									end
+									sparkUI_Helper.style = newKey
+									AceConfigDialog:Open(theUIDialogName)
+								end,
+							})
+							return
+						end
+						sparkUI_Helper.style = val
+					end,
 					get = function(info) return sparkUI_Helper.style end
 				},
 				styleColor = {
@@ -256,8 +304,13 @@ local function openSparkCreationUI(commID, editIndex, editMapID)
 	AceConfigDialog:Open(theUIDialogName)
 end
 
+local function closeSparkCreationUI()
+	AceConfigDialog:Close(theUIDialogName)
+end
+
 ---@class UI_SparkPopups_CreateSparkUI
 ns.UI.SparkPopups.CreateSparkUI = {
 	openSparkCreationUI = openSparkCreationUI,
+	closeSparkCreationUI = closeSparkCreationUI,
 	sparkPopupStyles = sparkPopupStylesKVTable,
 }

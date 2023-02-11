@@ -2,11 +2,12 @@
 local ns = select(2, ...)
 
 local eprint = ns.Logging.eprint
+local dprint = ns.Logging.dprint
 
 local MacroEditBox = MacroEditBox
 
 local function cmd(text)
-	SendChatMessage("."..text, "GUILD");
+	SendChatMessage("." .. text, "GUILD");
 end
 
 local function cmdNoDot(text)
@@ -20,16 +21,34 @@ end
 local dummy = function() end
 
 local function runMacroText(command)
-	MacroEditBox:SetText(command)
-	local ran = xpcall(ChatEdit_SendText, dummy, MacroEditBox)
-	if not ran then
-		eprint("This command failed: "..command)
+	if command:match("^/") then
+		if command:match("^/run ") then
+			local newCommand = command:gsub("/run ", "", 1)
+			dprint("Had a /run command, it was..")
+			dprint(newCommand)
+			RunScript(newCommand)
+		elseif command:match("^/script ") then
+			local newCommand = command:gsub("/script ", "", 1)
+			dprint("Had a /script command, it was..")
+			dprint(newCommand)
+			RunScript(newCommand)
+		else
+			MacroEditBox:SetText(command)
+			local ran = xpcall(ChatEdit_SendText, dummy, MacroEditBox)
+			if not ran then
+				eprint("This command failed: " .. command)
+			end
+		end
+	else
+		dprint("Had a non-slash script command, it was..")
+		dprint(command)
+		RunScript(command)
 	end
 end
 
 ns.Cmd = {
-    cmd = cmd,
-    cmdNoDot = cmdNoDot,
-    cmdWithDotCheck = cmdWithDotCheck,
-    runMacroText = runMacroText,
+	cmd = cmd,
+	cmdNoDot = cmdNoDot,
+	cmdWithDotCheck = cmdWithDotCheck,
+	runMacroText = runMacroText,
 }

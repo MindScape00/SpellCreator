@@ -168,18 +168,21 @@ local function createMenu(row)
 			action(ACTION.TRP3StatusOOC),
 		})),
 
-		header("Run"),
+		header("Other / Scripts"),
 		selectmenu("Cheat", {
 			action(ACTION.CheatOn),
 			action(ACTION.CheatOff),
+		}),
+		selectmenu("Camera", {
+			action(ACTION.RotateCameraLeftStart),
+			action(ACTION.RotateCameraRightStart),
+			action(ACTION.RotateCameraStop),
 		}),
 		selectmenu("Sounds", {
 			action(ACTION.PlayLocalSoundKit),
 			action(ACTION.PlayLocalSoundFile),
 			action(ACTION.PlayPhaseSound),
 		}),
-		action(ACTION.MacroText),
-		action(ACTION.Command),
 		selectmenu("Text / Messages", {
 			action(ACTION.PrintMsg),
 			action(ACTION.RaidMsg),
@@ -187,6 +190,8 @@ local function createMenu(row)
 			spacer(),
 			action(ACTION.ARCCopy),
 		}),
+		action(ACTION.MacroText),
+		action(ACTION.Command),
 		selectmenu("ARC:API", {
 			header("Personal Variables"),
 			action(ACTION.ARCSet),
@@ -209,6 +214,7 @@ local function createMenu(row)
 
 			header("Miscellaneous"),
 			action(ACTION.ArcSaveFromPhase),
+			action(ACTION.SpawnBlueprint),
 		}),
 	}
 end

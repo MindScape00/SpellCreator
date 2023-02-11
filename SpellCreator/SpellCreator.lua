@@ -28,6 +28,7 @@ local Tooltip = ns.Utils.Tooltip
 local Animation = ns.UI.Animation
 local Attic = ns.UI.MainFrame.Attic
 local Basement = ns.UI.MainFrame.Basement
+local ChatLink = ns.UI.ChatLink
 local IconPicker = ns.UI.IconPicker
 local ImportExport = ns.UI.ImportExport
 local Models, Portrait = ns.UI.Models, ns.UI.Portrait
@@ -87,7 +88,6 @@ local C_Epsilon = C_Epsilon
 --[[ local function sendChat(text)
   SendChatMessage(text, "SAY");
 end ]]
-
 -- Frame Listeners
 local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
@@ -134,7 +134,6 @@ background.Overlay:SetAlpha(0.02)
 	background.Overlay2:SetAllPoints()
 	background.Overlay2:SetAlpha(0.25)
 	--]]
-
 --[[ -- Old Background Setup
 
 --- The Inner Frame
@@ -159,8 +158,6 @@ if isDualBackgroundRequired then
 	background2:SetTexCoord(0,1,0,0.96)
 end
 --]]
-
-
 SpellRow.addAddRowRow()
 
 ---@param spellToLoad VaultSpell
@@ -220,8 +217,10 @@ Basement.init(SCForgeMainFrame, {
 	resetUI = function(resetButton)
 		-- 2 types of reset: Delete all the Rows, and load an empty spell to effectively reset the UI. We're doing both, the delete rows for visual, load for the actual reset
 		local emptySpell = {
-			["fullName"] = "", ["commID"] = "", ["description"] = "",
-			["actions"] = { { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, },
+			["fullName"] = "",
+			["commID"] = "",
+			["description"] = "",
+			["actions"] = { { ["vars"] = "",["actionType"] = "reset",["delay"] = "",["selfOnly"] = false, }, { ["vars"] = "",["actionType"] = "reset",["delay"] = "",["selfOnly"] = false, },
 				{ ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, },
 		}
 
@@ -257,7 +256,8 @@ local function noSpellsToLoad(fake)
 	phaseAddonDataListener:UnregisterEvent("CHAT_MSG_ADDON");
 	if not fake then
 		if isOfficerPlus() then
-			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty\n\n\rSelect a spell in\ryour personal vault\rand click the Transfer\rbutton below!\n\n\rGo on, add\rsomething fun!");
+			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText(
+				"Vault is Empty\n\n\rSelect a spell in\ryour personal vault\rand click the Transfer\rbutton below!\n\n\rGo on, add\rsomething fun!");
 		else
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Vault is Empty");
 		end
@@ -281,9 +281,15 @@ local function getSpellForgePhaseVault(callback)
 		if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 			phaseAddonDataListener:UnregisterEvent("CHAT_MSG_ADDON")
 
-			if (#text < 1 or text == "") then noSpellsToLoad(); return; end
+			if (#text < 1 or text == "") then
+				noSpellsToLoad();
+				return;
+			end
 			phaseVaultKeys = serializer.decompressForAddonMsg(text)
-			if #phaseVaultKeys < 1 then noSpellsToLoad(); return; end
+			if #phaseVaultKeys < 1 then
+				noSpellsToLoad();
+				return;
+			end
 			dprint("Phase spell keys: ")
 			Debug.ddump(phaseVaultKeys)
 			Vault.phase.clearSpells()
@@ -315,8 +321,7 @@ local function getSpellForgePhaseVault(callback)
 				--phaseVaultLoadingExpected = k
 				dprint("Trying to load spell from phase: " .. v)
 				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S_" .. v)
-				messageTicketQueue[messageTicketID] = true -- add it to a fake queue table so we can watch for multiple prefixes...
-
+				messageTicketQueue[messageTicketID] = v -- add it to a fake queue table so we can watch for multiple prefixes... (storing the commID here also incase we need it for debug)
 			end
 		end
 	end)
@@ -337,7 +342,10 @@ end
 local function deleteSpellFromPhaseVault(commID, callback)
 	-- get the phase spell keys, remove the one we want to delete, then re-save it, and then over-ride the PhaseAddonData for it's key with nothing..
 
-	if phaseVault.isSavingOrLoadingAddonData then eprint("Arcanum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
+	if phaseVault.isSavingOrLoadingAddonData then
+		eprint("Arcanum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment.");
+		return;
+	end
 
 	phaseVault.isSavingOrLoadingAddonData = true
 	sendPhaseVaultIOLock(true)
@@ -364,6 +372,10 @@ local function deleteSpellFromPhaseVault(commID, callback)
 	end)
 end
 
+---@param commID CommID | integer commID if from personal vault, index if from phase vault
+---@param overwrite boolean?
+---@param fromPhase boolean?
+---@param forcePrivate boolean?
 local function saveSpellToPhaseVault(commID, overwrite, fromPhase, forcePrivate)
 	local needToOverwrite = false
 	local phaseVaultIndex
@@ -375,7 +387,10 @@ local function saveSpellToPhaseVault(commID, overwrite, fromPhase, forcePrivate)
 		phaseVaultIndex = commID
 		commID = Vault.phase.getSpellByIndex(phaseVaultIndex).commID
 	end
-	if phaseVault.isSavingOrLoadingAddonData then eprint("Arcaunm is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment."); return; end
+	if phaseVault.isSavingOrLoadingAddonData then
+		eprint("Arcanum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment.");
+		return;
+	end
 	if isMemberPlus() then
 		dprint("Trying to save spell to phase vault.")
 
@@ -424,26 +439,55 @@ local function saveSpellToPhaseVault(commID, overwrite, fromPhase, forcePrivate)
 					dprint(nil, "Force Vis was set to " .. tostring(forcePrivate))
 				end
 				local str = serializer.compressForAddonMsg(_spellData)
+				dprint(nil, tostring(#str) .. " Characters Long Encoded")
+				if #str > 3750 then
+					Popups.showCustomGenericConfirmation({
+						text = ("This spell exceeds 3750 characters when encoded (%s characters). This can cause issues when loading the spell, causing the Phase Vault to crash. Do you want to risk it all and save anyways?"):format(Tooltip.genContrastText(tostring(#str))),
+						showAlert = true,
+						acceptText = "Save Anyways",
+						cancelText = "Cancel",
+						callback = function()
+							local key = "SCFORGE_S_" .. commID
+							C_Epsilon.SetPhaseAddonData(key, str)
 
-				local key = "SCFORGE_S_" .. commID
-				C_Epsilon.SetPhaseAddonData(key, str)
+							if not needToOverwrite then
+								tinsert(phaseVaultKeys, commID)
+								phaseVaultKeys = serializer.compressForAddonMsg(phaseVaultKeys)
+								C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
+							end
 
-				if not needToOverwrite then
-					tinsert(phaseVaultKeys, commID)
-					phaseVaultKeys = serializer.compressForAddonMsg(phaseVaultKeys)
-					C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
+							cprint("Spell '" .. commID .. "' saved to the Phase Vault, despite being warned.")
+							phaseVault.isSavingOrLoadingAddonData = false
+							sendPhaseVaultIOLock(false)
+							getSpellForgePhaseVault()
+						end,
+						cancelCallback = function()
+							cprint("Spell '" .. commID .. "' was NOT saved to the Phase Vault.")
+							phaseVault.isSavingOrLoadingAddonData = false
+							sendPhaseVaultIOLock(false)
+							getSpellForgePhaseVault()
+						end,
+					})
+				else
+					local key = "SCFORGE_S_" .. commID
+					C_Epsilon.SetPhaseAddonData(key, str)
+
+					if not needToOverwrite then
+						tinsert(phaseVaultKeys, commID)
+						phaseVaultKeys = serializer.compressForAddonMsg(phaseVaultKeys)
+						C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
+					end
+
+					cprint("Spell '" .. commID .. "' saved to the Phase Vault.")
+					phaseVault.isSavingOrLoadingAddonData = false
+					sendPhaseVaultIOLock(false)
+					getSpellForgePhaseVault()
 				end
-
-				cprint("Spell '" .. commID .. "' saved to the Phase Vault.")
-				phaseVault.isSavingOrLoadingAddonData = false
-				sendPhaseVaultIOLock(false)
-				getSpellForgePhaseVault()
 			end
 		end)
 	else
 		eprint("You must be a member, officer, or owner in order to save spells to the phase.")
 	end
-
 end
 
 local spellLoadRows = {}
@@ -465,7 +509,6 @@ local function editVaultTags( tag, spellCommID, vaultType ) --
 		--print(spell.tags[tag])
 	end
 end ]]
-
 ------------------------
 
 local loadRowSpacing = 5
@@ -547,7 +590,6 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 				else
 					thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum - 1 - numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
 				end
-
 			else
 				dprint(false, "SCForge Load Row " .. rowNum .. " Didn't exist - making it!")
 
@@ -573,9 +615,11 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	MainFrame.updateFrameChildScales(SCForgeMainFrame)
 end
 
----@param fromPhaseVaultID integer?
-saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData)
-
+---@param overwriteBypass boolean? did we want to overwrite a spell if it exists already
+---@param fromPhaseVaultID integer? the index of the vault spell to save, if we are saving from the phase vault
+---@param manualData VaultSpell? manual data passed in to save, instead of pulling from the phaseVault or from the forge UI
+---@param sendLearnedMessage boolean? if we should send a fun 'You have learned a new ArcSpell' message
+saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData, sendLearnedMessage)
 	local wasOverwritten = false
 	local newSpellData = {}
 	if fromPhaseVaultID then
@@ -610,7 +654,7 @@ saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData)
 		if overwriteBypass then
 			wasOverwritten = true
 		else
-			Popups.showPersonalVaultOverwritePopup(newSpellData, existingSpell, fromPhaseVaultID, manualData, saveSpell)
+			Popups.showPersonalVaultOverwritePopup(newSpellData, existingSpell, fromPhaseVaultID, manualData, saveSpell, sendLearnedMessage)
 			return;
 		end
 	end
@@ -636,7 +680,9 @@ saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData)
 		Vault.personal.saveSpell(newSpellData)
 		Attic.setEditCommId(Attic.getInfo().commID)
 		SCForgeMainFrame.SaveSpellButton:UpdateIfValid()
-		if wasOverwritten then
+		if sendLearnedMessage then
+			print(ADDON_COLORS.LIGHT_PURPLE:WrapTextInColorCode(("You have learned a new ArcSpell: %s"):format(ChatLink.generateSpellLink(newSpellData, "PERSONAL"))))
+		elseif wasOverwritten then
 			cprint("Over-wrote spell with name: " .. newSpellData.fullName .. ". Use command: '/sf " .. newSpellData.commID .. "' to cast it! (" .. #newSpellData.actions .. " actions).")
 		else
 			cprint("Saved spell with name: " .. newSpellData.fullName .. ". Use command: '/sf " .. newSpellData.commID .. "' to cast it! (" .. #newSpellData.actions .. " actions).")
@@ -651,9 +697,9 @@ saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData)
 end
 
 ---@param index integer
-local function downloadToPersonal(index)
+local function downloadToPersonal(index, vocal)
 	Debug.ddump(Vault.phase.getSpellByIndex(index)) -- Dump the table of the phase vault spell for debug
-	saveSpell(nil, index)
+	saveSpell(nil, index, nil, vocal)
 end
 
 local function updateRows()
@@ -668,12 +714,12 @@ VaultFilter.init({
 --------- Load Spell Frame - aka the Vault
 
 SCForgeMainFrame.LoadSpellFrame = LoadSpellFrame.init({
-	import = ImportExport.showImportMenu,
-	downloadToPersonal = downloadToPersonal,
-	upload = function(commID)
-		saveSpellToPhaseVault(commID, IsShiftKeyDown())
-	end,
-})
+		import = ImportExport.showImportMenu,
+		downloadToPersonal = downloadToPersonal,
+		upload = function(commID)
+			saveSpellToPhaseVault(commID, IsShiftKeyDown())
+		end,
+	})
 SpellLoadRow.init({
 	loadSpell = loadSpell,
 	upload = function(commID, isPrivate)
@@ -749,7 +795,7 @@ button.animations = button:CreateAnimationGroup()
 button.animations:SetLooping("REPEAT")
 button.animations.rotate = button.animations:CreateAnimation("Rotation")
 local _rot = button.animations.rotate
-_rot:SetDegrees(-360)
+_rot:SetDegrees( -360)
 _rot:SetDuration(0.33)
 
 button:SetScript("OnClick", function(self, button)
@@ -798,47 +844,81 @@ end
 -------------------------------------------------------------------------------
 -- Addon Loaded & Communication
 -------------------------------------------------------------------------------
-local lockTimer = C_Timer.NewTimer(0, function() end) -- this just inits the lockTimer as a timer table, incase we somehow get the _PUNLOCK before a _PLOCK and then EOROROR
-local function onCommReceived(prefix, message, channel, sender)
-	if sender == Constants.CHARACTER_NAME then dprint("onCommReceived bypassed because we're talking to ourselves."); return; end
-	if prefix == addonMsgPrefix .. "REQ" then
+
+local vaultLockTimer = C_Timer.NewTimer(0, function()
+	end) -- this just inits the lockTimer as a timer table, incase we somehow get the _PUNLOCK before a _PLOCK and then EOROROR
+local sparkLockTimer = C_Timer.NewTimer(0, function()
+	end) -- this just inits the lockTimer as a timer table, incase we somehow get the _PUNLOCK before a _PLOCK and then EOROROR
+local aceCommReceivedHandlers = {
+	[addonMsgPrefix .. "REQ"] = function(prefix, message, channel, sender)
 		Comms.sendSpellToPlayer(sender, message)
-	elseif prefix == addonMsgPrefix .. "SPELL" then
+	end,
+	[addonMsgPrefix .. "SPELL"] = function(prefix, message, channel, sender)
 		Comms.receiveSpellData(message, sender, updateSpellLoadRows)
-	elseif prefix == addonMsgPrefix .. "_CACHE" then
+	end,
+	[addonMsgPrefix .. "_CACHE"] = function(prefix, message, channel, sender)
 		Comms.receiveSpellCache(message, sender)
-	elseif prefix == addonMsgPrefix .. "_LCACHE" then
+	end,
+	[addonMsgPrefix .. "_LCACHE"] = function(prefix, message, channel, sender)
 		local localAreaData, spellData = strsplit(strchar(31), message, 2)
 		local phase, posY, posX, instanceID, radius = strsplit(":", localAreaData, 5)
 		if Comms.isLocal(phase, posY, posX, instanceID, radius) then
 			Comms.receiveSpellCache(spellData, sender)
 		end
-	elseif prefix == addonMsgPrefix .. "_PLOCK" then
+	end,
+	[addonMsgPrefix .. "_PLOCK"] = function(prefix, message, channel, sender)
 		local phaseID = C_Epsilon.GetPhaseId()
 		if message == phaseID then
 			phaseVault.isSavingOrLoadingAddonData = true
 			dprint("Phase Vault IO for Phase " .. phaseID .. " was locked by Addon Message")
-			lockTimer = C_Timer.NewTimer(5,
-				function() phaseVault.isSavingOrLoadingAddonData = false; eprint("Phase IO Lock on for longer than 10 seconds - disabled. If you get this after changing phases, ignore, otherwise please report it."); end)
+			vaultLockTimer = C_Timer.NewTimer(5,
+					function()
+						phaseVault.isSavingOrLoadingAddonData = false;
+						eprint("Phase Vault IO Lock on for longer than 5 seconds - disabled. If you get this after changing phases or a lag spike, ignore, otherwise please report it.");
+					end)
 		end
-	elseif prefix == addonMsgPrefix .. "_PUNLOCK" then
+	end,
+	[addonMsgPrefix .. "_PUNLOCK"] = function(prefix, message, channel, sender)
 		local phaseID = C_Epsilon.GetPhaseId()
 		if message == phaseID then
 			phaseVault.isSavingOrLoadingAddonData = false
 			dprint("Phase Vault IO for Phase " .. phaseID .. " was unlocked by Addon Message")
-			lockTimer:Cancel()
+			vaultLockTimer:Cancel()
 			if phaseVault.isLoaded then getSpellForgePhaseVault((SCForgeMainFrame.LoadSpellFrame:IsShown() and updateSpellLoadRows or nil)) end
 		end
-	end
-end
+	end,
+	[addonMsgPrefix .. "_SLOCK"] = function(prefix, message, channel, sender)
+		local phaseID = C_Epsilon.GetPhaseId()
+		if message == phaseID then
+			SparkPopups.SparkPopups.setSparkLoadingStatus(true)
+			dprint("Phase Spark IO for Phase " .. phaseID .. " was locked by Addon Message")
+			sparkLockTimer = C_Timer.NewTimer(5, function()
+					SparkPopups.SparkPopups.setSparkLoadingStatus(false)
+					eprint("Phase Spark IO Lock on for longer than 5 seconds - disabled. If you get this after changing phases or a lag spike, ignore, otherwise please report it.");
+				end)
+		end
+	end,
+	[addonMsgPrefix .. "_SUNLOCK"] = function(prefix, message, channel, sender)
+		local phaseID = C_Epsilon.GetPhaseId()
+		if message == phaseID then
+			SparkPopups.SparkPopups.setSparkLoadingStatus(false)
+			dprint("Phase Spark IO for Phase " .. phaseID .. " was unlocked by Addon Message")
+			sparkLockTimer:Cancel()
+			SparkPopups.SparkPopups.getPopupTriggersFromPhase()
+		end
+	end,
+}
 
 local function aceCommInit()
-	AceComm:RegisterComm(addonMsgPrefix .. "REQ", onCommReceived)
-	AceComm:RegisterComm(addonMsgPrefix .. "SPELL", onCommReceived)
-	AceComm:RegisterComm(addonMsgPrefix .. "_PLOCK", onCommReceived)
-	AceComm:RegisterComm(addonMsgPrefix .. "_PUNLOCK", onCommReceived)
-	AceComm:RegisterComm(addonMsgPrefix .. "_CACHE", onCommReceived)
-	AceComm:RegisterComm(addonMsgPrefix .. "_LCACHE", onCommReceived)
+	for k, v in pairs(aceCommReceivedHandlers) do
+		AceComm:RegisterComm(k, function(prefix, message, channel, sender)
+			if sender == Constants.CHARACTER_NAME then
+				dprint("aceCommReceivedHandler bypassed because we're talking to ourself.");
+				return;
+			end
+			v(prefix, message, channel, sender)
+		end)
+	end
 end
 
 --- Gossip
@@ -847,8 +927,8 @@ Gossip.init({
 	openArcanum = function()
 		scforge_showhide("enableMMIcon")
 	end,
-	saveToPersonal = function(phaseVaultIndex)
-		saveSpell(nil, phaseVaultIndex)
+	saveToPersonal = function(phaseVaultIndex, sendLearnedMessage)
+		saveSpell(nil, phaseVaultIndex, nil, sendLearnedMessage)
 	end,
 	loadPhaseVault = function(callback)
 		getSpellForgePhaseVault(callback)
@@ -862,27 +942,29 @@ local function updateGossipVaultButtons(enable)
 	end
 end
 
-local SC_Event_Listener = CreateFrame("frame");
-SC_Event_Listener:RegisterEvent("ADDON_LOADED");
-SC_Event_Listener:RegisterEvent("SCENARIO_UPDATE")
-SC_Event_Listener:RegisterEvent("PLAYER_ENTERING_WORLD")
-SC_Event_Listener:RegisterEvent("UI_ERROR_MESSAGE");
-SC_Event_Listener:RegisterEvent("GOSSIP_SHOW");
-SC_Event_Listener:RegisterEvent("GOSSIP_CLOSED");
-
 if not C_Epsilon.IsDM then C_Epsilon.IsDM = false end
 
 local function phaseChangeHandler()
+	-- // Reset our PhaseVault loading since we changed phase and should no longer be tracking that we are loading - if they were loading, it will likely fail anyways.
 	phaseVault.isSavingOrLoadingAddonData = false
 	phaseVault.isLoaded = false
 
+	-- // Reset phase DM tracker - TODO : this should move to the Epsilon AddOn later..
 	C_Epsilon.IsDM = false
-	updateSpellLoadRows();
 
+	-- // Update our spell Load Rows & get the phase vault from the new phase
+	updateSpellLoadRows();
 	getSpellForgePhaseVault(SCForgeMainFrame.LoadSpellFrame:IsShown() and updateSpellLoadRows or nil);
+
+	-- // Close the Spark manager & creation UIs, since we are changing phase
+	SparkPopups.CreateSparkUI.closeSparkCreationUI()
+	SparkPopups.SparkManagerUI.hideSparkManagerUI()
+
+	-- // Load the sparks from the phase
+	SparkPopups.SparkPopups.setSparkLoadingStatus(false)
 	SparkPopups.SparkPopups.getPopupTriggersFromPhase()
 
-	--SCForgeMainFrame.LoadSpellFrame.SparkManagerButton:UpdateEnabled()
+	-- // Update the basement for permissions
 	Basement.updateExecutePermission()
 end
 
@@ -934,7 +1016,8 @@ local function addonLoadedHandler()
 		local updateMessage = ADDON_COLORS.ADDON_COLOR:WrapTextInColorCode(("Arcanum has been Updated to v%s!"):format(addonVersion))
 		C_Timer.After(1, function()
 			RaidNotice_AddMessage(RaidWarningFrame, updateMessage, ChatTypeInfo["RAID_WARNING"])
-			RaidNotice_AddMessage(RaidWarningFrame, ADDON_COLORS.ADDON_COLOR:WrapTextInColorCode("Check-out the Changelog below, or by right-clicking the Mini-map Icon later!"), ChatTypeInfo["RAID_WARNING"])
+			RaidNotice_AddMessage(RaidWarningFrame, ADDON_COLORS.ADDON_COLOR:WrapTextInColorCode("Check-out the Changelog below, or by right-clicking the Mini-map Icon later!"),
+				ChatTypeInfo["RAID_WARNING"])
 		end)
 		local changelogFrame = ns.UI.Options.changelogFrame
 		changelogFrame:SetShown(true);
@@ -947,9 +1030,35 @@ local function addonLoadedHandler()
 	end
 end
 
+------------------------------------
+-- // Event Handler Functions
+------------------------------------
+
+-- Show custom warning messages when common attempts to use protected functions
+local function addonActionBlockedHandler(addon, func)
+	--print("addonActionBlockedHandler", addon, func)
+	if func == "SendChatMessage()" then
+		eprint("SendChatMessage Errored: /say & /yell cannot be used on timed actions while outdoors.")
+	elseif addon == addonName then
+		eprint("Arcanum was blocked from performing the following Action as it is a protected function: " .. func)
+	end
+end
+
+------------------------------------
+-- // Event Listener Frame & System
+------------------------------------
+
+local SC_Event_Listener = CreateFrame("frame");
+
 local scEventHandlers = {
+	ADDON_ACTION_BLOCKED = addonActionBlockedHandler,
 	SCENARIO_UPDATE = phaseChangeHandler,
-	PLAYER_ENTERING_WORLD = phaseChangeHandler,
+	PLAYER_ENTERING_WORLD = function()
+		C_Timer.After(0, function()
+			phaseChangeHandler()
+			dprint("PLAYER_ENTERING_WORLD: " .. C_Epsilon.GetPhaseId())
+		end)
+	end,
 	ADDON_LOADED = function(nameVar)
 		if nameVar == addonName then
 			addonLoadedHandler()
@@ -957,8 +1066,12 @@ local scEventHandlers = {
 	end,
 	UI_ERROR_MESSAGE = function(var1, ...)
 		local errType, msg = var1, ...
-		if msg == "DM mode is ON" then C_Epsilon.IsDM = true; dprint("DM Mode On");
-		elseif msg == "DM mode is OFF" then C_Epsilon.IsDM = false; dprint("DM Mode Off");
+		if msg == "DM mode is ON" then
+			C_Epsilon.IsDM = true;
+			dprint("DM Mode On");
+		elseif msg == "DM mode is OFF" then
+			C_Epsilon.IsDM = false;
+			dprint("DM Mode Off");
 		end
 	end,
 	GOSSIP_SHOW = function()
@@ -969,7 +1082,16 @@ local scEventHandlers = {
 		Gossip.onGossipClosed()
 		updateGossipVaultButtons(false)
 	end,
+	--[[ -- Unused for now. Note, this may only be reliable if the phase has any hotfix data it needs to pull when you enter it?
+	INITIAL_HOTFIXES_APPLIED = function()
+
+	end,
+	--]]
 }
+
+for k in pairs(scEventHandlers) do
+	SC_Event_Listener:RegisterEvent(k)
+end
 
 SC_Event_Listener:SetScript("OnEvent", function(self, event, var1, ...)
 	if scEventHandlers[event] then scEventHandlers[event](var1, ...) end
@@ -1083,9 +1205,15 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
 						phaseAddonDataListener:UnregisterEvent("CHAT_MSG_ADDON")
 
-						if (#text < 1 or text == "") then noSpellsToLoad(true); return; end
+						if (#text < 1 or text == "") then
+							noSpellsToLoad(true);
+							return;
+						end
 						phaseVaultKeys = serializer.decompressForAddonMsg(text)
-						if #phaseVaultKeys < 1 then noSpellsToLoad(true); return; end
+						if #phaseVaultKeys < 1 then
+							noSpellsToLoad(true);
+							return;
+						end
 						local phaseVaultLoadingCount = 0
 						local phaseVaultLoadingExpected = #phaseVaultKeys
 						local messageTicketQueue = {}
@@ -1156,6 +1284,8 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 			if rest and rest ~= "" then
 				Hotkeys.deregisterHotkeyByKey(rest)
 			end
+		elseif command == "dataSalvager" then
+			ns.UI.DataSalvager.showSalvagerMenu()
 		end
 	else
 		cprint("DEBUG LIST")
@@ -1170,9 +1300,10 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 		print("... listSpellKeys: List all your vault spells by just keys. Easier to read.")
 		print("... getPhaseKeys: Lists all the vault spells by keys.")
 		print("... getPhaseSpellData [$commID/key]: Exports the spell data for all current keys, or the specified commID/key, to your '" ..
-			ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. "..epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua|r' file.")
+		ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. "..epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua|r' file.")
 		print("... resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, and can be exported to your WTF file by using getPhaseSpellData.")
 		print("... removePhaseKey: Removes a single phase key from the Phase Vault. The data for the spell remains, and can be retrieved using getPhaseSpellData also.")
+		print("... dataSalvager: Show a large edit box with Data Salvaging Tools to convert exported Arc data to readable format.")
 	end
 end
 
@@ -1191,7 +1322,6 @@ function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
 		setRuneTex(runeIconOverlay)
 	end
 --]]
-
 end
 
 local function getSavedSpellFromVaultTable()
@@ -1204,4 +1334,5 @@ ns.MainFuncs = {
 	saveSpellToPhaseVault = saveSpellToPhaseVault, -- Move to SpellStrorage when done
 	getSavedSpellFromVaultTable = getSavedSpellFromVaultTable, -- I think this would move to spell storage later?
 	deleteSpellFromPhaseVault = deleteSpellFromPhaseVault, -- Move to Spell Storage? Vaults?
+	downloadToPersonal = downloadToPersonal,
 }

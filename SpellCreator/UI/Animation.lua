@@ -43,6 +43,7 @@ local function stopRainbowVertex(frame)
 end
 
 local function stopFrameFlicker(frame, endAlpha, optFadeTime)
+	if not frame.flickerTimer then return end
 	for i = 1, #frame.flickerTimer do
 		frame.flickerTimer[i]:Cancel()
 		frame.flickerTimer[i] = nil

@@ -18,6 +18,20 @@ local START_ZONE_NAME = Constants.START_ZONE_NAME
 local sfCmd_ReplacerChar = "@N@"
 
 local runningActions = {}
+local runningReverts = {}
+
+local function stopRunningReverts()
+	local didStopSomething = false
+	for i = 1, #runningReverts do
+		if runningReverts[i] then
+			runningReverts[i].timer:Cancel()
+			runningReverts[i].func()
+			runningReverts[i] = nil
+			didStopSomething = true
+		end
+	end
+	return didStopSomething
+end
 
 local function stopRunningActions()
 	local didStopSomething = false
@@ -28,7 +42,9 @@ local function stopRunningActions()
 			didStopSomething = true
 		end
 	end
+	stopRunningReverts()
 	ns.UI.Castbar.stopCastingBars()
+	ns.UI.Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
 	return didStopSomething
 end
 
@@ -37,6 +53,7 @@ local function executeAction(varTable, actionData, selfOnly, isRevert, runningAc
 	for i = 1, #varTable do
 		local v = varTable[i]
 		if string.byte(v, 1) == 32 then v = strtrim(v, " ") end
+		v = v:gsub(string.char(124) .. string.char(124), string.char(124)) -- replace escaped || with | to allow escape codes.
 		if comTarget == "func" then
 			if isRevert then
 				actionData.revert(v)
@@ -60,6 +77,14 @@ local function executeAction(varTable, actionData, selfOnly, isRevert, runningAc
 	if runningActionID then runningActions[runningActionID] = nil end
 end
 
+---@param revertDelay number?
+---@param revertFunction function
+local function createRevertTimer(revertDelay, runningRevertID, revertFunction)
+	if revertDelay and revertDelay > 0 then
+		runningReverts[runningRevertID] = { timer = C_Timer.NewTimer(revertDelay, revertFunction), func = revertFunction }
+	end
+end
+
 local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 	if not actionType then return; end
 	local actionData = actionTypeData[actionType]
@@ -77,18 +102,14 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 
 	if delay == 0 then
 		executeAction(varTable, actionData, selfOnly, nil, nil)
-		if revertDelay and revertDelay > 0 then
-			local runningActionID = #runningActions + 1
-			runningActions[runningActionID] = C_Timer.NewTimer(revertDelay, function() executeAction(varTable, actionData, selfOnly, true, runningActionID) end)
-		end
+		local runningRevertID = #runningReverts + 1
+		createRevertTimer(revertDelay, runningRevertID, function() executeAction(varTable, actionData, selfOnly, true, runningRevertID) end)
 	else
 		local runningActionID = #runningActions + 1
 		runningActions[runningActionID] = C_Timer.NewTimer(delay, function()
 			executeAction(varTable, actionData, selfOnly, nil, runningActionID)
-			if revertDelay and revertDelay > 0 then
-				runningActionID = #runningActions + 1
-				runningActions[runningActionID] = C_Timer.NewTimer(revertDelay, function() executeAction(varTable, actionData, selfOnly, true, runningActionID) end)
-			end
+			local runningRevertID = #runningReverts + 1
+			createRevertTimer(revertDelay, runningRevertID, function() executeAction(varTable, actionData, selfOnly, true, runningRevertID) end)
 		end)
 	end
 end

@@ -7,6 +7,7 @@ local DataUtils = ns.Utils.Data
 local Debug = ns.Utils.Debug
 local UIHelpers = ns.Utils.UIHelpers
 local Tooltip = ns.Utils.Tooltip
+local ADDON_COLORS = ns.Constants.ADDON_COLORS
 
 local Attic = ns.UI.MainFrame.Attic
 local Dropdown = ns.UI.Dropdown
@@ -168,14 +169,14 @@ local function getRowActionTypeData(rowNum)
 	local actionType = SCForgeMainFrame.spellRows[rowNum].SelectedAction
 
 
-	if actionType and actionTypeData[actionType].dataName then
+	if actionType and actionTypeData[actionType] then
 		return actionTypeData[actionType]
 	end
 end
 
 ---@param rowToAdd number?
 local function addRow(rowToAdd)
-	if numActiveRows >= maxNumberOfRows then SCForgeMainFrame.AddRowRow.AddRowButton:Disable() return; end -- hard cap
+	if numActiveRows >= maxNumberOfRows then SCForgeMainFrame.AddRowRow.AddRowButton:Disable() end -- hard cap the add button
 	numActiveRows = numActiveRows + 1 -- The number of spell rows that this row will be.
 
 	---@class SpellRowFrame: Frame
@@ -301,6 +302,7 @@ local function addRow(rowToAdd)
 		newRow.RevertDelayBox.enabledColor = HIGHLIGHT_FONT_COLOR
 		newRow.RevertDelayBox.Instructions:SetText("Revert Delay")
 		newRow.RevertDelayBox.Instructions:SetTextColor(0.5, 0.5, 0.5)
+		newRow.RevertDelayBox.rowNumber = numActiveRows
 		newRow.RevertDelayBox:SetAutoFocus(false)
 		newRow.RevertDelayBox:Disable()
 		newRow.RevertDelayBox:SetSize(revertDelayColumnWidth, 23)
@@ -322,11 +324,28 @@ local function addRow(rowToAdd)
 
 		Tooltip.set(newRow.RevertDelayBox,
 			"Revert Delay",
-			{
-				"How long after the initial action before reverting.\n",
-				"Note: This is RELATIVE to this lines main action delay\n",
-				Tooltip.genTooltipText("example", "Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting.."),
-			}
+			function(self) -- body
+				local actionData = getRowActionTypeData(self.rowNumber)
+				local strings = {
+					"How long after the initial action before reverting.\n",
+				}
+
+				if actionData then
+					if actionData.revertDesc then
+						tinsert(strings, Tooltip.genTooltipText("revert", actionData.revertDesc))
+					elseif actionData.revertAlternative then
+						tinsert(strings, Tooltip.genTooltipText("norevert", "This Action cannot be reverted directly, use " .. actionData.revertAlternative .. "."))
+					else
+						tinsert(strings, ADDON_COLORS.TOOLTIP_NOREVERT:WrapTextInColorCode("The current action cannot be reverted."))
+					end
+				else
+					tinsert(strings, ADDON_COLORS.TOOLTIP_NOREVERT:WrapTextInColorCode("No Action Selected."))
+				end
+
+				tinsert(strings, "Note: This is RELATIVE to this lines main action delay\n")
+				tinsert(strings, Tooltip.genTooltipText("example", "Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting.."))
+				return strings
+			end
 		)
 
 		newRow.RevertDelayBox:HookScript("OnDisable", function(self)
@@ -437,8 +456,6 @@ local function addRow(rowToAdd)
 	end
 
 	MainFrame.updateFrameChildScales(SCForgeMainFrame)
-	--if numActiveRows >= maxNumberOfRows then SCForgeMainFrame.AddSpellRowButton:Disable(); return; end -- hard cap
-	if numActiveRows >= maxNumberOfRows then SCForgeMainFrame.AddRowRow.AddRowButton:Disable(); return; end -- hard cap
 
 	SCForgeMainFrame.AddRowRow:SetPoint("TOPLEFT", SCForgeMainFrame.spellRows[numActiveRows], "BOTTOMLEFT", 0, 0)
 

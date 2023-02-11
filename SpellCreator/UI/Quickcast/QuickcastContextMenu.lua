@@ -119,6 +119,14 @@ local function formatName(style)
 	return texMarkup .. data.name
 end
 
+---@param style BookStyle
+local function isStyleRequirementMet(style)
+	local requirementKey = BOOK_STYLE_DATA[style].requirement
+	local requirementDate = BOOK_STYLE_DATA[style].requirementDate
+	if not requirementKey then return true end
+	return SavedVariables.unlocks.isUnlockedByKeyOrTime(requirementKey, requirementDate)
+end
+
 ---@param book QuickcastBook
 ---@param style BookStyle
 ---@return DropdownItem
@@ -130,6 +138,24 @@ local function genStyleItem(book, style)
 		set = function()
 			book:SetStyle(style)
 		end,
+		disabled = function() -- TODO : Remove this when no longer needed
+			return not isStyleRequirementMet(style)
+		end,
+		tooltipTitle = function() -- TODO : Remove this when no longer needed
+			if not isStyleRequirementMet(style) then
+				return BOOK_STYLE_DATA[style].requirementTipTitle
+			end
+			return nil
+		end,
+		tooltipText = function() -- TODO : Remove this when no longer needed
+			if not isStyleRequirementMet(style) then
+				return BOOK_STYLE_DATA[style].requirementTipText
+			end
+			return nil
+		end,
+		options = {
+			tooltipWhileDisabled = true,
+		},
 	})
 end
 
@@ -225,53 +251,6 @@ local function genShowBookMenu(text, book)
 		tinsert(menuArgs, genShowBookItem(v, book))
 	end
 	return Dropdown.submenu(text, menuArgs)
-end
-
----@param book QuickcastBook
----@return DropdownItem[]
-local function genBookManagerMenu(book)
-	return Dropdown.submenu("Manage Books", {
-		Dropdown.execute("Create New Book", function()
-			local numBooks = ns.UI.Quickcast.Book.getNumBooks()
-			local newBook = ns.UI.Quickcast.Book.createBook(numBooks + 1)
-			local newPage = ns.UI.Quickcast.Page.createPage(newBook)
-			newBook:AddPage(newPage)
-			newBook:GoToFirstPage()
-			newBook:SetStyle(BOOK_STYLE.DEFAULT)
-		end),
-		--[[	-- Not sure which way we want to do this. It feels simpler to have it without the input, but then it's another step to rename..
-		Dropdown.input("Create New Book",
-			{
-				placeholder = "New Book Name",
-				set = function(name)
-					local numBooks = ns.UI.Quickcast.Book.getNumBooks()
-					local newBook = ns.UI.Quickcast.Book.createBook(numBooks + 1, name)
-					local newPage = ns.UI.Quickcast.Page.createPage(newBook)
-					newBook:AddPage(newPage)
-					newBook:GoToFirstPage()
-					newBook:SetStyle(BOOK_STYLE.DEFAULT)
-				end,
-			}
-		),
-		--]]
-
-		genShowBookMenu("Toggle Books", book),
-
-		Dropdown.divider(),
-		Dropdown.execute("Delete this Book", function()
-			---@type GenericConfirmationCustomData
-			local popupData = {
-				text = "Are you sure you want to delete\n%s?\n\r" .. Tooltip.genTooltipText("warning", "All pages in this book will also be deleted."),
-				text_arg1 = Tooltip.genContrastText(book.savedData.name),
-				callback = function()
-					book:ToggleVisible(false)
-					ns.UI.Quickcast.Book.deleteBook(book)
-				end,
-				showAlert = true,
-			}
-			Popups.showCustomGenericConfirmation(popupData)
-		end),
-	})
 end
 
 -------------------------

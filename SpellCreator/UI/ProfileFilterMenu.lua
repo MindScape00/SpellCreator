@@ -55,7 +55,10 @@ local function genToggleAllItem()
 			end
 
 			onProfileFilterChanged()
-		end
+		end,
+		{
+			keepShownOnClick = true,
+		}
 	)
 end
 

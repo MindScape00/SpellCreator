@@ -61,6 +61,10 @@
 	<Script file="Permissions.lua"/>
 	<Script file="Serializer.lua"/>
 	<Script file="Vault.lua"/>
+	
+	<Script file="UI/UI.lua"/>
+	<Script file="UI/Gems.lua"/>
+	<Script file="UI/Icons.lua"/>
 
 	<Script file="Utils/Utils.lua"/>
 	<Script file="Utils/Aura.lua"/>
@@ -86,15 +90,13 @@
 	<Script file="ProfileFilter.lua"/>
 	<Script file="VaultFilter.lua"/>
 
-	<Script file="UI/UI.lua"/>
 	<Script file="UI/NineSliceTemplates.lua"/>
 
 	<Script file="UI/Animation.lua"/>
 	<Script file="UI/Castbar.lua"/>
 	<Script file="UI/ChatLink.lua"/>
+	<Script file="UI/DataSalvager.lua"/>
 	<Script file="UI/Dropdown.lua"/>
-	<Script file="UI/Gems.lua"/>
-	<Script file="UI/Icons.lua"/>
 	<Script file="UI/ImportExport.lua"/>
 	<Script file="UI/LoadSpellFrame.lua"/>
 	<Include file="UI/MainFrame/Init.xml" />

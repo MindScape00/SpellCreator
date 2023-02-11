@@ -10,6 +10,10 @@ local isNotDefined = DataUtils.isNotDefined
 
 local addonVersion = GetAddOnMetadata(addonName, "Version")
 
+----------------------
+-- // Init Baseline Tables
+----------------------
+
 SpellCreatorMasterTable = {}
 SpellCreatorMasterTable.Options = {}
 SpellCreatorMasterTable.quickCastSpells = {}
@@ -21,6 +25,39 @@ SpellCreatorMasterTable.quickcast = {}
 ---@field savedBookTable table<QuickcastBook, QuickcastPage[]>
 SpellCreatorMasterTable.quickcast.books = {}
 
+----------------------
+-- // Simple Unlocks Tracker, could avoid functions since it's all just table but this will make it easier to track / use
+----------------------
+
+---@param key string
+---@return boolean
+local function isUnlocked(key)
+	if SpellCreatorMasterTable.Unlocks[key] then return true else return false end
+end
+
+---@param key string
+---@param dateData {year: integer, month: integer, day: integer, hour: integer?, min: integer?, sec: integer?}
+local function isUnlockedByKeyOrTime(key, dateData)
+	if isUnlocked(key) then return true
+	elseif DataUtils.isTodayAfterOrEqualDate(dateData) then return true
+	else return false
+	end
+end
+
+---@param key string
+local function unlock(key)
+	SpellCreatorMasterTable.Unlocks[key] = true
+end
+
+---@param key string
+local function clearUnlock(key) -- used to clean unlocks after their time gate.
+	SpellCreatorMasterTable.Unlocks[key] = nil
+end
+
+----------------------
+-- // Profiles
+----------------------
+
 ---@return DefaultProfileOption
 local function getDefaultProfile()
 	return SpellCreatorMasterTable.Options.defaultProfile
@@ -30,6 +67,32 @@ end
 local function setDefaultProfile(defaultProfile)
 	SpellCreatorMasterTable.Options.defaultProfile = defaultProfile
 end
+
+---@param filterAccount? boolean
+---@param filterPlayer? boolean
+---@return string[] profileNames A list of profile names
+local function getProfileNames(filterAccount, filterPlayer)
+	local profileNames = {}
+	local profilesMap = {}
+
+	for _, v in pairs(Vault.personal.getSpells()) do
+		if v.profile
+			and (not filterAccount or v.profile ~= "Account")
+			and (not filterPlayer or v.profile ~= Constants.CHARACTER_NAME) then
+			profilesMap[v.profile] = true
+		end
+	end
+
+	for profile in pairs(profilesMap) do
+		tinsert(profileNames, profile)
+	end
+
+	return profileNames
+end
+
+----------------------
+-- // Init Saved Variables & Master Tables from Saved Variables
+----------------------
 
 ---@return boolean hadUpdate Whether the addon was updated since last load
 local function init()
@@ -65,11 +128,19 @@ local function init()
 	if isNotDefined(SpellCreatorCharacterTable.phaseArcVars) then SpellCreatorCharacterTable.phaseArcVars = {} end
 	ns.API.retargetPhaseArcVarTable(SpellCreatorCharacterTable.phaseArcVars)
 
-	lastAddonVersion = SpellCreatorMasterTable.Options["lastAddonVersion"] or "0"
-	hadUpdate = (addonVersion ~= lastAddonVersion)
+	-- // Unlocks Tracker table
+	if isNotDefined(SpellCreatorMasterTable.Unlocks) then SpellCreatorMasterTable.Unlocks = {} end
 
+	-- // Version & Update Tracking
+	lastAddonVersion = SpellCreatorMasterTable.Options["lastAddonVersion"]
+	if not lastAddonVersion then
+		hadUpdate = false
+	else
+		hadUpdate = (addonVersion ~= lastAddonVersion)
+	end
 	SpellCreatorMasterTable.Options["lastAddonVersion"] = addonVersion
 
+	-- // Saved Spells Table Init
 	if not SpellCreatorSavedSpells then
 		SpellCreatorSavedSpells = {}
 	end
@@ -81,31 +152,16 @@ local function init()
 	return hadUpdate
 end
 
----@param filterAccount? boolean
----@param filterPlayer? boolean
----@return string[] profileNames A list of profile names
-local function getProfileNames(filterAccount, filterPlayer)
-	local profileNames = {}
-	local profilesMap = {}
-
-	for _, v in pairs(Vault.personal.getSpells()) do
-		if v.profile
-			and (not filterAccount or v.profile ~= "Account")
-			and (not filterPlayer or v.profile ~= Constants.CHARACTER_NAME) then
-			profilesMap[v.profile] = true
-		end
-	end
-
-	for profile in pairs(profilesMap) do
-		tinsert(profileNames, profile)
-	end
-
-	return profileNames
-end
-
 ns.SavedVariables = {
 	init = init,
 	getProfileNames = getProfileNames,
 	getDefaultProfile = getDefaultProfile,
 	setDefaultProfile = setDefaultProfile,
+
+	unlocks = {
+		isUnlocked = isUnlocked,
+		unlock = unlock,
+		clearUnlock = clearUnlock,
+		isUnlockedByKeyOrTime = isUnlockedByKeyOrTime,
+	},
 }

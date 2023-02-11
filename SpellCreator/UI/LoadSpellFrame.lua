@@ -101,8 +101,8 @@ local function createSparkButton(frame)
 	sparkButton:SetText("Spark")
 	sparkButton:SetMotionScriptsWhileDisabled(true)
 
-	UIHelpers.setupCoherentButtonTextures(sparkButton, ASSETS_PATH .. "/spark")
-	sparkButton.PushedTexture:SetTexture(ASSETS_PATH .. "/spark2")
+	UIHelpers.setupCoherentButtonTextures(sparkButton, ASSETS_PATH .. "/spark2")
+	--sparkButton.PushedTexture:SetTexture(ASSETS_PATH .. "/sparks")
 
 	sparkButton.UpdateEnabled = function(self)
 		self:SetEnabled(not ns.UI.SparkPopups.SparkPopups.getSparkLoadingStatus() and (Permissions.isOfficerPlus() or SpellCreatorMasterTable.Options["debug"]))

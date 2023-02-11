@@ -59,10 +59,10 @@ end
 ---@param self QuickcastButton
 ---@param commID CommID
 local function _Button_setNotFound(self, commID)
-	-- TODO use Tooltip util? -- no need, letting the button handle it is fine, since the codebase is already there from blizzard.
+	-- TODO use Tooltip util? -- no need, letting the button handle it is fine, since the codebase is already there from blizzard, and we do not need it on a delay
 	self.tooltipTitle = "Error Loading Spell"
 	self.tooltipText = {
-		("Spell '%s' does not exist in your vault."):format(commID),
+		("Spell %s does not exist in your vault."):format(Tooltip.genContrastText(commID)),
 		"\nRight-Click to remove this from your Quickcast.",
 	}
 	self:SetNormalTexture("interface/icons/inv_misc_questionmark")

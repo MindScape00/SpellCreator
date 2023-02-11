@@ -292,11 +292,19 @@ local myOptionsTable = {
 					end,
 				},
 				showQCManagerUI = {
-					name = "Open Quickcast Manager",
+					name = "Quickcast Manager",
 					order = autoOrder(),
 					type = "execute",
 					func = function(info)
 						ns.UI.Quickcast.ManagerUI.showQCManagerUI()
+					end,
+				},
+				showSparkManagerUI = {
+					name = "Spark Manager",
+					order = autoOrder(),
+					type = "execute",
+					func = function(info)
+						ns.UI.SparkPopups.SparkManagerUI.showSparkManagerUI()
 					end,
 				}
 			},

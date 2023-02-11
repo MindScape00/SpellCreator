@@ -28,7 +28,8 @@ local function init()
 		book:AddPage(page)
 
 		-- Don't know if we automatically want to change pages when we add one. TBD?
-		book:GoToFirstPage()
+		--book:GoToFirstPage()
+		book:GoToPage(page)
 		return
 	end
 

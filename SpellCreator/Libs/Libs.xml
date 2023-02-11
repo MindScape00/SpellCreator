@@ -12,6 +12,7 @@
 	<Include file="Libs\AceConfig-3.0\AceConfig-3.0.xml" />
 	<Include file="Libs\AceComm-3.0\AceComm-3.0.xml" />
 	<Include file="Libs\LibRPMedia-1.0\LibRPMedia-Retail-1.0.xml" />
+	<Include file="Libs\LibBase64-1.0\LibBase64-1.0.xml" />
 
 	<Script file="Libs\Libs.lua"/>
 

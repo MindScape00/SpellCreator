@@ -5,6 +5,7 @@ local ns = select(2, ...)
 ---@field Animation UI_Animation
 ---@field Castbar UI_Castbar
 ---@field ChatLink UI_ChatLink
+---@field DataSalvager UI_DataSalvager
 ---@field Dropdown UI_Dropdown
 ---@field Gems UI_Gems
 ---@field IconPicker UI_IconPicker

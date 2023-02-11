@@ -50,6 +50,10 @@ local ACTION_TYPE = {
 	AddItem = "AddItem",
 	RemoveItem = "RemoveItem",
 
+	RotateCameraLeftStart = "RotateCameraLeftStart",
+	RotateCameraRightStart = "RotateCameraRightStart",
+	RotateCameraStop = "RotateCameraStop",
+
 	Scale = "Scale",
 
 	Speed = "Speed",
@@ -89,6 +93,8 @@ local ACTION_TYPE = {
 	QCBookToggle = "QCBookToggle",
 	QCBookStyle = "QCBookStyle",
 	QCBookSwitchPage = "QCBookSwitchPage",
+
+	SpawnBlueprint = "SpawnBlueprint",
 }
 
 ---@param name string
@@ -315,11 +321,11 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.Unequip] = scriptAction("Unequip Item", {
 		command = function(slotID) PickupInventoryItem(slotID); PutItemInBackpack(); end,
-		description = "Unequips an item by item slot.\n\rCommon IDs:\rHead: 1          Shoulders: 2\rShirt: 4          Chest: 5\rWaist: 6         Legs 6\rFeet: 8           Wrist: 9\rHands: 10       Back: 15\rRanged: 18      Tabard: 19\rMain-hand: 16\rOff-hand: 17",
+		description = "Unequips an item by item slot.\n\rCommon IDs:\rHead: 1          Shoulders: 3\rShirt: 4          Chest: 5\rWaist: 6         Legs: 7\rFeet: 8           Wrist: 9\rHands: 10       Back: 15\rTabard: 19\rMain-hand: 16\rOff-hand: 17",
 		dataName = "Item Slot ID(s)",
-		inputDescription = "Common IDs:\rHead: 1          Shoulders: 2\rShirt: 4           Chest: 5\rWaist: 6         Legs 6\rFeet: 8            Wrist: 9\rHands: 10       Back: 15\rRanged: 18      Tabard: 19\rMain-hand: 16\rOff-hand: 17\n\rAccepts multiple slot ID's, separated by commas, to remove multiple slots at the same time.",
+		inputDescription = "Common IDs:\rHead: 1          Shoulders: 3\rShirt: 4           Chest: 5\rWaist: 6         Legs: 6\rFeet: 8            Wrist: 9\rHands: 10       Back: 15\rTabard: 19\rMain-hand: 16\rOff-hand: 17\n\rAccepts multiple slot ID's, separated by commas, to remove multiple slots at the same time.",
 		revert = nil,
-		revertAlternative = "a eparate Equip Item action",
+		revertAlternative = "a separate Equip Item action",
 	}),
 	[ACTION_TYPE.TRP3Profile] = scriptAction("TRP3 Profile", {
 		command = function(profile) SlashCmdList.TOTALRP3("profile " .. profile) end,
@@ -410,9 +416,9 @@ local actionTypeData = {
 	}),
 	-- [ACTION_TYPE.DefaultEmote] = scriptAction("Default Emote", {
 	-- 	["command"] = function(emoteID) DoEmote(string.upper(emoteID)); end,
-	-- 	["description"] = "Any default emote.\n\rMust be a valid emote 'token', i.e., 'WAVE'\n\rGoogle 'WoWpedia DoEmote' for a full list - most match their /command, but some don't.",
+	-- 	["description"] = "Any default emote.\n\rMust be a valid emote 'token', i.e., 'WAVE'\n\rGoogle 'Wowpedia DoEmote' for a full list - most match their /command, but some don't.",
 	-- 	["dataName"] = "Emote Token",
-	-- 	["inputDescription"] = "Usually just the text from the /command, i.e., /wave = wave.\n\rIf not working: Search Google for 'WoWpedia DoEmote', and go to the WoWpedia page, and find the table of tokens - some don't exactly match their command.",
+	-- 	["inputDescription"] = "Usually just the text from the /command, i.e., /wave = wave.\n\rIf not working: Search Google for 'Wowpedia DoEmote', and go to the Wowpedia page, and find the table of tokens - some don't exactly match their command.",
 	-- 	["revert"] = nil,
 	-- }),
 
@@ -471,18 +477,19 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.MacroText] = scriptAction("Macro Script", {
 		command = function(command) runMacroText(command); end,
-		description = "Any line that can be processed in a macro (any slash commands & macro flags).\n\rYou can use this for pretty much ANYTHING, technically, including custom short Lua scripts.",
-		dataName = "/command",
-		inputDescription = "Any /commands that can be processed in a macro-script, including emotes, addon commands, Lua run scripts, etc.\n\rYou can use any part of the ARC:API here as well. Use /arc for more info.",
-		example = Tooltip.genContrastText("/emote begins to conjur up a fireball in their hand.") .. " to perform the emote.",
+		description = "Any line that can be processed in a macro (any slash commands & macro flags), or any valid Lua script.\n\rYou can use this for pretty much ANYTHING, technically, including custom short Lua scripts.\rDoes not accept comma separated multi-actions.",
+		dataName = "/command or script",
+		inputDescription = "Any /commands that can be processed in a macro-script, including emotes, addon commands, etc., or Lua scripts.\n\rYou can use any part of the ARC:API here as well. Use /arc for more info.",
+		example = Tooltip.genContrastText("/emote begins to conjure up a fireball in their hand.") ..
+			" to perform the emote.\n\r" .. Tooltip.genTooltipText("example", Tooltip.genContrastText("print(\"Example\")") .. " to print 'Example' in chat to yourself."),
 		revert = nil,
 		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.Command] = scriptAction("Server .Command", {
 		command = cmdWithDotCheck,
-		description = "Any other server command.\n\rType the full command you want, without the dot, in the input box.",
+		description = "Any other server command.\n\rType the full command you want in the input box.",
 		dataName = "Full Command",
-		inputDescription = "You can use any server command here, without the '.', and it will run after the delay.\n\rDoes NOT accept comma separated multi-actions.",
+		inputDescription = "You can use any server command here, with or without the '.', and it will run after the delay.\n\rDoes NOT accept comma separated multi-actions.",
 		example = "mod drunk 100",
 		revert = nil,
 		doNotDelimit = true,
@@ -538,6 +545,7 @@ local actionTypeData = {
 		command = function(data)
 			local commID, vocal = strsplit(",", data, 2)
 			if vocal and (vocal == "false" or vocal == "nil" or vocal == "0") then vocal = nil end
+			if vocal and vocal == "true" then vocal = true end
 			ARC:SAVE(commID, vocal)
 		end,
 		description = "Save an Arcanum Spell from the Phase Vault, with an optional message to let them know they learned a new ArcSpell!",
@@ -545,6 +553,7 @@ local actionTypeData = {
 		inputDescription = "Syntax: The command ID (commID) used to cast the ArcSpell, [print a 'New Spell Learned' message (true/false)]",
 		example = "My Cool Spell, true",
 		revert = nil,
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.ArcCastbar] = scriptAction("Show Castbar", {
 		command = function(data)
@@ -552,9 +561,9 @@ local actionTypeData = {
 			if length then length = strtrim(length) end
 			if text then text = strtrim(text) end
 			if iconPath then iconPath = { ["icon"] = strtrim(iconPath) } end
-			if channeled then channeled = ns.Utils.Data.toboolean(strtrim(channeled)) end
-			if showIcon then showIcon = ns.Utils.Data.toboolean(strtrim(showIcon)) end
-			if showShield then showShield = ns.Utils.Data.toboolean(strtrim(showShield)) end
+			if channeled then channeled = ns.Utils.Data.toBoolean(strtrim(channeled)) end
+			if showIcon then showIcon = ns.Utils.Data.toBoolean(strtrim(showIcon)) end
+			if showShield then showShield = ns.Utils.Data.toBoolean(strtrim(showShield)) end
 			ns.UI.Castbar.showCastBar(length, text, iconPath, channeled, showIcon, showShield)
 		end,
 		description = "Show a custom Arcanum Castbar with your own settings & duration.\n\rSyntax: duration, [title, [iconPath/FileID, [channeled (true/false), [showIcon (true/false), [showShield (true/false)]]]]]\n\rDuration is the only required input.",
@@ -562,7 +571,7 @@ local actionTypeData = {
 		inputDescription = "Syntax: duration, [title, [iconPath/FileID, [channeled (true/false), [showIcon (true/false), [showShield (true/false)]]]]]\n\rDuration is the only required input.",
 		example = Tooltip.genContrastText("5, Cool Spell!, 1, true, true, false") ..
 			" will show a Castbar for 5 seconds, named 'Cool Spell!', with a gem icon, but no shield frame.\n\r" ..
-			Tooltip.genTooltipText("lpurple", "Icon ID's " .. Tooltip.genContrastText("1 - 10") .. " can be used for Arcanum's custom Icons."),
+			Tooltip.genTooltipText("lpurple", "Icon ID's " .. Tooltip.genContrastText("1 - " .. ns.UI.Icons.getNumCustomIcons()) .. " can be used for Arcanum's custom Icons."),
 		revert = nil,
 		doNotDelimit = true,
 	}),
@@ -584,6 +593,7 @@ local actionTypeData = {
 		revert = nil,
 		revertAlternative = "another Set Variable action",
 		example = "KeysCollected | 3",
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.ARCTog] = scriptAction("Toggle My Variable", {
 		command = function(var) ARC:TOG(var) end,
@@ -592,6 +602,7 @@ local actionTypeData = {
 		inputDescription = "The variable name to toggle.",
 		revert = function(var) ARC:TOG(var) end,
 		revertDesc = "Toggles the ARCVAR again.",
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.ARCPhaseSet] = scriptAction("Set Phase Variable", {
 		command = function(data)
@@ -600,20 +611,22 @@ local actionTypeData = {
 			val = strtrim(val, " \t\r\n\124");
 			ARC.PHASE:SET(var, val);
 		end,
-		description = "Set a Phase ARCVAR to a specific value.\n\rPhase ARCVARS can be accessed via the table ARC.PHASEVAR, or via ARC.PHASE:GET() in a macro script.\n\rPhase ArcVars are saved between sessions, but should not be considered secure as a user can manipulate them as well.",
+		description = "Set a Phase ARCVAR to a specific value.\n\rPhase ARCVARs can be accessed via the table ARC.PHASEVAR, or via ARC.PHASE:GET() in a macro script.\n\rPhase ArcVars are saved between sessions, but should not be considered secure as a user can manipulate them as well.",
 		dataName = "VarName | Value",
 		inputDescription = "Provide the variable name & the value to set it as, separated by a | character.",
 		revert = nil,
 		revertAlternative = "another Phase Set Variable action",
 		example = "KeysCollected | 3",
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.ARCPhaseTog] = scriptAction("Toggle Phase Variable", {
 		command = function(var) ARC.PHASE:TOG(var) end,
-		description = "Toggle a Phase ARCVAR, like a light switch.\n\rPhase ARCVARS can be accessed via the table ARC.PHASEVAR, or via ARC.PHASE:GET() in a macro script.\n\rPhase ArcVars are saved between sessions, but should not be considered secure as a user can manipulate them as well.",
+		description = "Toggle a Phase ARCVAR, like a light switch.\n\rPhase ARCVARs can be accessed via the table ARC.PHASEVAR, or via ARC.PHASE:GET() in a macro script.\n\rPhase ArcVars are saved between sessions, but should not be considered secure as a user can manipulate them as well.",
 		dataName = "Variable Name",
 		inputDescription = "The variable name to toggle.",
 		revert = function(var) ARC.PHASE:TOG(var) end,
 		revertDesc = "Toggles the Phase ARCVAR again.",
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.ARCCopy] = scriptAction("Copy Text/URL", {
 		command = function(text) ARC:COPY(text) end,
@@ -622,6 +635,7 @@ local actionTypeData = {
 		inputDescription = "The text / link / URL to copy.",
 		example = "https://discord.gg/C8DZ7AxxcG",
 		revert = nil,
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.PrintMsg] = scriptAction("Chatbox Message", {
 		command = print,
@@ -629,15 +643,17 @@ local actionTypeData = {
 		dataName = "Text",
 		inputDescription = "The text to print into the chatbox.",
 		revert = nil,
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.RaidMsg] = scriptAction("Raid Message", {
 		command = function(msg)
 			RaidNotice_AddMessage(RaidWarningFrame, msg, ChatTypeInfo["RAID_WARNING"])
 		end,
-		description = "Shows a custom Raid Warning message, only to the persoon casting the spell.",
+		description = "Shows a custom Raid Warning message, only to the person casting the spell.",
 		dataName = "Text",
 		inputDescription = "The text to show as the raid warning.",
 		revert = nil,
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.BoxMsg] = scriptAction("Popup Box Message", {
 		command = function(msg)
@@ -647,10 +663,11 @@ local actionTypeData = {
 				cancelText = false,
 			})
 		end,
-		description = "Shows a pop-up box with a customo message.",
+		description = "Shows a pop-up box with a custom message.",
 		dataName = "Text",
 		inputDescription = "The text to show in the popup box.",
 		revert = nil,
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.QCBookToggle] = scriptAction("Toggle Book", {
 		command = function(bookName)
@@ -662,6 +679,7 @@ local actionTypeData = {
 		revert = function(bookName)
 			ns.UI.Quickcast.Book.toggleBookByName(bookName)
 		end,
+		revertDesc = "Re-Toggles the Quickcast Book on this character. Why tho?",
 	}),
 	[ACTION_TYPE.QCBookStyle] = scriptAction("Change Book Style", {
 		command = function(vars)
@@ -671,7 +689,7 @@ local actionTypeData = {
 		description = "Toggle a Quickcast Book from being displayed on this character.",
 		dataName = "Book Name",
 		inputDescription = "The name of the Quickcast Book & style name. If either have spaces, enclose them in quotations.",
-		example = '"Quickcast Book 1" Arcwolf',
+		example = '"Quickcast Book 1" Arcfox',
 		revert = nil,
 		revertAlternative = "another Change Style action"
 	}),
@@ -686,6 +704,59 @@ local actionTypeData = {
 		example = '"Quickcast Book 1" 2',
 		revert = nil,
 		revertAlternative = "another Switch Page action"
+	}),
+	[ACTION_TYPE.RotateCameraLeftStart] = scriptAction("Rotate Cam Left", {
+		command = function(speed)
+			SaveView(5)
+			MoveViewLeftStart(speed / tonumber(GetCVar("cameraYawMoveSpeed")))
+		end,
+		description = "Rotate the camera left, in degrees per second. " .. Tooltip.genTooltipText("warning", "Must be reverted to properly stop rotation!"),
+		dataName = "Degrees per Second",
+		inputDescription = "The number of degrees, per second, to rotate.",
+		example = Tooltip.genContrastText("45") .. " to rotate 45 degrees to the left each second.",
+		revert = function()
+			MoveViewLeftStop()
+			SetView(5)
+		end,
+		revertDesc = "Stops the camera rotation & returns the camera to the players original camera view.",
+		doNotDelimit = true,
+	}),
+	[ACTION_TYPE.RotateCameraRightStart] = scriptAction("Rotate Cam Right", {
+		command = function(speed)
+			SaveView(5)
+			MoveViewRightStart(speed / tonumber(GetCVar("cameraYawMoveSpeed")))
+		end,
+		description = "Rotate the camera right, in degrees per second. " .. Tooltip.genTooltipText("warning", "Must be reverted to properly stop rotation!"),
+		dataName = "Degrees per Second",
+		inputDescription = "The number of degrees, per second, to rotate.",
+		example = Tooltip.genContrastText("45") .. " to rotate 45 degrees to the right each second.",
+		revert = function()
+			MoveViewRightStop()
+			SetView(5)
+		end,
+		revertDesc = "Stops the camera rotation & returns the camera to the players original camera view.",
+		doNotDelimit = true,
+	}),
+	[ACTION_TYPE.RotateCameraStop] = scriptAction("Stop Cam Rotation", {
+		command = function()
+			MoveViewRightStop()
+			MoveViewLeftStop()
+		end,
+		description = "Stops Left & Right Camera Rotations. " ..
+			Tooltip.genTooltipText("warning", "You should really use a revert delay on the original rotate action instead of this! This can get skipped/cancelled and leave the camera in rotate hell!"),
+		revert = nil,
+		revertAlternative = "another rotate camera action",
+	}),
+	[ACTION_TYPE.SpawnBlueprint] = serverAction("Spawn Blueprint", {
+		command = "gob blue spawn @N@",
+		description = "Spawns a Gob Blueprint at your position.",
+		dataName = "Blueprint ID",
+		inputDescription = "The ID of the Blueprint to spawn.",
+		example = Tooltip.genContrastText("144997") .. " to spawn a Teacup Blueprint.",
+		revert = "go group del",
+		revertDesc = "Deletes the currently selected gob group. " ..
+			Tooltip.genTooltipText("warning", "Do not select another Gob Group between this action & it's revert or else it will delete that other gob group instead of the spawned blueprint!"),
+		doNotDelimit = true,
 	}),
 }
 

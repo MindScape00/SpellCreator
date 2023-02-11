@@ -1,12 +1,15 @@
 ---@class ns
 local ns = select(2, ...)
+local addonName = ...
 
+local Logging = ns.Logging
 local Comms = ns.Comms
 local Tooltip = ns.Utils.Tooltip
 local Vault = ns.Vault
 local Hotkeys = ns.Actions.Hotkeys
 local VAULT_TYPE = ns.Constants.VAULT_TYPE
-local dprint = ns.Logging.dprint
+local dprint = Logging.dprint
+local eprint = Logging.eprint
 
 local Attic = ns.UI.MainFrame.Attic
 
@@ -32,6 +35,12 @@ StaticPopupDialogs["SCFORGE_GENERIC_INPUT_BOX"] = {
 		self.button2:SetText(data.cancelText or CANCEL);
 		self.editBox:SetMaxLetters(data.maxLetters or 24);
 		self.editBox:SetCountInvisibleLetters(not not data.countInvisibleLetters);
+
+		if data.inputText then
+			self.editBox:SetText(data.inputText)
+			self.editBox:HighlightText()
+		end
+
 	end,
 	OnAccept = function(self, data)
 		local text = self.editBox:GetText();
@@ -69,6 +78,7 @@ StaticPopupDialogs["SCFORGE_GENERIC_INPUT_BOX"] = {
 ---@field cancelText string custom text for the cancel button
 ---@field maxLetters integer the maximum text length that can be entered
 ---@field countInvisibleLetters boolean used in tandem with maxLetters
+---@field inputText string default text for the input box
 
 ---@param customData GenericInputCustomData
 ---@param insertedFrame frame?
@@ -113,7 +123,7 @@ StaticPopupDialogs["SCFORGE_GENERIC_CONFIRMATION"] = {
 	timeout = 0,
 	multiple = 1,
 	whileDead = 1,
-	wide = 1, -- Always wide to accomodate the alert icon if it is present.
+	wide = 1, -- Always wide to accommodate the alert icon if it is present.
 };
 
 ---@class GenericConfirmationCustomData
@@ -140,8 +150,8 @@ local function showCustomGenericConfirmation(customData, insertedFrame)
 end
 
 ---@param text string the text for the confirmation
----@param callback fun() the callback when the player accepts
----@param insertedFrame? frame
+---@param callback fun()? the callback when the player accepts
+---@param insertedFrame frame?
 local function showGenericConfirmation(text, callback, insertedFrame)
 	local data = { text = text, callback = callback, };
 	showCustomGenericConfirmation(data, insertedFrame);
@@ -163,7 +173,7 @@ end
 StaticPopupDialogs["SCFORGE_CONFIRM_OVERWRITE"] = {
 	text = "Spell with CommID %s already exists.\n\r%s",
 	OnAccept = function(self, data, data2)
-		data.callback(true, (data.fromPhaseVaultID and data.fromPhaseVaultID or nil), (data.manualData and data.manualData or nil))
+		data.callback(true, (data.fromPhaseVaultID and data.fromPhaseVaultID or nil), (data.manualData and data.manualData or nil), (data.vocal and data.vocal or nil))
 	end,
 	button1 = "Overwrite",
 	button2 = "Cancel",
@@ -176,9 +186,10 @@ StaticPopupDialogs["SCFORGE_CONFIRM_OVERWRITE"] = {
 ---@param fromPhaseVaultID integer
 ---@param manualData VaultSpell
 ---@param callback fun()
-local function showPersonalVaultOverwritePopup(newSpellData, oldSpellData, fromPhaseVaultID, manualData, callback)
+---@param vocal boolean|string?
+local function showPersonalVaultOverwritePopup(newSpellData, oldSpellData, fromPhaseVaultID, manualData, callback, vocal)
 	local text1, text2 = Tooltip.genContrastText(newSpellData.commID), genOverwriteString(newSpellData.fullName, oldSpellData.fullName)
-	local data = { fromPhaseVaultID = fromPhaseVaultID, manualData = manualData, callback = callback }
+	local data = { fromPhaseVaultID = fromPhaseVaultID, manualData = manualData, callback = callback, vocal = vocal }
 	StaticPopup_Show("SCFORGE_CONFIRM_OVERWRITE", text1, text2, data)
 end
 
@@ -659,6 +670,34 @@ local function showAssignPersonalSpellAuthorPopup(spellCommID, author)
 	local data = { commID = spellCommID, author = author }
 	StaticPopup_Show("SCFORGE_ASSIGN_AUTHOR", spellCommID, nil, data)
 end
+
+-- // Hooking StaticPopup_Show to watch for ADDON_ACTION_FORBIDDEN for SpellCreator, and prompt them to enable Dangerous Scripts.. The popup box fails if it's triggered by SC so rip.., or a notice they tried to use a protected function.
+hooksecurefunc("StaticPopup_Show", function(which, text_arg1)
+	if which == "ADDON_ACTION_FORBIDDEN" then
+		if text_arg1 == addonName then
+			if not AreDangerousScriptsAllowed() then
+				showCustomGenericConfirmation({
+					text = "Arcanum was blocked from running user scripts. Please enable Allow Dangerous Scripts if you wish to use this ArcSpell.\n\rAlways be sure to carefully review ArcSpell user scripts before using them.\n\rIf the Dangerous Scripts Warning pop-up does not work, you can manually trigger a working version using\r" .. Tooltip.genContrastText("/script SetAllowDangerousScripts(true)"),
+					acceptText = OKAY,
+					cancelText = false,
+				})
+				--StaticPopup_Show("DANGEROUS_SCRIPTS_WARNING")
+			else
+				showCustomGenericConfirmation({
+					text = "Arcanum was blocked from running a macro script because it used a function that is protected at this time (are you in combat?)\n\rThis isn't an error with the AddOn, but with a Macro Script in the ArcSpell being cast.",
+					acceptText = OKAY,
+					cancelText = false,
+				})
+			end
+		end
+	elseif which == "DANGEROUS_SCRIPTS_WARNING" then
+		showCustomGenericConfirmation({
+			text = "An AddOn or Macro was blocked from running a user-script. Blizzard defines any user script as 'dangerous', and they have the potential to be dangerous! You will need to enable Dangerous Scripts for the action you attempted to work.\n\rIf the Dangerous Scripts Warning pop-up does not work, you can manually trigger a working version using\r" .. Tooltip.genContrastText("/script SetAllowDangerousScripts(true)"),
+			acceptText = OKAY,
+			cancelText = false,
+		})
+	end
+end)
 
 ---@class UI_Popups
 ns.UI.Popups = {

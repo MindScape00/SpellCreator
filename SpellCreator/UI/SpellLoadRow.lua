@@ -19,6 +19,7 @@ local Icons = ns.UI.Icons
 local Popups = ns.UI.Popups
 local SpellLoadRowContextMenu = ns.UI.SpellLoadRowContextMenu
 
+local ADDON_COLORS = Constants.ADDON_COLORS
 local ASSETS_PATH = Constants.ASSETS_PATH
 local VAULT_TYPE = Constants.VAULT_TYPE
 
@@ -133,11 +134,6 @@ local function setTooltip(frame, isIcon)
 			end
 
 			tinsert(strings, " ")
-			if isIcon then
-				tinsert(strings, "Click to cast " .. Tooltip.genContrastText(spell.commID))
-			else
-				tinsert(strings, "Command: " .. Tooltip.genContrastText("/sf " .. spell.commID))
-			end
 
 			if spell.author then
 				tinsert(strings, "Author: " .. spell.author);
@@ -151,6 +147,12 @@ local function setTooltip(frame, isIcon)
 			end
 
 			tinsert(strings, " ")
+			if isIcon then
+				tinsert(strings, Tooltip.genContrastText("Left-Click") .. " to cast " .. ADDON_COLORS.TOOLTIP_EXAMPLE:WrapTextInColorCode(spell.commID))
+
+			else
+				tinsert(strings, "Command: " .. Tooltip.genContrastText("/sf " .. spell.commID))
+			end
 			tinsert(strings, Tooltip.genContrastText("Right-Click") .. " for more options!")
 			tinsert(strings, Tooltip.genContrastText("Shift-Click") .. " to link in chat.")
 
@@ -374,7 +376,8 @@ local function createPrivateIconButton(row)
 
 	Tooltip.set(privateIconButton,
 		function(self)
-			local spellName = "'" .. getSpell(self.commID).fullName
+			local theSpell = getSpell(self.commID)
+			local spellName = "'" .. ((theSpell and theSpell.fullName) and theSpell.fullName or "Loading ...")
 
 			if self.isPrivate then
 				return spellName .. "' is Private & visible only to Officers+"
@@ -538,7 +541,7 @@ local function updateRow(row, rowNum, commIDOrIndex, spell)
 	setMode(row)
 	resizeName(row)
 
-	row.privateIconButton:SetPrivacy(spell.private)
+	row.privateIconButton:SetPrivacy(spell.private and spell.private or false)
 end
 
 ---@param inject { loadSpell: fun(spell: VaultSpell), upload: fun(commID: CommID, isPrivate: boolean) }

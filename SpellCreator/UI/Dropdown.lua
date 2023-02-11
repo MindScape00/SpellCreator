@@ -22,6 +22,8 @@ local currentMenu = {}
 ---@field tooltipTitle DynamicText?
 ---@field tooltipText DynamicText?
 ---@field hidden DynamicBoolean?
+---@field keepShownOnClick DynamicBoolean? overwrite options that default to not stay shown on click
+---@field options table? the rest of the default UIDropDownMenu options since they are not special-handlers here
 
 ---@class DropdownInputCreationOptions: DropdownItemCreationOptions
 ---@field placeholder string
@@ -38,7 +40,9 @@ local currentMenu = {}
 ---@field tooltipTitle DynamicText?
 ---@field tooltipText DynamicText?
 ---@field disabled DynamicBoolean?
+---@field keepShownOnClick DynamicBoolean? overwrite options that default to not stay shown on click
 ---@field hidden DynamicBoolean?
+---@field options table
 
 ---@generic V
 ---@param value (V | fun(): V)
@@ -59,12 +63,22 @@ local function getMenuItem(dropdownItem)
 
 	menuItem.text = evaluate(dropdownItem.text) --[[@as string]]
 	menuItem.disabled = evaluate(dropdownItem.disabled) --[[@as boolean]]
-	menuItem.hidden = evaluate(dropdownItem.hidden) --[[@as boolean]]
 
 	if dropdownItem.tooltipTitle or dropdownItem.tooltipText then
 		menuItem.tooltipOnButton = true
 		menuItem.tooltipTitle = evaluate(dropdownItem.tooltipTitle) --[[@as string]]
 		menuItem.tooltipText = evaluate(dropdownItem.tooltipText) --[[@as string]]
+	end
+	if dropdownItem.keepShownOnClick then
+		menuItem.keepShownOnClick = evaluate(dropdownItem.keepShownOnClick) --[[@as boolean]]
+	end
+
+	if dropdownItem.options then
+		for k, v in pairs(dropdownItem.options) do -- copy the options table over, skipping anything we already have populated by the dropdownItem definition
+			if not menuItem[k] then
+				menuItem[k] = v
+			end
+		end
 	end
 
 	return menuItem
@@ -84,7 +98,7 @@ local function initialize(_, level, menuList)
 			local menuItem = getMenuItem(dropdownItem)
 			menuItem.index = index
 
-			if not menuItem.hidden then
+			if not evaluate(dropdownItem.hidden) then
 				UIDropDownMenu_AddButton(menuItem, level);
 			end
 		end
@@ -129,6 +143,14 @@ local function open(menuList, frame, anchor, x, y, displayMode, autoHideDelay)
 	currentMenu.y = y
 	currentMenu.displayMode = displayMode
 	currentMenu.autoHideDelay = autoHideDelay
+
+	if anchor == "cursor" then
+		local uiScale, cX, cY = UIParent:GetEffectiveScale(), GetCursorPosition()
+		currentMenu.anchor = "UIParent"
+		currentMenu.x = cX / uiScale
+		currentMenu.y = cY / uiScale
+	end
+
 end
 
 local function close()
@@ -172,6 +194,8 @@ local function item(type, text, options)
 		dropdownItem.tooltipTitle = options.tooltipTitle
 		dropdownItem.tooltipText = options.tooltipText
 		dropdownItem.hidden = options.hidden
+		dropdownItem.keepShownOnClick = options.keepShownOnClick
+		dropdownItem.options = options.options -- non-special handled options
 	end
 
 	return dropdownItem
@@ -232,7 +256,7 @@ local function execute(text, func, options)
 
 	dropdownItem.menuItem.func = function()
 		func()
-		close()
+		if options and evaluate(options.keepShownOnClick) then refresh() else close() end
 	end
 	dropdownItem.menuItem.notCheckable = true
 
@@ -393,6 +417,7 @@ ns.UI.Dropdown = {
 	open = open,
 	close = close,
 	isOpen = isOpen,
+	refresh = refresh,
 
 	checkbox = checkbox,
 	divider = divider,

@@ -443,7 +443,7 @@ local function deleteBook(book)
 	local index = getBookIndex(book)
 
 	-- TODO : Move the pages from this book into a Free / Orphaned pages holding table (and update the delete confirmation)
-
+	book:Hide()
 	tremove(_booksDB, index)
 	tremove(SpellCreatorMasterTable.quickcast.books, index)
 	removeBookFromCharacterMemory(book.savedData.name)

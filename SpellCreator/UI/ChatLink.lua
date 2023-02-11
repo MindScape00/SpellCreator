@@ -29,7 +29,7 @@ local function generateSpellLink(spell, vaultType)
 		charOrPhase = UnitName("player")
 	end
 	local numActions = #spell.actions
-	local chatLink = ADDON_COLOR.."|HarcSpell:"..spellComm..":"..charOrPhase..":"..numActions..":"..spellIcon.."|h["..spellName.."]|h|r"
+	local chatLink = ADDON_COLOR .. "|HarcSpell:" .. spellComm .. ":" .. charOrPhase .. ":" .. numActions .. ":" .. spellIcon .. "|h[" .. spellName .. "]|h|r"
 	return chatLink;
 end
 
@@ -48,20 +48,20 @@ end
 
 local function getSpellIconSequence(iconPath)
 	if (not iconPath or iconPath == "") then iconPath = ASSETS_PATH .. "/BookIcon" end
-	iconPath = ns.UI.Icons.getFinalIcon( iconPath )
+	iconPath = ns.UI.Icons.getFinalIcon(iconPath)
 	local spellIconSize = 24
-	local spellIconSequence = "|T"..iconPath..":"..spellIconSize.."|t  "
+	local spellIconSequence = "|T" .. iconPath .. ":" .. spellIconSize .. "|t  "
 	return spellIconSequence
 end
 
 local function setupSpellTooltip(spellName, spellDesc, spellComm, numActions, charOrPhase, spellIconSequence)
-	local tooltipTitle = spellIconSequence..ADDON_COLOR..spellName
+	local tooltipTitle = spellIconSequence .. ADDON_COLOR .. spellName
 	GameTooltip_SetTitle(ItemRefTooltip, tooltipTitle)
 
 	ItemRefTooltip:AddLine(spellDesc, nil, nil, nil, true)
 	ItemRefTooltip:AddLine(" ")
-	ItemRefTooltip:AddDoubleLine("Command: "..spellComm, "Actions: "..numActions, 1, 1, 1, 1, 1, 1)
-	ItemRefTooltip:AddDoubleLine( "Arcanum Spell", charOrPhase, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75 )
+	ItemRefTooltip:AddDoubleLine("Command: " .. spellComm, "Actions: " .. numActions, 1, 1, 1, 1, 1, 1)
+	ItemRefTooltip:AddDoubleLine("Arcanum Spell", charOrPhase, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75)
 
 	C_Timer.After(0, function()
 		if tonumber(charOrPhase) and not ns.Utils.ChatLinkCache.getSpellFromCache(spellComm, charOrPhase) then -- is a phase, not a character, and no spell in cache
@@ -70,7 +70,7 @@ local function setupSpellTooltip(spellName, spellDesc, spellComm, numActions, ch
 				ItemRefTooltip:AddLine("Get it from the Main Phase Vault")
 			else
 				ItemRefTooltip:AddLine(" ")
-				ItemRefTooltip:AddLine("Get it from Phase "..charOrPhase.."'s Vault")
+				ItemRefTooltip:AddLine("Get it from Phase " .. charOrPhase .. "'s Vault")
 			end
 		elseif charOrPhase == UnitName("player") then
 			ItemRefTooltip:AddLine(" ")
@@ -135,7 +135,7 @@ function ChatFrame_OnHyperlinkShow(...)
 	local linkType, linkData, displayText = LinkUtil.ExtractLink(select(3, ...))
 
 	if linkType == "arcSpell" then
-		local spellName = displayText:gsub("%[(.+)%]","%1")
+		local spellName = displayText:gsub("%[(.+)%]", "%1")
 		local spellComm, charOrPhase, numActions, spellIcon = strsplit(":", linkData)
 
 		showSpellTooltip(spellComm, spellName, charOrPhase, linkData)
@@ -153,15 +153,17 @@ local function chatMessageSendLinkHook(msg, chatType, languageID, target)
 		if charOrPhase == UnitName("player") or (tonumber(charOrPhase) == tonumber(C_Epsilon.GetPhaseId()) and ns.Vault.phase.isLoaded == true) then -- make sure we are sending our own spell or our current phases vault, and not sending another person's link..
 			Comms.sendSpellForCache(spellComm, charOrPhase, chatType, target)
 		else
-			dprint(nil, "Spell Link caught, but not ours or not the phase we are in, or phase vault not loaded. ("..spellComm.." from "..charOrPhase.."'s vault)")
+			dprint(nil, "Spell Link caught, but not ours or not the phase we are in, or phase vault not loaded. (" .. spellComm .. " from " .. charOrPhase .. "'s vault)")
 		end
 
 	end
 end
+
 hooksecurefunc("SendChatMessage", chatMessageSendLinkHook)
 
 ---@class UI_ChatLink
 ns.UI.ChatLink = {
-    linkSpell = linkSpell,
+	linkSpell = linkSpell,
 	showSpellTooltip = showSpellTooltip,
+	generateSpellLink = generateSpellLink,
 }

@@ -112,7 +112,9 @@ local function setGreeting()
 end
 
 local function hookTitleButtons()
+	dprint("Hooking Gossip TitleButtons...")
 	local gossipOptionPayload = nil
+	local needToHookLateForImmersion = false
 
 	for i = 1, GetNumGossipOptions() do
 		--[[	-- Replaced with a memory of modifiedGossips that we reset when gossip is closed instead.
@@ -130,13 +132,7 @@ local function hookTitleButtons()
 			local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
 
 			if gossipTags.option[mainTag] then -- Checking Main Tags & Running their code if present
-				--[[
-				if not titleButton.isHookedByArc then
-					titleButton:HookScript("OnClick", function() gossipTags.option[mainTag].script(strArg) end)
-					titleButton.isHookedByArc = true
-				end
-				modifiedGossips[i] = titleButton
-				--]]
+
 				local function _newOnClickHook()
 					gossipTags.option[mainTag].script(strArg)
 					dprint("Hooked gossip clicked for <" .. mainTag .. ":" .. (strArg or "") .. ">")
@@ -151,12 +147,12 @@ local function hookTitleButtons()
 								dprint("Running Legacy Auto-Cast..")
 								gossipScript.auto_cast(strArg)
 							else
-								gossipTags.option[mainTag].script(strArg)
 								dprint("Running Legacy Auto Tag Support.. This may not work.")
+								gossipTags.option[mainTag].script(strArg)
 							end
 						end
 					end
-					if extTags == "auto_hide" then shouldAutoHide = true end
+					if extTags == "auto_hide" then shouldAutoHide = true end -- legacy auto with hide support
 					for k, v in ipairs(gossipTags.extensions) do -- Checking for any tag extensions
 						if extTags:match(v.ext) then
 							local _origNewOnClickHook = _newOnClickHook
@@ -168,7 +164,12 @@ local function hookTitleButtons()
 					end
 				end
 
-				if not titleButton.isHookedByArc then
+				if ImmersionFrame then
+					if not titleButton.isHookedByArc then
+						titleButton:HookScript("OnClick", _newOnClickHook)
+						needToHookLateForImmersion = true
+					end
+				else
 					titleButton:HookScript("OnClick", _newOnClickHook)
 					titleButton.isHookedByArc = true
 				end
@@ -190,6 +191,9 @@ local function hookTitleButtons()
 				mainTag .. " | Spell: " .. (strArg or "none") .. " | Ext: " .. (tostring(extTags) or "none"))
 		end
 
+		if needToHookLateForImmersion then
+			titleButton.isHookedByArc = true
+		end
 		GossipResize(titleButton) -- Fix the size if the gossip option changed number of lines.
 
 	end
@@ -250,7 +254,7 @@ local function isLoaded()
 	return isGossipLoaded
 end
 
----@param callbacks { openArcanum: fun(), saveToPersonal: fun(phaseVaultIndex: integer), loadPhaseVault: fun(callback: fun()) }
+---@param callbacks { openArcanum: fun(), saveToPersonal: fun(phaseVaultIndex: integer, sendLearnedMessage: boolean), loadPhaseVault: fun(callback: fun()) }
 local function init(callbacks)
 	loadPhaseVault = callbacks.loadPhaseVault
 
@@ -275,7 +279,7 @@ local function init(callbacks)
 			local index = Vault.phase.findSpellIndexByID(payLoad)
 			if index ~= nil then
 				dprint("Found & Saving Spell '" .. payLoad .. "' (" .. index .. ") to your Personal Vault.")
-				callbacks.saveToPersonal(index)
+				callbacks.saveToPersonal(index, true)
 			end
 		end,
 		copy = function(payLoad)

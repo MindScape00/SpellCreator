@@ -21,7 +21,7 @@ local BOOK_STYLE = {
 	YELLOW = 9,
 	ORANGE = 10,
 	RED = 11,
-	ARCWOLF = 12,
+	ARCFOX = 12,
 	ARCANOWL = 13,
 	TEACUP = 14,
 }
@@ -41,7 +41,7 @@ local BOOK_STYLE = {
 local BOOK_STYLE_DATA = {
 	[BOOK_STYLE.DEFAULT] = {
 		name = "Default",
-		tex = ASSETS_PATH .. "/quick_cast_main",
+		tex = QUICKCAST_ASSETS_PATH .. "/quickcast_main",
 		color = ADDON_COLORS.GAME_GOLD,
 	},
 	[BOOK_STYLE.PRISMATIC] = {
@@ -95,23 +95,35 @@ local BOOK_STYLE_DATA = {
 		tex = QUICKCAST_ASSETS_PATH .. "/Spellbook" .. "Yellow",
 		color = GEM_BOOK_COLORS.YELLOW,
 	},
-	[BOOK_STYLE.ARCWOLF] = {
-		name = "Arcwolf",
-		tex = QUICKCAST_ASSETS_PATH .. "/ArcWolf",
+	[BOOK_STYLE.ARCFOX] = {
+		name = "Arcfox",
+		tex = QUICKCAST_ASSETS_PATH .. "/ArcFox",
 		colorGradient = { min = GEM_BOOK_COLORS.BLUE, max = ADDON_COLORS.LIGHT_PURPLE },
 		useTexForIcon = true,
+		requirement = "QCStyle_Arcfox", -- TODO : Remove this when no longer needed
+		requirementDate = { year = 2023, month = 02, day = 06 },
+		requirementTipTitle = "The playful Fox goes unseen by the world..",
+		requirementTipText = "Because it's too good at hide and seek!\n\rFind the Fox's Shrine in Dranosh Valley & gain its favor to add this Style to your collection!"
 	},
 	[BOOK_STYLE.ARCANOWL] = {
 		name = "Arcanowl",
 		tex = QUICKCAST_ASSETS_PATH .. "/Owl",
 		colorGradient = { min = GEM_BOOK_COLORS.INDIGO, max = GEM_BOOK_COLORS.BLUE },
 		useTexForIcon = true,
+		requirement = "QCStyle_Arcanowl", -- TODO : Remove this when no longer needed
+		requirementDate = { year = 2023, month = 02, day = 06 },
+		requirementTipTitle = "The Arcanowl knows many things..",
+		requirementTipText = "Fortunately, this owl is willing to share its knowledge.\n\rFind the Owl's Shrine in Dranosh Valley & gain its wisdom to add this Style to your collection!",
 	},
 	[BOOK_STYLE.TEACUP] = {
 		name = "Teacup",
 		tex = QUICKCAST_ASSETS_PATH .. "/Teacup",
 		colorGradient = { min = GEM_BOOK_COLORS.BLUE, max = GEM_BOOK_COLORS.INDIGO },
 		useTexForIcon = true,
+		requirement = "QCStyle_Teacup", -- TODO : Remove this when no longer needed
+		requirementDate = { year = 2023, month = 02, day = 06 },
+		requirementTipTitle = "The Teacup holds the secrets of peace & spirit..",
+		requirementTipText = "Savor the moment, and embrace the tranquility contained within.\n\rFind the Tea Shrine in Dranosh Valley & drink from it to add this Style to your collection!",
 	},
 }
 

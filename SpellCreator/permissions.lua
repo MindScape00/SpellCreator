@@ -23,7 +23,7 @@ local function isStart()
 end
 
 local function canExecuteSpells()
-	return not isStart() or isOfficerPlus()
+	return not isStart() or isOfficerPlus() or SpellCreatorMasterTable.Options.debug
 end
 
 ns.Permissions = {

@@ -6,7 +6,7 @@ local AceSerializer = ns.Libs.AceSerializer
 
 local function compressForAddonMsg(str)
 	str = AceSerializer:Serialize(str)
-	str = LibDeflate:CompressDeflate(str, {level = 9})
+	str = LibDeflate:CompressDeflate(str, { level = 9 })
 	--str = LibDeflate:EncodeForWoWAddonChannel(str)
 	str = LibDeflate:EncodeForWoWChatChannel(str)
 	return str;
@@ -22,7 +22,7 @@ end
 
 local function compressForExport(str)
 	str = AceSerializer:Serialize(str)
-	str = LibDeflate:CompressDeflate(str, {level = 9})
+	str = LibDeflate:CompressDeflate(str, { level = 9 })
 	--str = LibDeflate:EncodeForWoWChatChannel(str)
 	str = LibDeflate:EncodeForPrint(str)
 	return str;

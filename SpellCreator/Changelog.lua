@@ -8,7 +8,26 @@ ns.ChangelogText = [[
 
 {h1:c} Changelog {/h1}
 {h2:c} __________________________________________________________ {/h2}
-##v1.2.1 (January 9th, 2023)
+##v1.3.2 (February 11th, 2023)
+
+### - Hotfix:
+
+    - Fixed Sparks storage limitation causing crashes if too many sparks
+        were saved in a phase. Now it's 'unlimited'.
+    - Added a warning when trying to save a spell that is too big for the
+        the phase vault (encoded string of 3750 characters or more).
+
+{h2:c} __________________________________________________________ {/h2}
+##v1.3.1 (February 2nd, 2023)
+
+### - Changes:
+
+    - Fixed updating Sparks for those already in the phase when a Spark is created,
+          edited, or deleted. Woops!
+    - Added a few more Spark border styles, thanks to skylar/sunkencastles!
+
+{h2:c} __________________________________________________________ {/h2}
+##v1.3.0 (January 31st, 2023)
 
 ### - Changes:
 
@@ -35,18 +54,29 @@ ns.ChangelogText = [[
             - A Book Manager UI is available to help manage pages & books via AddOn Settings.
 
     - ARC.PHASE:API - We've added support for new |cffFFA500ARC.PHASE|r Vars in the ARC:API system.
+            - ARC.PHASE Vars are saved between sessions, and saved per-phase!
             - These are accessed via new actions, or in Macro Scripts using ARC.PHASE
                 functions, or directly using "/arc phase" commands.
             - You can see more info in the updated |cffFFA500user-guide|r (links above).
 
     - More Actions!  We've added more actions to help you accomplish tasks you
             may not have even thought of yet because you didn't realize you could.
+            - Revert actions now trigger instantly when a spell is cancelled as well.
 
     - Behind-the-scenes improvements!  Shout-out to |cff57F287Iyadriel|r for providing immense support
         on improving the 'behind the scenes' code, including rewriting the entire drop-down
         menu system - twice! You'll see this bring some UI improvements, and allows us too
         do cool things, like adding input boxes directly into the drop-downs!
-        Arcanum would not be as great as it is with their amazing help <3
+        Arcanum would not be as great as it is without their amazing help <3
+
+    - Bug Fixes:  We've squashed a lot of bugs.. Here's a quick list!
+        Gossips only working on first click; "SpellCreator was blocked..." messages; ARC:IFS work
+        properly for single-commands just like ARC:IF; URL Copy pop-up no longer extends wider
+        than the screen and becomes un-usable; Escape codes now work properly in text actions;
+        Stop Spells properly stops spells; Properly load the phase vault on Phase Change & Login;
+        Reset Anim now .. kinda properly resets your anim, you'll need to move first before you
+        can use other anims again though.. engine limitation it seems; Profiles are easier
+        to navigate in the dropdown now & doesn't miss 'account' when toggling Show All.
 
 {h2:c} __________________________________________________________ {/h2}
 ##v1.2.0 (December 21st, 2022)

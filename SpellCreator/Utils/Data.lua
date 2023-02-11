@@ -4,7 +4,7 @@ local ns = select(2, ...)
 local tInsert = tinsert
 
 ---------------------------------------------------------
---- General 
+--- General
 ---------------------------------------------------------
 
 local function isNotDefined(s)
@@ -15,7 +15,7 @@ end
 --- String Helpers
 ---------------------------------------------------------
 
-local function toboolean(str) return strlower(str) == "true" end
+local function toBoolean(str) return strlower(str) == "true" end
 
 local function firstToUpper(str)
 	return (str:gsub("^%l", string.upper))
@@ -146,14 +146,21 @@ end
 ---@param n integer number of decimal places
 ---@return number number the rounded number
 local function roundToNthDecimal(num, n)
-	local mult = 10^(n or 0)
-	return math.floor(num * mult+0.5) / mult
+	local mult = 10 ^ (n or 0)
+	return math.floor(num * mult + 0.5) / mult
+end
+
+---@param date {year: integer, month: integer, day: integer, hour: integer?, min: integer?, sec: integer?}
+local function isTodayAfterOrEqualDate(date)
+	local rightNow = time()
+	local whatDate = time(date)
+	if rightNow > whatDate then return true else return false end
 end
 
 ---@class Utils_Data
 ns.Utils.Data = {
 	isNotDefined = isNotDefined,
-	toboolean = toboolean,
+	toBoolean = toBoolean,
 	orderedPairs = orderedPairs,
 	firstToUpper = firstToUpper,
 	wordToProperCase = wordToProperCase,
@@ -167,4 +174,5 @@ ns.Utils.Data = {
 
 	getDistanceBetweenPoints = getDistanceBetweenPoints,
 	roundToNthDecimal = roundToNthDecimal,
+	isTodayAfterOrEqualDate = isTodayAfterOrEqualDate,
 }

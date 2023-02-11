@@ -29,9 +29,8 @@ local function setHighlightToOffsetWithPushed(frame, x, y)
 	frame:HookScript("OnMouseUp", function(self) setTextureOffset(highlight, 0, 0) end)
 end
 
----@param button BUTTON
+---@param button table ace3gui button table
 ---@param path string
----@param useAtlas? boolean
 local function setupCoherentAceIconButtonTextures(button, path)
 	local frame = button.frame
 
@@ -195,6 +194,7 @@ local function drawBookGroup(group, bookIndex, callback)
 					text = "Rename %s",
 					text_arg1 = ADDON_COLORS.TOOLTIP_CONTRAST:WrapTextInColorCode(book.savedData.name),
 					callback = function(text) book:SetName(text) end,
+					inputText = book.savedData.name,
 				})
 			end)
 			bookButtonsSection:AddChild(renameButton)

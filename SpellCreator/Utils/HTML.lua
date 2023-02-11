@@ -245,23 +245,27 @@ local function stringToHTML(text, noColor)
 	return "<HTML><BODY>" .. finalText .. "</BODY></HTML>";
 end
 
-StaticPopupDialogs["HTMLUTILS_HYPERLINK_COPYBOX"] = {
-	text = "%s",
-	button1 = CLOSE,
-	OnAccept = function(self)
-		self.editBox:SetText("")
-	end,
-	hasEditBox = true,
-	timeout = 0,
-	cancels = "HTMLUTILS_HYPERLINK_COPYBOX",
-	whileDead = true,
-	hideOnEscape = true,
-	preferredIndex = 3,
-}
+local HyperLinkCopyDialogName = "HTMLUTILS_HYPERLINK_COPYBOX" -- Rename this if you want to hook into your own popup dialog, otherwise this will use a default one
+if not StaticPopupDialogs[HyperLinkCopyDialogName] then
+	StaticPopupDialogs[HyperLinkCopyDialogName] = {
+		text = "%s",
+		button1 = CLOSE,
+		OnAccept = function(self)
+			self.editBox:SetText("")
+		end,
+		hasEditBox = true,
+		timeout = 0,
+		cancels = HyperLinkCopyDialogName,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
+end
 
 local function copyLink(self, link)
-	local popup = StaticPopup_Show("HTMLUTILS_HYPERLINK_COPYBOX", link);
+	local popup = StaticPopup_Show(HyperLinkCopyDialogName, link);
 	local width = max(popup.text:GetStringWidth(), 100)
+	width = min((GetScreenWidth()*.8), width) -- clamp to 80% screen width so it's not obnoxiously large..
 	popup.editBox:SetWidth(width);
 	popup:SetWidth(width+50)
 	popup.text:SetText(BROWSER_COPY_LINK)

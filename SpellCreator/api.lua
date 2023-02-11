@@ -8,6 +8,7 @@ local HTML = ns.Utils.HTML
 local Logging = ns.Logging
 local Vault = ns.Vault
 local phaseVault = Vault.phase
+local SavedVariables = ns.SavedVariables
 
 local cmdWithDotCheck = Cmd.cmdWithDotCheck
 local ADDON_COLORS = Constants.ADDON_COLORS
@@ -17,6 +18,11 @@ local executeSpell, executePhaseSpell = Execute.executeSpell, Execute.executePha
 
 ARC = {}
 ARC.VAR = {}
+
+---@param key string
+function ARC:UNLOCK(key)
+	SavedVariables.unlocks.unlock(key)
+end
 
 -- SYNTAX: ARC:COMM("command here") - i.e., ARC:COMM("cheat fly") -- KEPT THIS VERSION FOR LEGACY SUPPORT
 ---@param text string
@@ -214,18 +220,18 @@ end
 
 ---Save a spell from the phase vault to personal vault. So you can make spells that save other spells.
 ---@param commID CommID
----@param vocal boolean?
+---@param vocal boolean|string? technically a boolean but string works because we only test if vocal is
 function ARC:SAVE(commID, vocal)
 	if phaseVault.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Please try again in a moment."); return; end
 	dprint("Scanning Phase Vault for Spell to Save: " .. commID)
 	local spell = phaseVault.findSpellByID(commID)
-	if not spell then return eprint(("No Spell with CommID %s found in the Phase Vault"):format(ADDON_COLORS.TOOLTIP_CONTRAST:WrapTextInColorCode(commID))) end
+	local spellIndex = phaseVault.findSpellIndexByID(commID)
+	if not spell or not spellIndex then return eprint(("No Spell with CommID %s found in the Phase Vault"):format(ADDON_COLORS.TOOLTIP_CONTRAST:WrapTextInColorCode(commID))) end
 
-	dprint("Found & Saving Spell '" .. commID .. "' to your Personal Vault.")
-	Vault.personal.saveSpell(spell)
-	if vocal then
-		cprint(("You learned a new ArcSpell! [%s]"):format(spell.fullName))
-	end
+	dprint("Found & Saving Spell '" .. commID .. "' (Index: " .. spellIndex .. ") to your Personal Vault.")
+	--Vault.personal.saveSpell(spell)
+	ns.MainFuncs.downloadToPersonal(spellIndex, vocal)
+	ns.MainFuncs.updateSpellLoadRows()
 end
 
 ---Globally accessible function to stop currently running spells for users to use in scripts.
