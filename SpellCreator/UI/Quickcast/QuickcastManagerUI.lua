@@ -3,6 +3,9 @@ local ns = select(2, ...)
 
 local DataUtils = ns.Utils.Data
 local AceGUI = ns.Libs.AceGUI
+local AceConfig = ns.Libs.AceConfig
+local AceConfigDialog = ns.Libs.AceConfigDialog
+local AceConfigRegistry = ns.Libs.AceConfigRegistry
 local Quickcast = ns.UI.Quickcast
 local Tooltip = ns.Utils.Tooltip
 local Popups = ns.UI.Popups
@@ -99,11 +102,234 @@ local function getBookManagerBookTree()
 end
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+-- Spells Manager (Edit Spells in a Page)
+local showSpellsManager -- forward defined to use in genSpellManagerMenu to refresh easily
+local refreshSpellsManager
 
----@param group AceGUIContainer
+local _spellManagerData = {}
+
+---@param container AceGUIFrame
+---@param isRefresh boolean?
+local function genSpellManagerMenu(container, isRefresh)
+	local page = _spellManagerData.thePageToEdit --[[@as QuickcastPage]]
+	local bookIndex = _spellManagerData.bookIndex
+
+	local _spells = page:GetSpells()
+	local numSpells = #_spells
+
+	local spellsScrollContainer = AceGUI:Create("InlineGroup")
+	spellsScrollContainer:SetFullHeight(true)
+	spellsScrollContainer:SetFullWidth(true)
+	spellsScrollContainer:SetLayout("Fill")
+	spellsScrollContainer:SetTitle("Spells in this Page")
+	container:AddChild(spellsScrollContainer)
+
+	local spellsScrollFrame = AceGUI:Create("ScrollFrame")
+	spellsScrollFrame:SetLayout("List")
+	spellsScrollContainer:AddChild(spellsScrollFrame)
+	spellsScrollFrame:SetCallback("OnRelease", function(self, value)
+		_spellManagerData.lastScrollVal = self.scrollbar:GetValue()
+	end)
+	if isRefresh then
+		C_Timer.After(0, function()
+			if _spellManagerData.lastScrollVal then
+				spellsScrollFrame:SetScroll(_spellManagerData.lastScrollVal)
+				spellsScrollFrame:FixScroll()
+			end
+		end)
+	end
+
+	if not page then
+		local noPageLabel = AceGUI:Create("Label")
+		noPageLabel:SetText("This page does not exist. Wtf?")
+		noPageLabel:SetRelativeWidth(1)
+		spellsScrollFrame:AddChild(noPageLabel)
+		return
+	end
+
+	if numSpells == 0 or not _spells then
+		local noSpellsLabel = AceGUI:Create("Label")
+		noSpellsLabel:SetText("There are no Spells in this page.")
+		noSpellsLabel:SetRelativeWidth(1)
+		spellsScrollFrame:AddChild(noSpellsLabel)
+		return
+	end
+
+	for i = 1, #_spells do
+		local commID = _spells[i]
+		local spellData = ns.Vault.personal.findSpellByID(commID)
+		if spellData then
+			local spellGroup = AceGUI:Create("InlineGroup")
+			spellGroup:SetAutoAdjustHeight(false)
+			spellGroup:SetLayout("Flow")
+			spellGroup:SetFullWidth(true)
+			spellGroup:SetHeight(82)
+			spellGroup:SetTitle(spellData.fullName)
+			spellsScrollFrame:AddChild(spellGroup)
+
+			local spellIconSection = AceGUI:Create("SimpleGroup")
+			spellIconSection:SetLayout("List")
+			spellIconSection:SetRelativeWidth(0.15)
+			spellGroup:AddChild(spellIconSection)
+
+			do
+				local spellIconLabel = AceGUI:Create("InteractiveLabel")
+				spellIconLabel:SetImage(ns.UI.Icons.getFinalIcon(spellData.icon))
+				spellIconLabel:SetImageSize(32, 32)
+				spellIconLabel:SetRelativeWidth(1)
+				spellIconSection:AddChild(spellIconLabel)
+
+				Tooltip.setAceTT(
+					spellIconLabel,
+					function(self)
+						return spellData.fullName
+					end,
+					function(self)
+						local spell = spellData
+						local strings = {}
+
+						if spell.description then
+							tinsert(strings, spell.description)
+						end
+
+						tinsert(strings, " ")
+
+						if spell.cooldown then
+							tinsert(strings, Tooltip.createDoubleLine("Actions: " .. #spell.actions, "Cooldown: " .. spell.cooldown .. "s"))
+						else
+							tinsert(strings, "Actions: " .. #spell.actions)
+						end
+
+						if spell.author and spell.profile then
+							tinsert(strings, Tooltip.createDoubleLine("Author: " .. spell.author, "Profile: " .. spell.profile))
+						elseif spell.author then
+							tinsert(strings, "Author: " .. spell.author);
+						elseif spell.profile then
+							tinsert(strings, Tooltip.createDoubleLine(" ", "Profile: " .. spell.profile))
+							--tinsert(strings, "Profile: " .. spell.profile);
+						end
+
+						return strings
+					end,
+					{
+						-- we expect a tooltip on the spell even if tooltips are disabled
+						forced = true
+					}
+				)
+			end
+
+			local spellInfoSection = AceGUI:Create("SimpleGroup")
+			spellInfoSection:SetLayout("List")
+			spellInfoSection:SetRelativeWidth(0.53)
+			spellGroup:AddChild(spellInfoSection)
+
+			do
+				local spellNameLabel = AceGUI:Create("Label")
+				spellNameLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Name: ") .. spellData.fullName)
+				spellNameLabel:SetRelativeWidth(1)
+				spellInfoSection:AddChild(spellNameLabel)
+
+				local spellCommIDLabel = AceGUI:Create("Label")
+				spellCommIDLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("CommID: ") .. spellData.commID)
+				spellCommIDLabel:SetRelativeWidth(1)
+				spellInfoSection:AddChild(spellCommIDLabel)
+			end
+
+			local removeButton = AceGUI:Create("Button")
+			removeButton:SetText("Remove")
+			--removeButton:SetRelativeWidth(0.60)
+			removeButton:SetWidth(80)
+			removeButton:SetHeight(32)
+			removeButton:SetCallback("OnClick", function()
+				if type(page.spells) ~= "table" then return end
+				tremove(page.spells, i)
+				refreshSpellsManager(container, page, bookIndex)
+			end)
+			Tooltip.setAceTT(removeButton, "Remove Spell from Page", "This will remove it from the Quickcast. The spell will remain in your vault.", { delay = 0.3 })
+			spellGroup:AddChild(removeButton)
+
+			local spellButtonsSection = AceGUI:Create("SimpleGroup")
+			spellButtonsSection:SetLayout("Flow")
+			--spellButtonsSection:SetRelativeWidth(0.1)
+			spellButtonsSection:SetWidth(43)
+			spellGroup:AddChild(spellButtonsSection)
+
+			do
+				local moveUpButton = AceGUI:Create("Button")
+				moveUpButton:SetText(CreateTextureMarkup("Interface/Azerite/Azerite", 62 * 4, 44 * 4, 1.4, 0, 0.51953125, 0.76171875, 0.416015625, 0.373046875))
+				--moveUpButton:SetRelativeWidth(0.4)
+				moveUpButton:SetWidth(43)
+				moveUpButton:SetHeight(16)
+				moveUpButton:SetDisabled(i == 1 and true or false)
+				moveUpButton:SetCallback("OnClick", function()
+					page:ReorderSpell(i, i - 1)
+					refreshSpellsManager(container, page, bookIndex)
+				end)
+				Tooltip.setAceTT(moveUpButton, "Move Spell Up", "This will re-arrange it's order in the Quickcast as well.", { delay = 0.3 })
+				spellButtonsSection:AddChild(moveUpButton)
+
+				local moveDownButton = AceGUI:Create("Button")
+				moveDownButton:SetText(CreateAtlasMarkup("Azerite-PointingArrow"))
+				--moveDownButton:SetRelativeWidth(0.4)
+				moveDownButton:SetWidth(43)
+				moveDownButton:SetHeight(16)
+				moveDownButton:SetDisabled(i == numSpells and true or false)
+				moveDownButton:SetCallback("OnClick", function()
+					page:ReorderSpell(i, i + 1)
+					refreshSpellsManager(container, page, bookIndex)
+				end)
+				Tooltip.setAceTT(moveDownButton, "Move Spell Down", "This will re-arrange it's order in the Quickcast as well.", { delay = 0.3 })
+				spellButtonsSection:AddChild(moveDownButton)
+			end
+			spellGroup:DoLayout() -- fixes layouts that randomly break for no reason..
+		end
+	end
+end
+
+---Show the Spells Manager for a Page
+---@param page QuickcastPage
+---@param bookIndex integer? Book index to refresh
+---@param isRefresh boolean?
+showSpellsManager = function(page, bookIndex, isRefresh)
+	_spellManagerData.thePageToEdit = page
+	_spellManagerData.bookIndex = bookIndex
+
+	local _spells = page:GetSpells()
+	local numSpells = #_spells
+
+	local spellManagerContainer = AceGUI:Create("Frame")
+	spellManagerContainer:SetTitle("Arcanum - Page Spells Manager")
+	spellManagerContainer:SetLayout("Flow")
+	spellManagerContainer:SetWidth(500)
+	spellManagerContainer:SetHeight(math.min(GetScreenHeight(), math.max(math.min(8 * 82, numSpells * 82), 5 * 82) + 105))
+	spellManagerContainer:EnableResize(false)
+
+	spellManagerContainer:SetCallback("OnClose", function(widget)
+		if widget:GetUserData("isRefreshing") then
+			AceGUI:Release(widget)
+		else
+			AceGUI:Release(widget)
+			if qcManagerUI and qcManagerUI.IsShown and qcManagerUI:IsShown() then
+				C_Timer.After(0, function() ns.UI.Quickcast.ManagerUI.showQCManagerUI(_spellManagerData.bookIndex) end)
+			end
+		end
+	end)
+
+	genSpellManagerMenu(spellManagerContainer, isRefresh)
+end
+
+refreshSpellsManager = function(container, page, bookIndex)
+	container:SetUserData("isRefreshing", true)
+	container:Release()
+	showSpellsManager(page, bookIndex, true)
+end
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+---@param containerFrame AceGUIContainer
 ---@param bookIndex integer
 ---@param callback function
-local function drawBookGroup(group, bookIndex, callback)
+local function drawBookGroup(containerFrame, bookIndex, callback)
 	if bookIndex == -1 then
 		local numBooks = ns.UI.Quickcast.Book.getNumBooks()
 		local newBook = ns.UI.Quickcast.Book.createBook(numBooks + 1)
@@ -119,10 +345,10 @@ local function drawBookGroup(group, bookIndex, callback)
 	local bookStyleData = Quickcast.Style.getStyleData(book.savedData.style)
 	local numPages = book:GetNumPages()
 	local _pages = book.savedData._pages
-	group.bookIndex = bookIndex
+	containerFrame.bookIndex = bookIndex
 
 	-- Need to redraw again for when icon editbox/button are shown and hidden
-	group:ReleaseChildren()
+	containerFrame:ReleaseChildren()
 
 	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 	-- groupScrollContainer
@@ -131,7 +357,7 @@ local function drawBookGroup(group, bookIndex, callback)
 	groupScrollContainer:SetFullWidth(true)
 	groupScrollContainer:SetFullHeight(true)
 	groupScrollContainer:SetLayout("Fill")
-	group:AddChild(groupScrollContainer)
+	containerFrame:AddChild(groupScrollContainer)
 
 	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 	-- groupScrollFrame
@@ -144,13 +370,6 @@ local function drawBookGroup(group, bookIndex, callback)
 
 	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 	-- gen our inline groups
-	if numPages == 0 or not _pages then
-		local noPagesLabel = AceGUI:Create("Label")
-		noPagesLabel:SetText("There are no Pages in this Book.")
-		noPagesLabel:SetRelativeWidth(1)
-		groupScrollFrame:AddChild(noPagesLabel)
-		return
-	end
 
 	local bookDataGroup = AceGUI:Create("InlineGroup")
 	bookDataGroup:SetLayout("Flow")
@@ -235,7 +454,6 @@ local function drawBookGroup(group, bookIndex, callback)
 				)
 			end)
 			bookButtonsSection:AddChild(deleteBookButton)
-
 		end
 		bookDataGroup:AddChild(bookButtonsSection)
 	end
@@ -253,9 +471,17 @@ local function drawBookGroup(group, bookIndex, callback)
 	pagesScrollFrame:SetLayout("List")
 	pagesScrollContainer:AddChild(pagesScrollFrame)
 
+	if numPages == 0 or not _pages then
+		local noPagesLabel = AceGUI:Create("Label")
+		noPagesLabel:SetText("There are no Pages in this Book. Add a page above.")
+		noPagesLabel:SetRelativeWidth(1)
+		pagesScrollFrame:AddChild(noPagesLabel)
+		return
+	end
+
 	for k, pageData in ipairs(_pages) do
-		local isDyanmicPage
-		if pageData.profileName then isDyanmicPage = true end
+		local isDynamicPage
+		if pageData.profileName then isDynamicPage = true end
 
 		local pageGroup = AceGUI:Create("InlineGroup")
 		pageGroup:SetAutoAdjustHeight(false)
@@ -272,11 +498,11 @@ local function drawBookGroup(group, bookIndex, callback)
 
 		do
 			local pageTypeLabel = AceGUI:Create("Label")
-			pageTypeLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Type: ") .. (isDyanmicPage and "Dynamic" or "Standard"))
+			pageTypeLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Type: ") .. (isDynamicPage and "Dynamic" or "Standard"))
 			pageTypeLabel:SetRelativeWidth(1)
 			pageInfoSection:AddChild(pageTypeLabel)
 
-			if isDyanmicPage then
+			if isDynamicPage then
 				local dynamicProfileLabel = AceGUI:Create("Label")
 				dynamicProfileLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Profile: ") .. pageData.profileName)
 				dynamicProfileLabel:SetRelativeWidth(1)
@@ -295,12 +521,13 @@ local function drawBookGroup(group, bookIndex, callback)
 		pageGroup:AddChild(pageButtonsSection)
 
 		do
-			local moveButton = AceGUI:Create("Button")
-			moveButton:SetText("Move")
-			moveButton:SetRelativeWidth(1)
-			moveButton:SetDisabled(true)
-			moveButton:SetCallback("OnClick", function() end)
-			pageButtonsSection:AddChild(moveButton)
+			-- TODO: Add Spells Manager Menu
+			local spellsButton = AceGUI:Create("Button")
+			spellsButton:SetText("Spells")
+			spellsButton:SetRelativeWidth(1)
+			spellsButton:SetDisabled(isDynamicPage)
+			spellsButton:SetCallback("OnClick", function() showSpellsManager(pageData, bookIndex) end)
+			pageButtonsSection:AddChild(spellsButton)
 
 			local deleteButton = AceGUI:Create("Button")
 			deleteButton:SetText("Delete")
@@ -417,4 +644,7 @@ end
 ns.UI.Quickcast.ManagerUI = {
 	showQCManagerUI = showQCManagerUI,
 	refreshQCManagerUI = refreshQCManagerUI,
+
+	showSpellsManager = showSpellsManager,
+	refreshSpellsManager = refreshSpellsManager,
 }

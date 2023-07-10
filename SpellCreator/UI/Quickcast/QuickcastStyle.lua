@@ -36,6 +36,12 @@ local BOOK_STYLE = {
 ---@field colorGradient ColorGradient?
 ---@field useTexForIcon boolean
 ---@field iconData? IconData
+---@field tooltipTitle? string
+---@field tooltipText? string
+---@field requirement? string
+---@field requirementDate? {year: integer, month: integer, day: integer}
+---@field requirementTipTitle? string
+---@field requirementTipText? string
 
 ---@type { [BookStyle]: BookStyleData }
 local BOOK_STYLE_DATA = {
@@ -100,30 +106,24 @@ local BOOK_STYLE_DATA = {
 		tex = QUICKCAST_ASSETS_PATH .. "/ArcFox",
 		colorGradient = { min = GEM_BOOK_COLORS.BLUE, max = ADDON_COLORS.LIGHT_PURPLE },
 		useTexForIcon = true,
-		requirement = "QCStyle_Arcfox", -- TODO : Remove this when no longer needed
-		requirementDate = { year = 2023, month = 02, day = 06 },
-		requirementTipTitle = "The playful Fox goes unseen by the world..",
-		requirementTipText = "Because it's too good at hide and seek!\n\rFind the Fox's Shrine in Dranosh Valley & gain its favor to add this Style to your collection!"
+		tooltipTitle = "The playful Fox goes unseen by the world..",
+		tooltipText = "Because it's too good at hide and seek!\n\rFind the Fox's Shrine in Dranosh Valley!"
 	},
 	[BOOK_STYLE.ARCANOWL] = {
 		name = "Arcanowl",
 		tex = QUICKCAST_ASSETS_PATH .. "/Owl",
 		colorGradient = { min = GEM_BOOK_COLORS.INDIGO, max = GEM_BOOK_COLORS.BLUE },
 		useTexForIcon = true,
-		requirement = "QCStyle_Arcanowl", -- TODO : Remove this when no longer needed
-		requirementDate = { year = 2023, month = 02, day = 06 },
-		requirementTipTitle = "The Arcanowl knows many things..",
-		requirementTipText = "Fortunately, this owl is willing to share its knowledge.\n\rFind the Owl's Shrine in Dranosh Valley & gain its wisdom to add this Style to your collection!",
+		tooltipTitle = "The Arcanowl knows many things..",
+		tooltipText = "Fortunately, this owl is willing to share its knowledge.\n\rFind the Owl's Shrine in Dranosh Valley!",
 	},
 	[BOOK_STYLE.TEACUP] = {
 		name = "Teacup",
 		tex = QUICKCAST_ASSETS_PATH .. "/Teacup",
 		colorGradient = { min = GEM_BOOK_COLORS.BLUE, max = GEM_BOOK_COLORS.INDIGO },
 		useTexForIcon = true,
-		requirement = "QCStyle_Teacup", -- TODO : Remove this when no longer needed
-		requirementDate = { year = 2023, month = 02, day = 06 },
-		requirementTipTitle = "The Teacup holds the secrets of peace & spirit..",
-		requirementTipText = "Savor the moment, and embrace the tranquility contained within.\n\rFind the Tea Shrine in Dranosh Valley & drink from it to add this Style to your collection!",
+		tooltipTitle = "The Teacup holds the secrets of peace & spirit..",
+		tooltipText = "Savor the moment, and embrace the tranquility contained within.\n\rFind the Tea Shrine in Dranosh Valley & drink from it!",
 	},
 }
 

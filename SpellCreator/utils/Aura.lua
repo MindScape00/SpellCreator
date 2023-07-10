@@ -7,10 +7,10 @@ local checkForAuraIDPredicate = function(wantedID, _, _, ...)
 end
 
 local function checkForAuraID(wantedID)
-	return AuraUtil.FindAura(checkForAuraIDPredicate, "player", nil, wantedID)
+	return AuraUtil.FindAura(checkForAuraIDPredicate, "player", nil, tonumber(wantedID))
 end
 
 ---@class Utils_Aura
 ns.Utils.Aura = {
-    checkForAuraID = checkForAuraID,
+	checkForAuraID = checkForAuraID,
 }

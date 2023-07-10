@@ -2,6 +2,7 @@
 local ns = select(2, ...)
 
 local Constants = ns.Constants
+local Cooldowns = ns.Actions.Cooldowns
 local Execute = ns.Actions.Execute
 local Gossip = ns.Gossip
 local Hotkeys = ns.Actions.Hotkeys
@@ -23,7 +24,6 @@ local ADDON_COLORS = Constants.ADDON_COLORS
 local ASSETS_PATH = Constants.ASSETS_PATH
 local VAULT_TYPE = Constants.VAULT_TYPE
 
-local executeSpell = Execute.executeSpell
 local getCurrentVault = LoadSpellFrame.getCurrentVault
 local isOfficerPlus, isMemberPlus = Permissions.isOfficerPlus, Permissions.isMemberPlus
 
@@ -109,12 +109,13 @@ local function onIconClick(self, button)
 			return;
 		end
 		if currentVault == VAULT_TYPE.PHASE then
-			executeSpell(spell.actions, nil, spell.fullName, spell)
+			--Execute.executeSpell(spell.actions, nil, spell.fullName, spell)
+			Execute.executePhaseSpell(spell.commID)
 		else
 			ARC:CAST(self.commID)
 		end
 	elseif button == "RightButton" then
-		SpellLoadRowContextMenu.show(self:GetParent()--[[@as SpellLoadRow]] , spell)
+		SpellLoadRowContextMenu.show(self:GetParent() --[[@as SpellLoadRow]], spell)
 	end
 end
 
@@ -135,11 +136,15 @@ local function setTooltip(frame, isIcon)
 
 			tinsert(strings, " ")
 
+			if spell.cooldown then
+				tinsert(strings, Tooltip.createDoubleLine("Actions: " .. #spell.actions, "Cooldown: " .. spell.cooldown .. "s"))
+			else
+				tinsert(strings, "Actions: " .. #spell.actions)
+			end
+
 			if spell.author then
 				tinsert(strings, "Author: " .. spell.author);
 			end
-
-			tinsert(strings, "Actions: " .. #spell.actions)
 
 			local hotkeyKey = Hotkeys.getHotkeyByCommID(self.commID)
 			if hotkeyKey then
@@ -149,7 +154,6 @@ local function setTooltip(frame, isIcon)
 			tinsert(strings, " ")
 			if isIcon then
 				tinsert(strings, Tooltip.genContrastText("Left-Click") .. " to cast " .. ADDON_COLORS.TOOLTIP_EXAMPLE:WrapTextInColorCode(spell.commID))
-
 			else
 				tinsert(strings, "Command: " .. Tooltip.genContrastText("/sf " .. spell.commID))
 			end
@@ -184,6 +188,10 @@ local function createSpellIcon(row)
 	spellIcon.border:SetTexture(ASSETS_PATH .. "/dm-trait-border")
 	spellIcon.border:SetPoint("TOPLEFT", -6, 6)
 	spellIcon.border:SetPoint("BOTTOMRIGHT", 6, -6)
+
+	spellIcon.cooldown = CreateFrame("Cooldown", nil, spellIcon, "CooldownFrameTemplate")
+	spellIcon.cooldown:SetAllPoints()
+	spellIcon.cooldown:SetUseCircularEdge(true)
 
 	setTooltip(spellIcon, true)
 
@@ -410,6 +418,7 @@ local function createRow(parent, rowNum)
 	---@class SpellLoadRow: CheckButton
 	---@field commID CommID
 	---@field rowID integer
+	---@field vaultType VAULT_TYPE
 	local thisRow = CreateFrame("CheckButton", "scForgeLoadRow" .. rowNum, parent)
 
 	thisRow:SetWidth(columnWidth - 20)
@@ -461,6 +470,7 @@ local function setModePersonal(row)
 	row.loadButton:SetPoint("RIGHT", row.deleteButton, "LEFT", 0, 0)
 	row.gossipButton:Hide()
 	row.privateIconButton:Hide()
+	row.vaultType = Constants.VAULT_TYPE.PERSONAL
 end
 
 ---@param row SpellLoadRow
@@ -483,6 +493,7 @@ local function setModePhase(row)
 		row.gossipButton:Hide()
 		row.privateIconButton:SetShown(SpellCreatorMasterTable.Options["debug"])
 	end
+	row.vaultType = Constants.VAULT_TYPE.PHASE
 end
 
 ---@param row SpellLoadRow
@@ -541,6 +552,15 @@ local function updateRow(row, rowNum, commIDOrIndex, spell)
 	setMode(row)
 	resizeName(row)
 
+	local vaultType = row.vaultType
+	local cooldownTime, cooldownLength = Cooldowns.isSpellOnCooldown(spell.commID, (vaultType == Constants.VAULT_TYPE.PHASE and C_Epsilon.GetPhaseId() or nil))
+	local currentTime = GetTime()
+	if cooldownTime then
+		row.spellIcon.cooldown:SetCooldown(currentTime - (cooldownLength - cooldownTime), cooldownLength)
+	else
+		row.spellIcon.cooldown:Clear()
+	end
+
 	row.privateIconButton:SetPrivacy(spell.private and spell.private or false)
 end
 
@@ -550,10 +570,20 @@ local function init(inject)
 	upload = inject.upload
 end
 
+local function triggerCooldownVisual(commID, cooldownTime)
+	local currTime = GetTime()
+	for k, v in ipairs(rows) do
+		if v.commID == commID then
+			v.spellIcon.cooldown:SetCooldown(currTime, cooldownTime)
+		end
+	end
+end
+
 ---@class UI_SpellLoadRow
 ns.UI.SpellLoadRow = {
 	init = init,
 	createRow = createRow,
 	updateRow = updateRow,
 	shouldHideRow = shouldHideRow,
+	triggerCooldownVisual = triggerCooldownVisual,
 }

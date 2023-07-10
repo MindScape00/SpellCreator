@@ -85,6 +85,22 @@ end
 
 --#endregion
 
+--[[ -- Change isSavingOrLoadingAddonData to a function toggle or val returner. Mostly for debug, switched back for release.
+local addonDataLoadingOrSaving
+local function isSavingOrLoadingAddonData(val)
+	if val == true then
+		--print("loading status changed, = true")
+		addonDataLoadingOrSaving = true
+	elseif val == false then
+		--print("loading status changed, = false")
+		addonDataLoadingOrSaving = false
+	else
+		--print("loading tested, came back as .. " .. tostring(addonDataLoadingOrSaving))
+	end
+	return addonDataLoadingOrSaving
+end
+--]]
+
 ns.Vault = {
 	personal = {
 		getSpells = getPersonalSpells,
@@ -97,6 +113,7 @@ ns.Vault = {
 	phase = {
 		isLoaded = false,
 		isSavingOrLoadingAddonData = false,
+		--isSavingOrLoadingAddonData = isSavingOrLoadingAddonData,
 		getSpellByIndex = getPhaseSpellByIndex,
 		findSpellByID = findPhaseSpellByID,
 		findSpellIndexByID = findPhaseSpellIndexByID,

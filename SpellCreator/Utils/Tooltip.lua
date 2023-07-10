@@ -209,10 +209,27 @@ local function set(frame, title, lines, options)
 	frame:HookScript("OnLeave", onLeave)
 end
 
+---Set a Tooltip on an AceGui Frame since we need to use their custom callbacks instead of hookscripts
+---@param frame AceGUIFrame|AceGUIWidget
+---@param title string | fun(self: F): string | nil
+---@param lines? string[] | string | fun(self: F): (string[] | string)
+---@param options? TooltipOptions
+local function setAceTT(frame, title, lines, options)
+	frame:SetCallback("OnEnter", function(widget)
+		onEnter(title, lines, options)(widget.frame)
+	end)
+
+	frame:SetCallback("OnLeave", function(widget)
+		onLeave(widget.frame)
+	end)
+end
+
 ---@class Utils_Tooltip
 ns.Utils.Tooltip = {
 	set = set,
 	genTooltipText = genTooltipText,
 	genContrastText = genContrastText,
 	createDoubleLine = createDoubleLine,
+
+	setAceTT = setAceTT,
 }

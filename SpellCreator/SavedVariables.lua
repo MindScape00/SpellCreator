@@ -38,9 +38,12 @@ end
 ---@param key string
 ---@param dateData {year: integer, month: integer, day: integer, hour: integer?, min: integer?, sec: integer?}
 local function isUnlockedByKeyOrTime(key, dateData)
-	if isUnlocked(key) then return true
-	elseif DataUtils.isTodayAfterOrEqualDate(dateData) then return true
-	else return false
+	if isUnlocked(key) then
+		return true
+	elseif DataUtils.isTodayAfterOrEqualDate(dateData) then
+		return true
+	else
+		return false
 	end
 end
 
@@ -106,11 +109,14 @@ local function init()
 	if isNotDefined(SpellCreatorMasterTable.quickcast) then SpellCreatorMasterTable.quickcast = {} end
 	if isNotDefined(SpellCreatorMasterTable.quickcast.books) then SpellCreatorMasterTable.quickcast.books = {} end
 	if isNotDefined(SpellCreatorMasterTable.quickcast.shownByChar) then SpellCreatorMasterTable.quickcast.shownByChar = {} end
-	if isNotDefined(SpellCreatorMasterTable.quickcast.shownByChar[Constants.CHARACTER_NAME]) then SpellCreatorMasterTable.quickcast.shownByChar[Constants.CHARACTER_NAME] = { [string.format(Constants.DEFAULT_QC_BOOK_NAME
-			, 1)] = true }
+	if isNotDefined(SpellCreatorMasterTable.quickcast.shownByChar[Constants.CHARACTER_NAME]) then
+		SpellCreatorMasterTable.quickcast.shownByChar[Constants.CHARACTER_NAME] = {
+			[string.format(Constants.DEFAULT_QC_BOOK_NAME, 1)] = true
+		}
 	end
 	--if isNotDefined(SpellCreatorMasterTable.quickcastBooks) then SpellCreatorMasterTable.quickcastBooks = {} end
 
+	if isNotDefined(SpellCreatorMasterTable.Options.sparkKeybind) then SpellCreatorMasterTable.Options.sparkKeybind = "F" end
 	if isNotDefined(SpellCreatorMasterTable.Options["debug"]) then SpellCreatorMasterTable.Options["debug"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["locked"]) then SpellCreatorMasterTable.Options["locked"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["mmLoc"]) then SpellCreatorMasterTable.Options["mmLoc"] = 2.7 end
@@ -127,6 +133,9 @@ local function init()
 
 	if isNotDefined(SpellCreatorCharacterTable.phaseArcVars) then SpellCreatorCharacterTable.phaseArcVars = {} end
 	ns.API.retargetPhaseArcVarTable(SpellCreatorCharacterTable.phaseArcVars)
+
+	if isNotDefined(SpellCreatorCharacterTable.cooldownsTable) then SpellCreatorCharacterTable.cooldownsTable = { phase = {}, personal = {}, sparks = {} } end
+	ns.Actions.Cooldowns.retargetCooldownsTable(SpellCreatorCharacterTable.cooldownsTable)
 
 	-- // Unlocks Tracker table
 	if isNotDefined(SpellCreatorMasterTable.Unlocks) then SpellCreatorMasterTable.Unlocks = {} end

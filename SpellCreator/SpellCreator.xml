@@ -61,7 +61,7 @@
 	<Script file="Permissions.lua"/>
 	<Script file="Serializer.lua"/>
 	<Script file="Vault.lua"/>
-	
+
 	<Script file="UI/UI.lua"/>
 	<Script file="UI/Gems.lua"/>
 	<Script file="UI/Icons.lua"/>
@@ -76,12 +76,13 @@
 	<Script file="Utils/UIHelpers.lua"/>
 	<Script file="Utils/Tooltip.lua"/>
 
-	<Script file="Changelog.lua"/>
 	<Script file="Cmd.lua"/>
 	<Script file="Comms.lua"/>
 
 	<Script file="Actions/Actions.lua"/>
+	<Script file="Actions/Data_Scripts.lua"/>
 	<Script file="Actions/Data.lua"/>
+	<Script file="Actions/Cooldowns.lua"/>
 	<Script file="Actions/Execute.lua"/>
 	<Script file="Actions/Hotkeys.lua"/>
 
@@ -106,8 +107,12 @@
 	<Script file="UI/Popups.lua"/>
 	<Script file="UI/Portrait.lua"/>
 	<Script file="UI/ProfileFilterMenu.lua"/>
+
 	<Include file="UI/Quickcast/Init.xml" />
 	<Include file="UI/SparkPopups/SparkPopups.xml" />
+
+	<Include file="UI/WelcomeUI/Init.xml" />
+
 	<Script file="UI/SpellRowAction.lua"/>
 	<Script file="UI/SpellRow.lua"/>
 	<Script file="UI/SpellLoadRowContextMenu.lua"/>

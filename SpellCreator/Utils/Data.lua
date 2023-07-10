@@ -11,6 +11,43 @@ local function isNotDefined(s)
 	return s == nil or s == '';
 end
 
+local function getRandomArg(...)
+	return (select(random(select("#", ...)), ...));
+end
+
+---@class WeightedArgItem
+---@field [1] integer weight
+---@field [2] string|table|any return item
+
+---@class WeightedArgPool
+---@type WeightedArgItem[]
+
+---Get a random arg based on weighting
+---@param pool WeightedArgPool
+---@return WeightedArgItem<2>?
+local function getRandomWeightedArg(pool)
+	local poolsize = 0
+	for i = 1, #pool do
+		local v = pool[i]
+		poolsize = poolsize + v[1]
+	end
+	local selection = math.random(1, poolsize)
+	for i = 1, #pool do
+		local v = pool[i]
+		selection = selection - v[1]
+		if (selection <= 0) then
+			return v[2]
+		end
+	end
+end
+
+--[[ Example Pool
+ pool = {
+	{20, "foo"},
+	{20, "bar"},
+	{60, "baz"}
+ }
+--]]
 ---------------------------------------------------------
 --- String Helpers
 ---------------------------------------------------------
@@ -34,8 +71,43 @@ local function sanitizeNewlinesToCSV(input)
 end
 
 local function caseInsensitiveCompare(a, b)
-	return string.lower(a) < string.lower(b) -- string:lower() errors if the var is not string type. string.lower does not and avoids needing to do checks to convert type.
+	if type(a) == "number" and type(b) == "number" then
+		return a < b
+	else
+		return string.lower(a) < string.lower(b)
+	end
 end
+
+local _csvTable = {}
+local function getCSVArgsFromString(text)
+	wipe(_csvTable)
+	local spat, epat, buf, quoted = [=[^(['"])]=], [=[(['"])$]=]
+	for str in text:gmatch("[^,]+") do
+		local squoted = str:match(spat)
+		local equoted = str:match(epat)
+		local escaped = str:match([=[(\*)['"]$]=])
+		if squoted and not quoted and not equoted then
+			buf, quoted = str, squoted
+		elseif buf and equoted == quoted and #escaped % 2 == 0 then
+			str, buf, quoted = buf .. ',' .. str, nil, nil
+		elseif buf then
+			buf = buf .. ',' .. str
+		end
+		if not buf then
+			local arg = strtrim((str:gsub(spat, ""):gsub(epat, "")))
+			tinsert(_csvTable, arg)
+		end
+	end
+	if buf then ns.Logging.eprint("Error Parsing CSV: Missing matching end quote for " .. buf .. "\rCheck your ArcSpell!") end
+	return _csvTable
+end
+
+local function loadStringToTable(text)
+	local t = assert(loadstring("return {" .. text .. "}"))()
+	return unpack(t)
+end
+
+local parseStringToArgs = getCSVArgsFromString
 
 ---------------------------------------------------------
 --- Table Helpers
@@ -49,11 +121,13 @@ local function orderedPairs(t, f) -- get keys & sort them - default sort is alph
 	local keys = {}
 	for k in pairs(t) do keys[#keys + 1] = k end
 	table.sort(keys, f)
-	local i = 0 -- iterator variable
+	local i = 0          -- iterator variable
 	local iter = function() -- iterator function
 		i = i + 1
-		if keys[i] == nil then return nil
-		else return keys[i], t[keys[i]]
+		if keys[i] == nil then
+			return nil
+		else
+			return keys[i], t[keys[i]]
 		end
 	end
 	return iter
@@ -165,6 +239,8 @@ ns.Utils.Data = {
 	firstToUpper = firstToUpper,
 	wordToProperCase = wordToProperCase,
 	sanitizeNewlinesToCSV = sanitizeNewlinesToCSV,
+	--getCSVArgsFromString = getCSVArgsFromString,
+	parseStringToArgs = parseStringToArgs,
 
 	keys = keys,
 	values = values,
@@ -175,4 +251,7 @@ ns.Utils.Data = {
 	getDistanceBetweenPoints = getDistanceBetweenPoints,
 	roundToNthDecimal = roundToNthDecimal,
 	isTodayAfterOrEqualDate = isTodayAfterOrEqualDate,
+
+	getRandomArg = getRandomArg,
+	getRandomWeightedArg = getRandomWeightedArg,
 }

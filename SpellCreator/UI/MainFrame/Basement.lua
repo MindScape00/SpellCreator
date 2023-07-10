@@ -145,15 +145,17 @@ local function createExecuteSpellButton(mainFrame, getForgeActions)
 
 		local spellInfo = Attic.getInfo()
 		local spellName = spellInfo.fullName
-		local spellData = { ["icon"] = Icons.getFinalIcon(spellInfo.icon) }
+		local spellData = { ["icon"] = Icons.getFinalIcon(spellInfo.icon), commID = spellInfo.commID, castbar = spellInfo.castbar } ---@as VaultSpell
 
-		Execute.executeSpell(actionsToCommit, nil, spellName, nil)
+		Execute.executeSpell(actionsToCommit, nil, spellName, spellData)
 
 		local castBarStatus = spellInfo.castbar
 
+		--[[
 		if castBarStatus ~= 0 then
 			Castbar.showCastBar(maxDelay, spellName, spellData, castBarStatus == 2, nil, nil)
 		end
+		--]]
 	end)
 
 	Tooltip.set(executeSpellButton,
@@ -189,9 +191,9 @@ local function createResetButton(mainFrame, resetUI)
 
 	Tooltip.set(resetButton,
 		"Clear & Reset the Forge UI!", {
-		"Use this to clear the action rows & spell info, and start a fresh new spell!",
-		"\nWARNING: You'll lose any data that hasn't been saved yet using 'Create' or 'Save'!",
-	}
+			"Use this to clear the action rows & spell info, and start a fresh new spell!",
+			"\nWARNING: You'll lose any data that hasn't been saved yet using 'Create' or 'Save'!",
+		}
 	)
 
 	return resetButton

@@ -206,6 +206,13 @@ local function Page_GetSpells(self)
 	return spells
 end
 
+local function Page_ReorderSpell(self, curIndex, newIndex)
+	if not self.spells then return end
+	local theSpell = self.spells[curIndex]
+	tremove(self.spells, curIndex)
+	tinsert(self.spells, newIndex, theSpell)
+end
+
 ---@param self QuickcastPage
 local function Page_UpdateButtons(self)
 	local _spells = self:GetSpells()
@@ -283,6 +290,7 @@ local function createPage(book, spells, profileName)
 	page.UpdateButtons = Page_UpdateButtons
 	page.GetNumSpells = Page_GetNumSpells
 	page.GetSpells = Page_GetSpells
+	page.ReorderSpell = Page_ReorderSpell
 
 	return page
 end

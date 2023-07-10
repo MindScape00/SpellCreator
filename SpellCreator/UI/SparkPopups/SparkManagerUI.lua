@@ -128,6 +128,7 @@ local function drawMapGroup(group, mapID, callback)
 		triggerInfoSection:SetAutoAdjustHeight(false)
 		triggerInfoSection:SetHeight(50)
 		triggerGroup:AddChild(triggerInfoSection)
+		local numExtraLines = 0
 
 		do
 			local xLabel = AceGUI:Create("Label")
@@ -155,7 +156,28 @@ local function drawMapGroup(group, mapID, callback)
 			tintLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Tint: ") .. (colorHex and WrapTextInColorCode(colorHex, colorHex) or "None"))
 			tintLabel:SetRelativeWidth(1)
 			triggerInfoSection:AddChild(tintLabel)
+
+			local popupOptions = triggerData[8] --[[@as PopupTriggerOptions]]
+			if popupOptions then
+				if popupOptions.cooldownTime then
+					local cdTimeLabel = AceGUI:Create("Label")
+					cdTimeLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Cooldown: ") .. tostring((popupOptions.cooldownTime) .. "s"))
+					cdTimeLabel:SetRelativeWidth(1)
+					triggerInfoSection:AddChild(cdTimeLabel)
+					numExtraLines = numExtraLines + 1
+				end
+				if popupOptions.requirement then
+					local requirementLabel = AceGUI:Create("InteractiveLabel")
+					requirementLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Requirements:"))
+					requirementLabel:SetRelativeWidth(1)
+					Tooltip.setAceTT(requirementLabel, "Requirement:", popupOptions.requirement)
+					triggerInfoSection:AddChild(requirementLabel)
+					numExtraLines = numExtraLines + 1
+				end
+			end
 		end
+
+		triggerInfoSection:SetHeight(50 + (numExtraLines * 10))
 
 		local triggerIconSection = AceGUI:Create("SimpleGroup")
 		triggerIconSection:SetLayout("Flow")
@@ -172,7 +194,7 @@ local function drawMapGroup(group, mapID, callback)
 			styleBorder:SetRelativeWidth(1)
 			if triggerData[7] then -- if there's a color hex code
 				styleBorder.image:SetVertexColor(CreateColorFromHexString(triggerData[7]):GetRGB())
-			else -- reset it to white if not, because it will not do that automatically
+			else          -- reset it to white if not, because it will not do that automatically
 				styleBorder.image:SetVertexColor(1, 1, 1, 1)
 			end
 			styleBorder:SetCallback("OnRelease", function(widget) widget.image:SetVertexColor(1, 1, 1, 1) end)
@@ -239,7 +261,6 @@ local function drawMapGroup(group, mapID, callback)
 		end
 		triggerButtonsSection:DoLayout()
 		triggerGroup:DoLayout()
-
 	end
 end
 

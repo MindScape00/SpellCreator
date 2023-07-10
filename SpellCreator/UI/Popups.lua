@@ -40,15 +40,16 @@ StaticPopupDialogs["SCFORGE_GENERIC_INPUT_BOX"] = {
 			self.editBox:SetText(data.inputText)
 			self.editBox:HighlightText()
 		end
-
 	end,
 	OnAccept = function(self, data)
+		if not data then return end
 		local text = self.editBox:GetText();
 		data.callback(text);
 	end,
 	OnCancel = function(self, data)
+		if not data then return end
 		local cancelCallback = data.cancelCallback;
-		if cancelCallback ~= nil then
+		if type(cancelCallback) == "function" then
 			cancelCallback();
 		end
 	end,
@@ -109,13 +110,15 @@ StaticPopupDialogs["SCFORGE_GENERIC_CONFIRMATION"] = {
 		end
 	end,
 	OnAccept = function(self, data)
+		if not data then return end
 		if data.callback then
 			data.callback();
 		end
 	end,
 	OnCancel = function(self, data)
+		if not data then return end
 		local cancelCallback = data.cancelCallback;
-		if cancelCallback ~= nil then
+		if type(cancelCallback) == "function" then
 			cancelCallback();
 		end
 	end,
@@ -261,7 +264,6 @@ hotkeyModInsertFrame.OverrideAlertText:SetText(overrideFormatText)
 hotkeyModInsertFrame:Hide()
 
 hotkeyModInsertFrame.Update = function(self)
-
 	local commID = self:GetParent().data -- pulled from the StaticPopupDialog parent frame, data is defined there..
 	local key = self.hotkey
 
@@ -285,7 +287,6 @@ hotkeyModInsertFrame.Update = function(self)
 	else
 		self.OverrideAlertText:Hide();
 	end
-
 end
 hotkeyModInsertFrame:SetScript("OnShow", hotkeyModInsertFrame.Update)
 
@@ -362,7 +363,6 @@ local function hotkeyModInsertFrame_OnKeyDown(self, keyOrButton)
 
 	self.hotkey = keyPressed
 	self:Update()
-
 end
 
 hotkeyModInsertFrame:SetScript("OnKeyDown", hotkeyModInsertFrame_OnKeyDown)
@@ -642,7 +642,6 @@ StaticPopupDialogs["SCFORGE_ASSIGN_AUTHOR"] = {
 			self:GetParent().button1:Disable()
 		end
 	end,
-
 	button1 = ADD,
 	button2 = CANCEL,
 	hideOnEscape = true,

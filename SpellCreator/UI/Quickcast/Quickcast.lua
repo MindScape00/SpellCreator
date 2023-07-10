@@ -45,21 +45,6 @@ local function init()
 		book:SetShown(SpellCreatorMasterTable.quickcast.shownByChar[Constants.CHARACTER_NAME][bookData.name])
 	end
 
-	--[[
-	book:SetStyle(BOOK_STYLE.PRISMATIC)
-
-	-- And one page...
-	local page = QuickcastPage.createPage(book, SpellCreatorMasterTable.quickCastSpells)
-	book:AddPage(page)
-
-	-- Don't know if we automatically want to change pages when we add one. TBD?
-	book:GoToFirstPage()
-
-	if not SpellCreatorMasterTable.Options["quickcastToggle"] then
-		setShown(false)
-	end
-	--]]
-
 end
 
 ---@class UI_Quickcast_Quickcast

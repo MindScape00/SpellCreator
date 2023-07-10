@@ -323,6 +323,21 @@ local function saveBookToDatabase(book, indexFromStorage)
 	end
 end
 
+---@param book QuickcastBook
+local function getBookIndex(book)
+	for i, v in ipairs(_booksDB) do
+		if book == v then
+			return i
+		end
+	end
+end
+
+---@param self QuickcastBook
+---@return integer
+local function Book_GetIndex(self)
+	return getBookIndex(self)
+end
+
 ---@param index integer
 ---@param name? string
 ---@return QuickcastBook
@@ -383,6 +398,7 @@ local function createBook(index, name, indexFromStorage)
 	book.Open = Book_Open
 	book.SetName = Book_SetName
 	book.ToggleVisible = Book_ToggleVisible
+	book.GetIndex = Book_GetIndex
 
 	book.contextMenu = QuickcastContextMenu.createFor(book)
 
@@ -427,15 +443,6 @@ local function createBook(index, name, indexFromStorage)
 	Quickcast.ManagerUI.refreshQCManagerUI(book)
 
 	return book
-end
-
----@param book QuickcastBook
-local function getBookIndex(book)
-	for i, v in ipairs(_booksDB) do
-		if book == v then
-			return i
-		end
-	end
 end
 
 ---@param book QuickcastBook

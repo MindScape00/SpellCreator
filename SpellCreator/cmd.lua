@@ -21,20 +21,24 @@ end
 local dummy = function() end
 
 local function runMacroText(command)
+	local result
 	if command:match("^/") then
 		if command:match("^/run ") then
 			local newCommand = command:gsub("/run ", "", 1)
 			dprint("Had a /run command, it was..")
 			dprint(newCommand)
-			RunScript(newCommand)
+			result = assert(loadstring(newCommand))();
+			--RunScript(newCommand)
 		elseif command:match("^/script ") then
 			local newCommand = command:gsub("/script ", "", 1)
 			dprint("Had a /script command, it was..")
 			dprint(newCommand)
-			RunScript(newCommand)
+			result = assert(loadstring(newCommand))();
+			--RunScript(newCommand)
 		else
 			MacroEditBox:SetText(command)
-			local ran = xpcall(ChatEdit_SendText, dummy, MacroEditBox)
+			local ran, ret1 = xpcall(ChatEdit_SendText, dummy, MacroEditBox)
+			result = ret1
 			if not ran then
 				eprint("This command failed: " .. command)
 			end
@@ -42,8 +46,10 @@ local function runMacroText(command)
 	else
 		dprint("Had a non-slash script command, it was..")
 		dprint(command)
-		RunScript(command)
+		result = assert(loadstring(command))();
+		--RunScript(command)
 	end
+	return result
 end
 
 ns.Cmd = {

@@ -55,8 +55,6 @@ Manage Pages
   --> Copy Page from Other Book
 
 --]]
-
-
 ---@param style BookStyle
 local function formatName(style)
 	local data = QuickcastStyle.getStyleData(style)
@@ -138,20 +136,20 @@ local function genStyleItem(book, style)
 		set = function()
 			book:SetStyle(style)
 		end,
-		disabled = function() -- TODO : Remove this when no longer needed
+		disabled = function()
 			return not isStyleRequirementMet(style)
 		end,
-		tooltipTitle = function() -- TODO : Remove this when no longer needed
+		tooltipTitle = function()
 			if not isStyleRequirementMet(style) then
 				return BOOK_STYLE_DATA[style].requirementTipTitle
 			end
-			return nil
+			return BOOK_STYLE_DATA[style].tooltipTitle
 		end,
-		tooltipText = function() -- TODO : Remove this when no longer needed
+		tooltipText = function()
 			if not isStyleRequirementMet(style) then
 				return BOOK_STYLE_DATA[style].requirementTipText
 			end
-			return nil
+			return BOOK_STYLE_DATA[style].tooltipText
 		end,
 		options = {
 			tooltipWhileDisabled = true,
@@ -199,6 +197,37 @@ local function genPageMenu(book)
 
 	return Dropdown.submenu("Switch Page", menuArgs, {
 		disabled = book:GetNumPages() == 0
+	})
+end
+
+---@param book QuickcastBook
+---@param page QuickcastPage
+---@param pageNumber integer
+---@return DropdownItem
+local function genPageSpellEditItem(book, page, pageNumber)
+	local profileName = page.profileName
+
+	if not page.profileName then
+		return Dropdown.execute(("Page " .. pageNumber), function()
+			Quickcast.ManagerUI.showSpellsManager(page, book:GetIndex())
+		end)
+	end
+end
+
+---@param book QuickcastBook
+---@return DropdownItem
+local function genPageSpellEditMenu(book)
+	local menuArgs = {}
+	local hadValidPages
+	for i = 1, book:GetNumPages() do
+		if not book.savedData._pages[i].profileName then
+			hadValidPages = true
+			menuArgs[i] = genPageSpellEditItem(book, book.savedData._pages[i], i)
+		end
+	end
+
+	return Dropdown.submenu("Rearrange Spells", menuArgs, {
+		hidden = hadValidPages ~= true
 	})
 end
 
@@ -362,7 +391,8 @@ local function createMenu(book)
 		Dropdown.header(book.savedData.name),
 		Dropdown.input("Rename Book", {
 			tooltipTitle = "Rename " .. book.savedData.name,
-			get = function() end,
+			get = function()
+			end,
 			set = function(text)
 				ns.UI.Quickcast.Book.renameBookInCharMemory(book.savedData.name, text)
 				book:SetName(text)
@@ -371,6 +401,7 @@ local function createMenu(book)
 		}),
 		genStyleMenu(book),
 		genPageMenu(book),
+		genPageSpellEditMenu(book),
 		Dropdown.divider(),
 		--genBookManagerMenu(book),
 		--genPageManagerMenu(book),

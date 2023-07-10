@@ -23,6 +23,7 @@ local addonCredits = GetAddOnMetadata(addonName, "X-Credits")
 ---------------------------
 -- Changelog Frame
 ---------------------------
+--[=[
 local changelogFrame = CreateFrame("FRAME", nil, UIParent)
 changelogFrame:SetFrameStrata("DIALOG")
 changelogFrame.border = CreateFrame("FRAME", nil, changelogFrame, "DialogBorderTranslucentTemplate")
@@ -45,45 +46,10 @@ local function genChangelogScrollFrame(parent)
 	scrollFrame:SetPoint("TOPLEFT", 25, -32)
 	scrollFrame:SetPoint("BOTTOMRIGHT", -35, 12)
 
-	-- TODO : 9.2.7 : This frame needs to inherit BackdropTemplate in order to work // removed this anyways
-	-- scrollFrame.backdrop = CreateFrame("FRAME", nil, scrollFrame, "BackdropTemplate")
-	--[[
-	scrollFrame.backdrop = CreateFrame("FRAME", nil, scrollFrame)
-	scrollFrame.backdrop:SetPoint("TOPLEFT", scrollFrame, -15, 3)
-	scrollFrame.backdrop:SetPoint("BOTTOMRIGHT", scrollFrame, 26, -3)
-	scrollFrame.backdrop:SetBackdrop({
-		bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-		edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-		edgeSize = 14,
-		insets = {
-			left = 4,
-			right = 4,
-			top = 4,
-			bottom = 4,
-		},
-	})
-	scrollFrame.backdrop:SetBackdropColor(0, 0, 0, 0.25)
-	scrollFrame.backdrop:SetFrameLevel(2)
-	--]]
-
-	--[[
-	scrollFrame.Title = scrollFrame.backdrop:CreateFontString(nil, 'ARTWORK')
-	scrollFrame.Title:SetFont(STANDARD_TEXT_FONT, 12, 'OUTLINE')
-	scrollFrame.Title:SetTextColor(1, 1, 1)
-	scrollFrame.Title:SetText("Spell Forge")
-	scrollFrame.Title:SetPoint('TOP', scrollFrame.backdrop, 0, 5)
-
-	scrollFrame.Title.Backdrop = scrollFrame.backdrop:CreateTexture(nil, "BORDER", nil, 6)
-	scrollFrame.Title.Backdrop:SetColorTexture(0, 0, 0)
-	scrollFrame.Title.Backdrop:SetPoint("CENTER", scrollFrame.Title, "CENTER", -1, -1)
-	scrollFrame.Title.Backdrop:SetSize(scrollFrame.Title:GetWidth() - 4, scrollFrame.Title:GetHeight() / 2)
-	--]]
-
 	-- Create the scrolling child frame, set its width to fit, and give it an arbitrary minimum height (such as 1)
 	scrollFrame.scrollChild = CreateFrame("SimpleHTML")
 
 	local scrollChild = scrollFrame.scrollChild
-	--scrollChild:SetWidth(InterfaceOptionsFramePanelContainer:GetWidth() - 56)
 	scrollChild:SetWidth(scrollFrame:GetWidth() - 5)
 	scrollChild:SetHeight(1)
 	scrollFrame:SetScrollChild(scrollChild)
@@ -102,6 +68,7 @@ local function genChangelogScrollFrame(parent)
 	--]]
 	return scrollFrame
 end
+--]=]
 
 -------------------------------------------------------------------------------
 -- Interface Options - Addon section
@@ -122,7 +89,7 @@ local function genericSet(info, val, func)
 	if func then func(val) end
 end
 
-local function inlineHeadher(text)
+local function inlineHeader(text)
 	return WrapTextInColorCode(text, "ffFFD700")
 end
 
@@ -151,14 +118,14 @@ end
 
 local function divider(order)
 	local item = {
-		name = "",
+		name = " ",
 		type = "header",
 		order = order,
 	}
 	return item
 end
 
---[[ -- Prep for a Boook Manager table. This needs to be switched to a AceGUI instead though?
+--[[ -- Prep for a Book Manager table. This needs to be switched to a AceGUI instead though?
 local function genQuickcastSubTable(tableToInsert)
 	for k, v in ipairs(ns.UI.Quickcast.Book.booksDB) do
 		tableToInsert[k] = {
@@ -177,7 +144,6 @@ local function genQuickcastSubTable(tableToInsert)
 	end
 end
 --]]
-
 local myOptionsExtraTable = {}
 local Dropdown = ns.UI.Dropdown
 
@@ -208,11 +174,13 @@ local myOptionsTable = {
 					type = "toggle",
 					width = 1.5,
 					arg = "biggerInputBox",
-					set = function(info, val) genericSet(info, val,
+					set = function(info, val)
+						genericSet(info, val,
 							function()
 								Popups.showCustomGenericConfirmation(
 									{
-										text = "A UI Reload is Required to change any current input boxes.\n\rReload Now?\n\r" .. Tooltip.genTooltipText("warning", "All un-saved data in the Forge will be wiped.\r"),
+										text = "A UI Reload is Required to change any current input boxes.\n\rReload Now?\n\r" ..
+											Tooltip.genTooltipText("warning", "All un-saved data in the Forge will be wiped.\r"),
 										callback = function() ReloadUI(); end,
 										showAlert = true,
 									}
@@ -254,10 +222,15 @@ local myOptionsTable = {
 			},
 		},
 		quickcastOptions = {
-			name = "Quickcast Settings",
+			name = "Quickcast & Spark Settings",
 			type = "group",
 			order = autoOrder(true),
 			args = {
+				qcheader = {
+					name = "Quickcast",
+					type = "header",
+					order = autoOrder(),
+				},
 				keepOpen = {
 					name = "Keep Quickcast Open after Casting",
 					order = autoOrder(),
@@ -271,7 +244,8 @@ local myOptionsTable = {
 				overscroll = {
 					name = "Allow Overscrolling",
 					order = autoOrder(),
-					desc = "Overscrolling allows you to scroll past the first/last page in a Quickcast Book, looping back to the other side.\n\rIf disabled, when you reach the first/last page, you cannot scroll any further.",
+					desc =
+					"Overscrolling allows you to scroll past the first/last page in a Quickcast Book, looping back to the other side.\n\rIf disabled, when you reach the first/last page, you cannot scroll any further.",
 					type = "toggle",
 					width = 1.5,
 					arg = "allowQCOverscrolling",
@@ -299,6 +273,12 @@ local myOptionsTable = {
 						ns.UI.Quickcast.ManagerUI.showQCManagerUI()
 					end,
 				},
+				spacer1 = spacer(autoOrder(), "large"),
+				sparkheader = {
+					name = "Sparks",
+					type = "header",
+					order = autoOrder(),
+				},
 				showSparkManagerUI = {
 					name = "Spark Manager",
 					order = autoOrder(),
@@ -306,7 +286,38 @@ local myOptionsTable = {
 					func = function(info)
 						ns.UI.SparkPopups.SparkManagerUI.showSparkManagerUI()
 					end,
-				}
+				},
+				exportCurrentPhaseSparks = {
+					name = "Export Sparks",
+					desc = "Export Sparks from the current Phase to a copyable text string, so you can back them up or copy to another phase.",
+					disabled = function() return not (ns.Permissions.isOfficerPlus() or SpellCreatorMasterTable.Options["debug"]) end,
+					order = autoOrder(),
+					type = "execute",
+					func = function(info)
+						ns.UI.ImportExport.exportAllSparks()
+					end,
+				},
+				importSparksToCurrentPhase = {
+					name = "Import Sparks",
+					desc = "Import Sparks to the current Phase.\n\r" .. Tooltip.genTooltipText("warning", "This will overwrite any sparks currently in the phase."),
+					disabled = function() return not ns.Permissions.isOfficerPlus() end,
+					order = autoOrder(),
+					type = "execute",
+					func = function(info)
+						ns.UI.ImportExport.showImportSparksMenu()
+					end,
+				},
+				sparkClickKeybind = {
+					type = "keybinding",
+					name = "Spark Click Keybind",
+					desc =
+					"When set, this key can be used to click on Sparks via the keypress instead of using the mouse. This will override any other bindings on this key, until you unset it. Once unset, your original keybind will be returned.\n\rDefault: F",
+					get = function() return ns.UI.SparkPopups.SparkPopups.getSparkKeybind() end,
+					set = function(info, val)
+						ns.UI.SparkPopups.SparkPopups.setSparkKeybind(val)
+					end,
+					order = autoOrder(),
+				},
 			},
 		},
 		aboutTab = {
@@ -322,26 +333,26 @@ local myOptionsTable = {
 
 				},
 				version = {
-					name = inlineHeadher("Version: ") .. addonVersion,
+					name = inlineHeader("Version: ") .. addonVersion,
 					type = "description",
 					order = autoOrder(),
 					fontSize = "large",
 				},
 				author = {
-					name = inlineHeadher("Author: ") .. addonAuthor,
+					name = inlineHeader("Author: ") .. addonAuthor,
 					type = "description",
 					order = autoOrder(),
 					fontSize = "large",
 				},
 				credits = {
-					name = inlineHeadher("Credits: ") .. addonCredits,
+					name = inlineHeader("Credits: ") .. addonCredits,
 					type = "description",
 					order = autoOrder(),
 					fontSize = "large",
 				},
 				spacer1 = spacer(autoOrder(), "large"),
 				changeLogText = {
-					name = inlineHeadher("Show Changelog: "),
+					name = inlineHeader("Show Changelog: "),
 					type = "description",
 					order = autoOrder(),
 					fontSize = "large",
@@ -349,7 +360,11 @@ local myOptionsTable = {
 				showChangelog = {
 					name = "Show Changelog",
 					type = "execute",
-					func = function() changelogFrame:SetShown(not changelogFrame:IsShown()); changelogFrame:Raise() end,
+					func = function()
+						ns.UI.WelcomeUI.WelcomeMenu.showWelcomeScreen(true)
+						--changelogFrame:SetShown(not changelogFrame:IsShown());
+						--changelogFrame:Raise()
+					end,
 					order = autoOrder(),
 				},
 				spacer2 = spacer(autoOrder()),
@@ -363,6 +378,17 @@ local myOptionsTable = {
 					set = genericSet,
 					get = genericGet,
 				},
+				spacer3 = spacer(autoOrder()),
+				toggleDebugTableInspector = {
+					name = "Debug Table Window",
+					order = autoOrder(),
+					desc = "Toggle Debug Table Window when Debug Dumps occur. Debug Mode must be one for this to have any effect.",
+					type = "toggle",
+					width = 1.5,
+					arg = "debugTableInspector",
+					set = genericSet,
+					get = genericGet,
+				},
 			},
 		},
 	}
@@ -372,12 +398,12 @@ local function newOptionsInit()
 	Libs.AceConfig:RegisterOptionsTable(ADDON_TITLE, myOptionsTable)
 	local frame = Libs.AceConfigDialog:AddToBlizOptions(ADDON_TITLE, ADDON_TITLE)
 	myOptionsExtraTable.theFrame = frame
-	genChangelogScrollFrame(changelogFrame)
+	--genChangelogScrollFrame(changelogFrame)
 end
 
 ---@class UI_Options
 ns.UI.Options = {
 	--createSpellCreatorInterfaceOptions = createSpellCreatorInterfaceOptions,
 	newOptionsInit = newOptionsInit,
-	changelogFrame = changelogFrame,
+	--changelogFrame = changelogFrame,
 }

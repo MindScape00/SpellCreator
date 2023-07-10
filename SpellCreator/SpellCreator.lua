@@ -220,7 +220,7 @@ Basement.init(SCForgeMainFrame, {
 			["fullName"] = "",
 			["commID"] = "",
 			["description"] = "",
-			["actions"] = { { ["vars"] = "",["actionType"] = "reset",["delay"] = "",["selfOnly"] = false, }, { ["vars"] = "",["actionType"] = "reset",["delay"] = "",["selfOnly"] = false, },
+			["actions"] = { { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, },
 				{ ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, },
 		}
 
@@ -249,7 +249,8 @@ Basement.init(SCForgeMainFrame, {
 	end,
 })
 
-local phaseVaultKeys
+local phaseVaultKeys = {}
+local phaseVaultKeysCompressed
 
 local function noSpellsToLoad(fake)
 	dprint("Phase Has No Spells to load.");
@@ -267,68 +268,268 @@ local function noSpellsToLoad(fake)
 	phaseVault.isLoaded = false;
 end
 
-local function getSpellForgePhaseVault(callback)
-	Vault.phase.clearSpells()
-	dprint("Phase Spell Vault Loading...")
+local function generateFailedSpell(commID)
+	local spellData = {
+		commID = commID,
+		fullName = ADDON_COLORS.TOOLTIP_WARNINGRED:WrapTextInColorCode(commID .. " (ERROR)"),
+		description = Tooltip.genTooltipText("warning", "This spell failed to load from the Phase Vault. It's data may be corrupted or too large for the server to send to your client."),
+		actions = {},
+		profile = "Failed to Load",
+	}
+	return spellData
+end
 
-	--if phaseVault.isSavingOrLoadingAddonData then eprint("Arcanum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again shortly."); return; end
-	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
-	phaseVault.isSavingOrLoadingAddonData = true
-	phaseVault.isLoaded = false
+local multiMessageData        = Comms.multiMessageData
+local MSG_MULTI_FIRST         = multiMessageData.MSG_MULTI_FIRST
+local MSG_MULTI_NEXT          = multiMessageData.MSG_MULTI_NEXT
+local MSG_MULTI_LAST          = multiMessageData.MSG_MULTI_LAST
+local MAX_CHARS_PER_SEGMENT   = multiMessageData.MAX_CHARS_PER_SEGMENT
 
+local phaseVaultLoadingCount
+local phaseVaultLoadingExpected
+local messageTicketQueue      = {}
+local phaseVaultCommIDQueue   = {}
+local phaseVaultLoadingTimers = {}
+local maxSpellsPerBatchLoad   = 30
+local function processGrabbingSpellDataFromPhaseVault()
+	local maxQueue = min(maxSpellsPerBatchLoad, #phaseVaultCommIDQueue)
+	for i = 1, maxQueue do
+		local v = phaseVaultCommIDQueue[i]
+		dprint("Trying to load spell from phase: " .. v)
+		local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S_" .. v)
+		messageTicketQueue[messageTicketID] = v -- add it to a fake queue table so we can watch for multiple prefixes... (storing the commID here also incase we need it for debug)
+	end
+	if #phaseVaultCommIDQueue > maxSpellsPerBatchLoad then
+		table.removemulti(phaseVaultCommIDQueue, 1, maxSpellsPerBatchLoad)
+		local timerContainer = {}
+		timerContainer.timer = C_Timer.NewTimer(0.75, function()
+			phaseVaultLoadingTimers[timerContainer] = nil;
+			processGrabbingSpellDataFromPhaseVault()
+		end)
+		phaseVaultLoadingTimers[timerContainer] = timerContainer
+	else
+		table.wipe(phaseVaultCommIDQueue)
+	end
+end
+
+local function cancelPendingPhaseVaultLoadingTimers()
+	for _, timer in pairs(phaseVaultLoadingTimers) do
+		timer:Cancel()
+	end
+	table.wipe(phaseVaultLoadingTimers)
+end
+
+local tempVaultSpellTable = {}
+local tempVaultSpellStrings = {}
+---@param keys table
+---@param callback function?
+local function getPhaseVaultDataFromKeys(keys, callback)
+	phaseAddonDataListener2:RegisterEvent("CHAT_MSG_ADDON")
+	phaseAddonDataListener2:SetScript("OnEvent", function(self, event, prefix, text, channel, sender, ...)
+		if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
+			local expectedCommID = messageTicketQueue[prefix]
+			messageTicketQueue[prefix] = nil -- remove it from the queue.. We'll reset the table next time anyways but whatever.
+
+			--- multi part loading
+
+			if string.match(text, "^[\001]") then        -- if first character is a multi-part identifier - \001 = first, \002 = middle, then we can add it to the strings table, and return with a call to get the next segment
+				text = text:gsub("^[\001]", "")          -- remove the control character
+				tempVaultSpellStrings[expectedCommID] = {} -- create the sub-table
+				tinsert(tempVaultSpellStrings[expectedCommID], text) -- add to the table
+				--tempVaultSpellStrings[expectedCommID][1] = text -- add to the table
+				dprint("(PhaseVaultData) First Data Received, Asking for Next Segment of " .. expectedCommID)
+				local newMultiPartTicket = C_Epsilon.GetPhaseAddonData("SCFORGE_S2_" .. expectedCommID)
+				messageTicketQueue[newMultiPartTicket] = expectedCommID
+				return
+			elseif string.match(text, "^[\002]") then    -- if first character is a multi-part identifier - \001 = first, \002 = middle, then we can add it to the strings table, and return with a call to get the next segment
+				text = text:gsub("^[\002]", "")          -- remove the control character
+				local position = #tempVaultSpellStrings[expectedCommID] + 1
+				tinsert(tempVaultSpellStrings[expectedCommID], text) -- add to the table
+				--tempVaultSpellStrings[expectedCommID][position] = text -- add to the table
+				dprint("(PhaseVaultData) Middle Data Received, Asking for Next Segment of " .. expectedCommID)
+				local newMultiPartTicket = C_Epsilon.GetPhaseAddonData("SCFORGE_S" .. position + 1 .. "_" .. expectedCommID)
+				messageTicketQueue[newMultiPartTicket] = expectedCommID
+				return
+			elseif string.match(text, "^[\003]") then    -- if first character is a last identifier - \003 = last, then we can add it to our table, then concat into a final string to use and continue
+				text = text:gsub("^[\003]", "")          -- remove the control character
+				tinsert(tempVaultSpellStrings[expectedCommID], text) -- add to the table
+				dprint("(PhaseVaultData) Last Popup Data Received, Concat & Save coming up for " .. expectedCommID)
+
+				text = table.concat(tempVaultSpellStrings[expectedCommID], "")
+
+				-- reset our temp data
+				tempVaultSpellStrings[expectedCommID] = nil -- erase it!
+			else
+				dprint("(PhaseVaultData) Data not a multi-part tagged string, continuing to load normally for " .. expectedCommID)
+			end
+
+			--- end multi part loading
+
+			local loaded, interAction = pcall(serializer.decompressForAddonMsg, text)
+			if not loaded then
+				if Permissions.isOfficerPlus() then
+					Popups.showCustomGenericConfirmation({
+						text = ("Failed to load ArcSpell from the Phase Vault: %s\n\rThe spell data may be corrupted, or too large for the server to send to you, and likely cannot be recovered. You can delete it in the Phase Vault.")
+							:format(Tooltip.genContrastText(expectedCommID)),
+						showAlert = true,
+						acceptText = OKAY,
+						cancelText = false,
+					})
+				end
+				tempVaultSpellTable[expectedCommID] = generateFailedSpell(expectedCommID)
+			else
+				--dprint("Spell found & adding to Phase Vault Table: " .. interAction.commID)
+				tempVaultSpellTable[expectedCommID] = interAction
+			end
+			phaseVaultLoadingCount = phaseVaultLoadingCount + 1
+			--print("phaseVaultLoadingCount: ",phaseVaultLoadingCount," | phaseVaultLoadingExpected: ",phaseVaultLoadingExpected)
+			if phaseVaultLoadingCount == phaseVaultLoadingExpected then
+				dprint("All Spells should be loaded, adding them to the vault..")
+				for k, v in ipairs(keys) do
+					Vault.phase.addSpell(tempVaultSpellTable[v])
+				end
+				wipe(tempVaultSpellTable)
+				dprint("Phase Vault Loading should be done")
+				phaseAddonDataListener2:UnregisterEvent("CHAT_MSG_ADDON")
+				phaseVault.isSavingOrLoadingAddonData = false
+				phaseVault.isLoaded = true
+				if callback then callback(true); end
+			end
+		end
+	end)
+
+	for _, v in ipairs(keys) do
+		tinsert(phaseVaultCommIDQueue, v)
+	end
+	processGrabbingSpellDataFromPhaseVault()
+end
+
+local tempPhaseVaultKeyStrings = {}
+local tempPhaseVaultKeyStringsIter = 0
+---@param callback function?
+---@param bypassNoSpellsToLoad boolean?
+---@param iter integer?
+local function getPhaseVaultKeys(callback, bypassNoSpellsToLoad, iter)
+	local dataKey = "SCFORGE_KEYS"
+	if iter then dataKey = "SCFORGE_KEYS" .. iter + 1 end
 	phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
+	local messageTicketID = C_Epsilon.GetPhaseAddonData(dataKey)
+
 	phaseAddonDataListener:SetScript("OnEvent", function(self, event, prefix, text, channel, sender, ...)
 		if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
+			--- multi part loading
+
+			if string.match(text, "^[\001-\002]") then
+				tempPhaseVaultKeyStringsIter = tempPhaseVaultKeyStringsIter + 1
+				text = text:gsub("^[\001-\002]", "")
+				tinsert(tempPhaseVaultKeyStrings, text)
+				dprint(nil, "(PhaseVaultKeys) First or Mid-Control Character. Asking for Next Segment!")
+				return getPhaseVaultKeys(callback, bypassNoSpellsToLoad, tempPhaseVaultKeyStringsIter)
+			elseif string.match(text, "^[\003]") then
+				tempPhaseVaultKeyStringsIter = tempPhaseVaultKeyStringsIter + 1
+				text = text:gsub("^[\003]", "")
+				tinsert(tempPhaseVaultKeyStrings, text)
+				dprint(nil, "(PhaseVaultKeys) Last Data Received, Concat & Save coming up!")
+
+				text = table.concat(tempPhaseVaultKeyStrings)
+
+				-- reset temp data
+				wipe(tempPhaseVaultKeyStrings)
+				tempPhaseVaultKeyStringsIter = 0
+			else
+				dprint(nil, "(PhaseVaultKeys) Was not multi-part message, continuing to load normal.")
+			end
+
+			--- end multi part loading, continue..
+
 			phaseAddonDataListener:UnregisterEvent("CHAT_MSG_ADDON")
 
 			if (#text < 1 or text == "") then
-				noSpellsToLoad();
+				if not bypassNoSpellsToLoad then
+					noSpellsToLoad();
+				end
+				dprint("Phase Vault Keys string was empty?")
+				dprint(text)
+				wipe(phaseVaultKeys)
+				if callback then callback(phaseVaultKeys, text) end
 				return;
 			end
 			phaseVaultKeys = serializer.decompressForAddonMsg(text)
 			if #phaseVaultKeys < 1 then
-				noSpellsToLoad();
+				if not bypassNoSpellsToLoad then
+					noSpellsToLoad();
+				end
+				dprint("Phase Vault Keys loaded as a table but empty?")
+				if callback then callback(phaseVaultKeys, text) end
 				return;
 			end
-			dprint("Phase spell keys: ")
-			Debug.ddump(phaseVaultKeys)
-			Vault.phase.clearSpells()
-			local phaseVaultLoadingCount = 0
-			local phaseVaultLoadingExpected = #phaseVaultKeys
-			local messageTicketQueue = {}
 
-			-- set up the phaseAddonDataListener2 ahead of time, and only once..
-			phaseAddonDataListener2:RegisterEvent("CHAT_MSG_ADDON")
-			phaseAddonDataListener2:SetScript("OnEvent", function(self, event, prefix, text, channel, sender, ...)
-				if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
-					messageTicketQueue[prefix] = nil -- remove it from the queue.. We'll reset the table next time anyways but whatever.
-					phaseVaultLoadingCount = phaseVaultLoadingCount + 1
-					local interAction = serializer.decompressForAddonMsg(text)
-					dprint("Spell found & adding to Phase Vault Table: " .. interAction.commID)
-					Vault.phase.addSpell(interAction)
-					--print("phaseVaultLoadingCount: ",phaseVaultLoadingCount," | phaseVaultLoadingExpected: ",phaseVaultLoadingExpected)
-					if phaseVaultLoadingCount == phaseVaultLoadingExpected then
-						dprint("Phase Vault Loading should be done")
-						phaseAddonDataListener2:UnregisterEvent("CHAT_MSG_ADDON")
-						phaseVault.isSavingOrLoadingAddonData = false
-						phaseVault.isLoaded = true
-						if callback then callback(true); end
-					end
-				end
-			end)
-
-			for k, v in ipairs(phaseVaultKeys) do
-				--phaseVaultLoadingExpected = k
-				dprint("Trying to load spell from phase: " .. v)
-				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S_" .. v)
-				messageTicketQueue[messageTicketID] = v -- add it to a fake queue table so we can watch for multiple prefixes... (storing the commID here also incase we need it for debug)
-			end
+			if callback then callback(phaseVaultKeys, text); end
 		end
 	end)
 end
 
-local scforge_ChannelID = ns.Constants.ADDON_CHANNEL
+---Upload the phaseVaultKeys to the phase data, using a chunk based system if it's big!
+---@param keys table?
+local function savePhaseVaultKeys(keys)
+	if not keys then keys = phaseVaultKeys end
+	phaseVaultKeysCompressed = serializer.compressForAddonMsg(keys)
+	local strLength = #phaseVaultKeysCompressed
+	if strLength > MAX_CHARS_PER_SEGMENT then
+		dprint("PhaseVaultKeys Exceeded MAX_CHARS_PER_SEGMENT : " .. strLength)
+		local numEntriesRequired = math.ceil(strLength / MAX_CHARS_PER_SEGMENT)
+		for i = 1, numEntriesRequired do
+			local strSub = string.sub(phaseVaultKeysCompressed, (MAX_CHARS_PER_SEGMENT * (i - 1)) + 1, (MAX_CHARS_PER_SEGMENT * i))
+			if i == 1 then
+				strSub = MSG_MULTI_FIRST .. strSub
+				--dprint(nil, "SCFORGE_KEYS :: " .. strSub)
+				dprint(nil, "SCFORGE_KEYS :: " .. "<trimmed - bulk/first>")
+				C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", strSub)
+			else
+				local controlChar = MSG_MULTI_NEXT
+				if i == numEntriesRequired then controlChar = MSG_MULTI_LAST end
+				strSub = controlChar .. strSub
+				--dprint(nil, "SCFORGE_KEYS" .. i .. " :: " .. strSub)
+				dprint(nil, "SCFORGE_KEYS" .. i .. " :: " .. "<trimmed - bulk/mid or last>")
+				C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS" .. i, strSub)
+			end
+		end
+	else
+		dprint(nil, "PhaseVaultKeys was within MAX_CHARS_PER_SEGMENT, uploaded as a single chunk.")
+		C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeysCompressed)
+	end
+end
+
+---@param callback function?
+---@param iter integer?
+local function getSpellForgePhaseVault(callback, iter)
+	if not iter then
+		cancelPendingPhaseVaultLoadingTimers()
+		Vault.phase.clearSpells()
+		dprint("Phase Spell Vault Loading...")
+	end
+
+	if phaseVault.isSavingOrLoadingAddonData and not iter then
+		eprint("Arcanum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again shortly.");
+		return;
+	end
+	phaseVault.isSavingOrLoadingAddonData = true
+	phaseVault.isLoaded = false
+
+	getPhaseVaultKeys(function()
+		dprint("Phase spell keys: ")
+		Debug.ddump(phaseVaultKeys)
+		Vault.phase.clearSpells()
+		phaseVaultLoadingCount = 0
+		phaseVaultLoadingExpected = #phaseVaultKeys
+		table.wipe(messageTicketQueue)
+		getPhaseVaultDataFromKeys(phaseVaultKeys, callback)
+	end)
+end
+
 local function sendPhaseVaultIOLock(toggle)
+	local scforge_ChannelID = ns.Constants.ADDON_CHANNEL
+	SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:SetEnabled(not toggle)
 	local phaseID = C_Epsilon.GetPhaseId()
 	if toggle == true then
 		AceComm:SendCommMessage(addonMsgPrefix .. "_PLOCK", phaseID, "CHANNEL", tostring(scforge_ChannelID))
@@ -339,8 +540,11 @@ local function sendPhaseVaultIOLock(toggle)
 	end
 end
 
-local function deleteSpellFromPhaseVault(commID, callback)
+---@param vaultIndex integer
+---@param callback function?
+local function deleteSpellFromPhaseVault(vaultIndex, callback)
 	-- get the phase spell keys, remove the one we want to delete, then re-save it, and then over-ride the PhaseAddonData for it's key with nothing..
+	local realCommID = savedSpellFromVault[vaultIndex].commID
 
 	if phaseVault.isSavingOrLoadingAddonData then
 		eprint("Arcanum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment.");
@@ -349,27 +553,56 @@ local function deleteSpellFromPhaseVault(commID, callback)
 
 	phaseVault.isSavingOrLoadingAddonData = true
 	sendPhaseVaultIOLock(true)
-	local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
 
-	phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
-
-	phaseAddonDataListener:SetScript("OnEvent", function(self, event, prefix, text, channel, sender, ...)
-		if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
-			phaseAddonDataListener:UnregisterEvent("CHAT_MSG_ADDON")
-			phaseVaultKeys = serializer.decompressForAddonMsg(text)
-			table.remove(phaseVaultKeys, commID)
-			phaseVaultKeys = serializer.compressForAddonMsg(phaseVaultKeys)
-
-			C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
-			local realCommID = savedSpellFromVault[commID].commID
-			dprint("Removing PhaseAddonData for SCFORGE_S_" .. realCommID)
-			C_Epsilon.SetPhaseAddonData("SCFORGE_S_" .. realCommID, "")
-
-			phaseVault.isSavingOrLoadingAddonData = false
-			sendPhaseVaultIOLock(false)
-			if callback then callback(); end
+	getPhaseVaultKeys(function()
+		for k, v in ipairs(phaseVaultKeys) do
+			if v == realCommID then
+				table.remove(phaseVaultKeys, k) -- solves if they load out of order..
+			end
 		end
+		savePhaseVaultKeys()
+
+		dprint("Removing PhaseAddonData for SCFORGE_S_" .. realCommID)
+		C_Epsilon.SetPhaseAddonData("SCFORGE_S_" .. realCommID, "")
+
+		phaseVault.isSavingOrLoadingAddonData = false
+		sendPhaseVaultIOLock(false)
+		if callback then callback(); end
 	end)
+end
+
+---@param commID CommID
+---@param data any
+local function uploadSpellDataToPhaseData(commID, data)
+	local str = serializer.compressForAddonMsg(data)
+	local keyRaw = "SCFORGE_S_" .. commID
+	local keyFormat = "SCFORGE_S%s_" .. commID
+	local strLength = #str
+	if strLength > MAX_CHARS_PER_SEGMENT then
+		dprint("Spell Data (" .. commID .. ") Exceeded MAX_CHARS_PER_SEGMENT : " .. strLength)
+		local numEntriesRequired = math.ceil(strLength / MAX_CHARS_PER_SEGMENT)
+		for i = 1, numEntriesRequired do
+			local strSub = string.sub(str, (MAX_CHARS_PER_SEGMENT * (i - 1)) + 1, (MAX_CHARS_PER_SEGMENT * i))
+			if i == 1 then
+				strSub = MSG_MULTI_FIRST .. strSub
+				--dprint(nil, keyRaw .. " :: " .. strSub)
+				dprint(nil, keyRaw .. " :: " .. "<trimmed - bulk/first>")
+				C_Epsilon.SetPhaseAddonData(keyRaw, strSub)
+			else
+				local controlChar = MSG_MULTI_NEXT
+				local keyFormatted = keyFormat:format(tostring(i))
+				if i == numEntriesRequired then controlChar = MSG_MULTI_LAST end
+				strSub = controlChar .. strSub
+				--dprint(nil, keyFormatted .. " :: " .. strSub)
+				dprint(nil, keyFormatted .. " :: " .. "<trimmed - bulk/mid or last>")
+				C_Epsilon.SetPhaseAddonData(keyFormatted, strSub)
+			end
+		end
+	else
+		--dprint(nil, keyRaw .. " :: " .. str)
+		dprint(nil, keyRaw .. " :: " .. "<trimmed - solo>")
+		C_Epsilon.SetPhaseAddonData(keyRaw, str)
+	end
 end
 
 ---@param commID CommID | integer commID if from personal vault, index if from phase vault
@@ -384,8 +617,17 @@ local function saveSpellToPhaseVault(commID, overwrite, fromPhase, forcePrivate)
 		return;
 	end
 	if fromPhase then
+		if not phaseVault.isLoaded then
+			eprint("CRITICAL ERROR: TRYING TO SAVE TO PHASE WHILE THE PHASE VAULT IS NOT LOADED, OH NO! Abort.. (try again in a moment)")
+			return
+		end
 		phaseVaultIndex = commID
-		commID = Vault.phase.getSpellByIndex(phaseVaultIndex).commID
+		local theSpell = Vault.phase.getSpellByIndex(phaseVaultIndex)
+		if not theSpell then
+			eprint("No Spell Found with the index (" .. phaseVaultIndex .. ") in the phase vault? (try again in a moment?)")
+			return
+		end
+		commID = theSpell.commID
 	end
 	if phaseVault.isSavingOrLoadingAddonData then
 		eprint("Arcanum is already loading or saving a spell. To avoid data corruption, you can't do that right now. Try again in a moment.");
@@ -394,97 +636,58 @@ local function saveSpellToPhaseVault(commID, overwrite, fromPhase, forcePrivate)
 	if isMemberPlus() then
 		dprint("Trying to save spell to phase vault.")
 
-		local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
-		phaseVault.isSavingOrLoadingAddonData = true
-		sendPhaseVaultIOLock(true)
-		phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
-		phaseAddonDataListener:SetScript("OnEvent", function(self, event, prefix, text, channel, sender, ...)
-			if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
-				phaseAddonDataListener:UnregisterEvent("CHAT_MSG_ADDON");
+		getPhaseVaultKeys(function()
+			phaseVault.isSavingOrLoadingAddonData = true
+			sendPhaseVaultIOLock(true)
 
-				if (text ~= "" and #text > 0) then phaseVaultKeys = serializer.decompressForAddonMsg(text) else phaseVaultKeys = {} end
+			dprint("Phase spell keys: ")
+			Debug.ddump(phaseVaultKeys)
 
-				dprint("Phase spell keys: ")
-				Debug.ddump(phaseVaultKeys)
-
-				for k, v in ipairs(phaseVaultKeys) do
-					if v == commID then
-						if not overwrite then
-							-- phase already has this ID saved.. Handle over-write...
-							dprint("Phase already has a spell saved by Command '" .. commID .. "'. Prompting to confirm over-write.")
-							Popups.showPhaseVaultOverwritePopup(commID)
-							phaseVault.isSavingOrLoadingAddonData = false
-							sendPhaseVaultIOLock(false)
-							return;
-						else
-							needToOverwrite = true
-						end
+			for k, v in ipairs(phaseVaultKeys) do
+				if v == commID then
+					if not overwrite then
+						-- phase already has this ID saved.. Handle over-write...
+						dprint("Phase already has a spell saved by Command '" .. commID .. "'. Prompting to confirm over-write.")
+						Popups.showPhaseVaultOverwritePopup(commID)
+						phaseVault.isSavingOrLoadingAddonData = false
+						sendPhaseVaultIOLock(false)
+						return;
+					else
+						needToOverwrite = true
 					end
-				end
-
-				-- Passed checking for duplicates. NOW we can save it.
-				local _spellData
-				if fromPhase then
-					_spellData = Vault.phase.getSpellByIndex(phaseVaultIndex)
-				else
-					_spellData = Vault.personal.findSpellByID(commID)
-				end
-				if LoadSpellFrame.getUploadToPhaseVisibility() == SPELL_VISIBILITY.PRIVATE then
-					_spellData.private = true
-				else
-					_spellData.private = nil
-				end
-				if not isNotDefined(forcePrivate) then
-					_spellData.private = forcePrivate
-					dprint(nil, "Force Vis was set to " .. tostring(forcePrivate))
-				end
-				local str = serializer.compressForAddonMsg(_spellData)
-				dprint(nil, tostring(#str) .. " Characters Long Encoded")
-				if #str > 3750 then
-					Popups.showCustomGenericConfirmation({
-						text = ("This spell exceeds 3750 characters when encoded (%s characters). This can cause issues when loading the spell, causing the Phase Vault to crash. Do you want to risk it all and save anyways?"):format(Tooltip.genContrastText(tostring(#str))),
-						showAlert = true,
-						acceptText = "Save Anyways",
-						cancelText = "Cancel",
-						callback = function()
-							local key = "SCFORGE_S_" .. commID
-							C_Epsilon.SetPhaseAddonData(key, str)
-
-							if not needToOverwrite then
-								tinsert(phaseVaultKeys, commID)
-								phaseVaultKeys = serializer.compressForAddonMsg(phaseVaultKeys)
-								C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
-							end
-
-							cprint("Spell '" .. commID .. "' saved to the Phase Vault, despite being warned.")
-							phaseVault.isSavingOrLoadingAddonData = false
-							sendPhaseVaultIOLock(false)
-							getSpellForgePhaseVault()
-						end,
-						cancelCallback = function()
-							cprint("Spell '" .. commID .. "' was NOT saved to the Phase Vault.")
-							phaseVault.isSavingOrLoadingAddonData = false
-							sendPhaseVaultIOLock(false)
-							getSpellForgePhaseVault()
-						end,
-					})
-				else
-					local key = "SCFORGE_S_" .. commID
-					C_Epsilon.SetPhaseAddonData(key, str)
-
-					if not needToOverwrite then
-						tinsert(phaseVaultKeys, commID)
-						phaseVaultKeys = serializer.compressForAddonMsg(phaseVaultKeys)
-						C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
-					end
-
-					cprint("Spell '" .. commID .. "' saved to the Phase Vault.")
-					phaseVault.isSavingOrLoadingAddonData = false
-					sendPhaseVaultIOLock(false)
-					getSpellForgePhaseVault()
 				end
 			end
-		end)
+
+			-- Passed checking for duplicates. NOW we can save it.
+			local _spellData
+			if fromPhase then
+				_spellData = Vault.phase.getSpellByIndex(phaseVaultIndex)
+			else
+				_spellData = Vault.personal.findSpellByID(commID)
+			end
+			if LoadSpellFrame.getUploadToPhaseVisibility() == SPELL_VISIBILITY.PRIVATE then
+				_spellData.private = true
+			else
+				_spellData.private = nil
+			end
+			if not isNotDefined(forcePrivate) then
+				_spellData.private = forcePrivate
+				dprint(nil, "Force Vis was set to " .. tostring(forcePrivate))
+			end
+
+			uploadSpellDataToPhaseData(commID, _spellData)
+
+			if not needToOverwrite then
+				tinsert(phaseVaultKeys, commID)
+
+				savePhaseVaultKeys(phaseVaultKeys)
+			end
+
+			cprint("Spell '" .. commID .. "' saved to the Phase Vault.")
+			phaseVault.isSavingOrLoadingAddonData = false
+			sendPhaseVaultIOLock(false)
+			getSpellForgePhaseVault()
+		end, true)
 	else
 		eprint("You must be a member, officer, or owner in order to save spells to the phase.")
 	end
@@ -512,6 +715,8 @@ end ]]
 ------------------------
 
 local loadRowSpacing = 5
+
+---@param fromPhaseDataLoaded boolean
 local function updateSpellLoadRows(fromPhaseDataLoaded)
 	spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
 	for i = 1, #spellLoadRows do
@@ -554,7 +759,9 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Enable()
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("")
 		else
-			getSpellForgePhaseVault(updateSpellLoadRows)
+			if not phaseVault.isSavingOrLoadingAddonData then
+				getSpellForgePhaseVault(updateSpellLoadRows)
+			end
 			SCForgeMainFrame.LoadSpellFrame.refreshVaultButton:Disable()
 			SCForgeMainFrame.LoadSpellFrame.spellVaultFrame.LoadingText:SetText("Loading...")
 		end
@@ -566,6 +773,7 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 	local rowNum = 0
 	local numSkippedRows = 0
 	local thisRow
+	local lastShownRow
 
 	for k, v in orderedPairs(savedSpellFromVault) do
 		-- this will get an alphabetically sorted list of all spells, and their data. k = the key (commID), v = the spell's data table
@@ -582,23 +790,23 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			if spellLoadRows[rowNum] then
 				thisRow = spellLoadRows[rowNum]
 				thisRow:Show()
-				dprint(false, "SCForge Load Row " .. rowNum .. " Already existed - showing & setting it")
+				--dprint(false, "SCForge Load Row " .. rowNum .. " Already existed - showing & setting it")
 
 				-- Position the Rows
 				if rowNum == 1 or rowNum - 1 - numSkippedRows < 1 then
 					thisRow:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
 				else
-					thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum - 1 - numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
+					thisRow:SetPoint("TOPLEFT", spellLoadRows[lastShownRow], "BOTTOMLEFT", 0, -loadRowSpacing)
 				end
 			else
-				dprint(false, "SCForge Load Row " .. rowNum .. " Didn't exist - making it!")
+				--dprint(false, "SCForge Load Row " .. rowNum .. " Didn't exist - making it!")
 
 				thisRow = SpellLoadRow.createRow(spellLoadFrame, rowNum)
 
 				if rowNum == 1 or rowNum - 1 - numSkippedRows < 1 then
 					thisRow:SetPoint("TOPLEFT", spellLoadFrame, "TOPLEFT", 8, -8)
 				else
-					thisRow:SetPoint("TOPLEFT", spellLoadRows[rowNum - 1 - numSkippedRows], "BOTTOMLEFT", 0, -loadRowSpacing)
+					thisRow:SetPoint("TOPLEFT", spellLoadRows[lastShownRow], "BOTTOMLEFT", 0, -loadRowSpacing)
 				end
 
 				spellLoadRows[rowNum] = thisRow
@@ -609,6 +817,8 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 			if SpellLoadRow.shouldHideRow(v) then
 				thisRow:Hide()
 				numSkippedRows = numSkippedRows + 1
+			else
+				lastShownRow = rowNum
 			end
 		end
 	end
@@ -631,6 +841,7 @@ saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData, sendLearnedM
 		newSpellData.castbar = phaseSpell.castbar
 		newSpellData.icon = phaseSpell.icon
 		newSpellData.author = phaseSpell.author
+		newSpellData.cooldown = phaseSpell.cooldown
 		dprint("Saving Spell from Phase Vault, fake commID: " .. fromPhaseVaultID .. ", real commID: " .. newSpellData.commID)
 	elseif manualData then
 		newSpellData = manualData
@@ -714,12 +925,12 @@ VaultFilter.init({
 --------- Load Spell Frame - aka the Vault
 
 SCForgeMainFrame.LoadSpellFrame = LoadSpellFrame.init({
-		import = ImportExport.showImportMenu,
-		downloadToPersonal = downloadToPersonal,
-		upload = function(commID)
-			saveSpellToPhaseVault(commID, IsShiftKeyDown())
-		end,
-	})
+	import = ImportExport.showImportSpellMenu,
+	downloadToPersonal = downloadToPersonal,
+	upload = function(commID)
+		saveSpellToPhaseVault(commID, IsShiftKeyDown())
+	end,
+})
 SpellLoadRow.init({
 	loadSpell = loadSpell,
 	upload = function(commID, isPrivate)
@@ -795,7 +1006,7 @@ button.animations = button:CreateAnimationGroup()
 button.animations:SetLooping("REPEAT")
 button.animations.rotate = button.animations:CreateAnimation("Rotation")
 local _rot = button.animations.rotate
-_rot:SetDegrees( -360)
+_rot:SetDegrees(-360)
 _rot:SetDuration(0.33)
 
 button:SetScript("OnClick", function(self, button)
@@ -846,9 +1057,9 @@ end
 -------------------------------------------------------------------------------
 
 local vaultLockTimer = C_Timer.NewTimer(0, function()
-	end) -- this just inits the lockTimer as a timer table, incase we somehow get the _PUNLOCK before a _PLOCK and then EOROROR
+end) -- this just inits the lockTimer as a timer table, incase we somehow get the _PUNLOCK before a _PLOCK and then EOROROR
 local sparkLockTimer = C_Timer.NewTimer(0, function()
-	end) -- this just inits the lockTimer as a timer table, incase we somehow get the _PUNLOCK before a _PLOCK and then EOROROR
+end) -- this just inits the lockTimer as a timer table, incase we somehow get the _PUNLOCK before a _PLOCK and then EOROROR
 local aceCommReceivedHandlers = {
 	[addonMsgPrefix .. "REQ"] = function(prefix, message, channel, sender)
 		Comms.sendSpellToPlayer(sender, message)
@@ -872,10 +1083,10 @@ local aceCommReceivedHandlers = {
 			phaseVault.isSavingOrLoadingAddonData = true
 			dprint("Phase Vault IO for Phase " .. phaseID .. " was locked by Addon Message")
 			vaultLockTimer = C_Timer.NewTimer(5,
-					function()
-						phaseVault.isSavingOrLoadingAddonData = false;
-						eprint("Phase Vault IO Lock on for longer than 5 seconds - disabled. If you get this after changing phases or a lag spike, ignore, otherwise please report it.");
-					end)
+				function()
+					phaseVault.isSavingOrLoadingAddonData = false;
+					eprint("Phase Vault IO Lock on for longer than 5 seconds - disabled. If you get this after changing phases or a lag spike, ignore, otherwise please report it.");
+				end)
 		end
 	end,
 	[addonMsgPrefix .. "_PUNLOCK"] = function(prefix, message, channel, sender)
@@ -893,9 +1104,9 @@ local aceCommReceivedHandlers = {
 			SparkPopups.SparkPopups.setSparkLoadingStatus(true)
 			dprint("Phase Spark IO for Phase " .. phaseID .. " was locked by Addon Message")
 			sparkLockTimer = C_Timer.NewTimer(5, function()
-					SparkPopups.SparkPopups.setSparkLoadingStatus(false)
-					eprint("Phase Spark IO Lock on for longer than 5 seconds - disabled. If you get this after changing phases or a lag spike, ignore, otherwise please report it.");
-				end)
+				SparkPopups.SparkPopups.setSparkLoadingStatus(false)
+				eprint("Phase Spark IO Lock on for longer than 5 seconds - disabled. If you get this after changing phases or a lag spike, ignore, otherwise please report it.");
+			end)
 		end
 	end,
 	[addonMsgPrefix .. "_SUNLOCK"] = function(prefix, message, channel, sender)
@@ -906,6 +1117,12 @@ local aceCommReceivedHandlers = {
 			sparkLockTimer:Cancel()
 			SparkPopups.SparkPopups.getPopupTriggersFromPhase()
 		end
+	end,
+	[addonMsgPrefix .. "_SPARKCD"] = function(prefix, message, channel, sender)
+		--local curPhaseID = C_Epsilon.GetPhaseId()
+		local phaseID, cdTime, sparkCDNameOverride = strsplit(":", message, 3)
+		local commID, locData = strsplit(string.char(31), sparkCDNameOverride, 2)
+		ns.Actions.Cooldowns.addSparkCooldown(sparkCDNameOverride, cdTime, commID, phaseID)
 	end,
 }
 
@@ -953,8 +1170,8 @@ local function phaseChangeHandler()
 	C_Epsilon.IsDM = false
 
 	-- // Update our spell Load Rows & get the phase vault from the new phase
+	getSpellForgePhaseVault(SCForgeMainFrame.LoadSpellFrame:IsVisible() and updateSpellLoadRows or nil);
 	updateSpellLoadRows();
-	getSpellForgePhaseVault(SCForgeMainFrame.LoadSpellFrame:IsShown() and updateSpellLoadRows or nil);
 
 	-- // Close the Spark manager & creation UIs, since we are changing phase
 	SparkPopups.CreateSparkUI.closeSparkCreationUI()
@@ -974,7 +1191,18 @@ local function addonLoadedHandler()
 	LoadMinimapPosition();
 	aceCommInit()
 	Hotkeys.updateHotkeys()
+	SparkPopups.SparkPopups.setSparkKeybind(SpellCreatorMasterTable.quickcast.keybind)
 	Quickcast.init()
+
+	hooksecurefunc("SetUIVisibility", function(shown)
+		if shown then
+			UIErrorsFrame:SetParent(UIParent)
+			RaidWarningFrame:SetParent(UIParent)
+		else
+			UIErrorsFrame:SetParent(nil)
+			RaidWarningFrame:SetParent(nil)
+		end
+	end)
 
 	local channelType, channelName = JoinChannelByName("scforge_comm")
 	ns.Constants.ADDON_CHANNEL = GetChannelName("scforge_comm")
@@ -1019,9 +1247,10 @@ local function addonLoadedHandler()
 			RaidNotice_AddMessage(RaidWarningFrame, ADDON_COLORS.ADDON_COLOR:WrapTextInColorCode("Check-out the Changelog below, or by right-clicking the Mini-map Icon later!"),
 				ChatTypeInfo["RAID_WARNING"])
 		end)
-		local changelogFrame = ns.UI.Options.changelogFrame
-		changelogFrame:SetShown(true);
-		changelogFrame:Raise()
+		C_Timer.After(1, function() ns.UI.WelcomeUI.WelcomeMenu.showWelcomeScreen(true) end)
+		--local changelogFrame = ns.UI.Options.changelogFrame
+		--changelogFrame:SetShown(true);
+		--changelogFrame:Raise()
 		--			InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
 		--			InterfaceOptionsFrame_OpenToCategory(ADDON_TITLE);
 		--	local titleText = SpellCreatorInterfaceOptions.panel.scrollFrame.Title
@@ -1103,7 +1332,7 @@ end);
 -------------------------------------------------------------------------------
 
 SLASH_SCFORGEMAIN1, SLASH_SCFORGEMAIN2 = '/arcanum', '/sf'; -- 3.
-function SlashCmdList.SCFORGEMAIN(msg, editbox) -- 4.
+function SlashCmdList.SCFORGEMAIN(msg, editbox)             -- 4.
 	if #msg > 0 then
 		dprint(false, "Casting Arcanum Spell by CommID: " .. msg)
 		local spell = Vault.personal.findSpellByID(msg)
@@ -1151,30 +1380,27 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 				dprint(true, "resetPhaseSpellKeys -- WARNING: YOU ARE ABOUT TO WIPE ALL OF YOUR PHASE VAULT. You need to add 'confirm' after this command in order for it to work.")
 			end
 		elseif command == "removePhaseKey" then
-			if rest and tonumber(rest) then
-				rest = tonumber(rest)
-				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
+			if rest and tostring(rest) and rest ~= "" then
+				rest = tostring(rest)
 
-				phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
-
-				phaseAddonDataListener:SetScript("OnEvent", function(self, event, prefix, text, channel, sender, ...)
-					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
-						phaseAddonDataListener:UnregisterEvent("CHAT_MSG_ADDON")
-						phaseVaultKeys = serializer.decompressForAddonMsg(text)
-						local theDeletedKey = phaseVaultKeys[rest]
-						if theDeletedKey then
-							table.remove(phaseVaultKeys, rest)
-							phaseVaultKeys = serializer.compressForAddonMsg(phaseVaultKeys)
-							dprint(true, "Deleted Phase Key: [" .. rest .. "] = " .. theDeletedKey)
-							C_Epsilon.SetPhaseAddonData("SCFORGE_KEYS", phaseVaultKeys)
-						else
-							dprint(true, "Phase Key ID [" .. rest .. "] doesn't seem to exist.")
+				getPhaseVaultKeys(function()
+					local didDeleteKey = false
+					for k, v in ipairs(phaseVaultKeys) do
+						if v == rest then
+							didDeleteKey = true
+							tremove(phaseVaultKeys, k)
+							dprint(true, "Deleted Phase Key: " .. rest)
 						end
 					end
-				end)
+					if didDeleteKey then
+						savePhaseVaultKeys(phaseVaultKeys)
+					else
+						dprint(true, "Phase Key comm ID [" .. rest .. "] doesn't seem to exist.")
+					end
+				end, true)
 			else
 				dprint(true,
-					"removePhaseKey -- You need to prove the numerical ID (from getPhaseKeys) of the key to remove. This does not remove the spells data, only removes it's key from the key list, although you will not be able to access the spell afterwords.")
+					"removePhaseKey -- You need to provide the comm ID (from getPhaseKeys) of the key to remove. This does not remove the spells data, only removes it's key from the key list, although you will not be able to access the spell afterwords.")
 			end
 		elseif command == "getPhaseSpellData" then
 			local interAction
@@ -1198,70 +1424,24 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 				end)
 			else
 				dprint(true, "Retrieving Phase Vault Data based on Phase Vault Keys...")
-				local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
-				dprint("ticketID = " .. messageTicketID)
-				phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
-				phaseAddonDataListener:SetScript("OnEvent", function(self, event, prefix, text, channel, sender, ...)
-					if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
-						phaseAddonDataListener:UnregisterEvent("CHAT_MSG_ADDON")
-
-						if (#text < 1 or text == "") then
-							noSpellsToLoad(true);
-							return;
-						end
-						phaseVaultKeys = serializer.decompressForAddonMsg(text)
-						if #phaseVaultKeys < 1 then
-							noSpellsToLoad(true);
-							return;
-						end
-						local phaseVaultLoadingCount = 0
-						local phaseVaultLoadingExpected = #phaseVaultKeys
-						local messageTicketQueue = {}
-
-						-- set up the phaseAddonDataListener2 ahead of time instead of EVERY SINGLE FUCKING ITERATION..
-
-						phaseAddonDataListener2:RegisterEvent("CHAT_MSG_ADDON")
-						phaseAddonDataListener2:SetScript("OnEvent", function(self, event, prefix, text, channel, sender, ...)
-							if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
-								messageTicketQueue[prefix] = nil -- remove it from the queue.. We'll reset the table next time anyways but whatever.
-								phaseVaultLoadingCount = phaseVaultLoadingCount + 1
-								interAction = serializer.decompressForAddonMsg(text)
-								_phaseSpellDebugDataTable[interAction.fullName] = {
-									["encoded"] = text,
-									["decoded"] = interAction,
-								}
-								dprint(true, interAction.fullName .. " saved to debugPhaseData")
-								if phaseVaultLoadingCount == phaseVaultLoadingExpected then
-									phaseAddonDataListener2:UnregisterEvent("CHAT_MSG_ADDON")
-								end
-							end
-						end)
-
-						for k, v in ipairs(phaseVaultKeys) do
-							--phaseVaultLoadingExpected = k
-							dprint(true, "Trying to load spell from phase: " .. v)
-							local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_S_" .. v)
-							messageTicketQueue[messageTicketID] = true -- add it to a fake queue table so we can watch for multiple prefixes...
-						end
-					end
+				getSpellForgePhaseVault(function()
+					--[[ -- need to reimplement this
+					-- iterate spells after they are loaded and save with following format:
+					_phaseSpellDebugDataTable[interAction.fullName] = {
+						["encoded"] = text,
+						["decoded"] = interAction,
+					}
+					--]]
 				end)
 			end
 			SpellCreatorMasterTable.Options["debugPhaseData"] = _phaseSpellDebugDataTable
 			dprint(true, "Phase Vault key data cached for this single reload to the 'epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua' file.")
 		elseif command == "getPhaseKeys" then
-			local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_KEYS")
-
-			phaseAddonDataListener:RegisterEvent("CHAT_MSG_ADDON")
-
-			phaseAddonDataListener:SetScript("OnEvent", function(self, event, prefix, text, channel, sender, ...)
-				if event == "CHAT_MSG_ADDON" and prefix == messageTicketID and text then
-					phaseAddonDataListener:UnregisterEvent("CHAT_MSG_ADDON")
-					SpellCreatorMasterTable.Options["debugPhaseKeys"] = text
-					print(text)
-					phaseVaultKeys = serializer.decompressForAddonMsg(text)
-					Debug.dump(phaseVaultKeys)
-				end
-			end)
+			getPhaseVaultKeys(function(finalKeys, originalString)
+				print(originalString)
+				SpellCreatorMasterTable.Options["debugPhaseKeys"] = originalString
+				Debug.dump(finalKeys)
+			end, true)
 		elseif command == "getPhaseTriggers" then
 			local messageTicketID = C_Epsilon.GetPhaseAddonData("SCFORGE_POPUPS")
 
@@ -1286,6 +1466,8 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 			end
 		elseif command == "dataSalvager" then
 			ns.UI.DataSalvager.showSalvagerMenu()
+		elseif command == "resetCooldowns" then
+			ns.Actions.Cooldowns.clearOldCooldowns(true)
 		end
 	else
 		cprint("DEBUG LIST")
@@ -1300,7 +1482,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 		print("... listSpellKeys: List all your vault spells by just keys. Easier to read.")
 		print("... getPhaseKeys: Lists all the vault spells by keys.")
 		print("... getPhaseSpellData [$commID/key]: Exports the spell data for all current keys, or the specified commID/key, to your '" ..
-		ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. "..epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua|r' file.")
+			ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. "..epsilon/_retail_/WTF/Account/NAME/SavedVariables/SpellCreator.lua|r' file.")
 		print("... resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, and can be exported to your WTF file by using getPhaseSpellData.")
 		print("... removePhaseKey: Removes a single phase key from the Phase Vault. The data for the spell remains, and can be retrieved using getPhaseSpellData also.")
 		print("... dataSalvager: Show a large edit box with Data Salvaging Tools to convert exported Arc data to readable format.")
@@ -1331,8 +1513,8 @@ end
 ---@class MainFuncs
 ns.MainFuncs = {
 	updateSpellLoadRows = updateSpellLoadRows,
-	saveSpellToPhaseVault = saveSpellToPhaseVault, -- Move to SpellStrorage when done
+	saveSpellToPhaseVault = saveSpellToPhaseVault,          -- Move to SpellStrorage when done
 	getSavedSpellFromVaultTable = getSavedSpellFromVaultTable, -- I think this would move to spell storage later?
-	deleteSpellFromPhaseVault = deleteSpellFromPhaseVault, -- Move to Spell Storage? Vaults?
+	deleteSpellFromPhaseVault = deleteSpellFromPhaseVault,  -- Move to Spell Storage? Vaults?
 	downloadToPersonal = downloadToPersonal,
 }

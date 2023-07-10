@@ -49,8 +49,23 @@ local function eprint(text, rest)
 	end
 end
 
+local function raidWarning(text, r, g, b)
+	RaidNotice_AddMessage(RaidWarningFrame, CreateColor(r, g, b, 1):WrapTextInColorCode(text), ChatTypeInfo["RAID_WARNING"])
+end
+
+local function uiErrorMessage(text, r, g, b, voiceID, soundKitID)
+	UIErrorsFrame:AddMessage(text, r, g, b, 1)
+	if voiceID then
+		PlayVocalErrorSoundID(voiceID);
+	elseif soundKitID then
+		PlaySound(soundKitID);
+	end
+end
+
 ns.Logging = {
 	cprint = cprint,
 	dprint = dprint,
 	eprint = eprint,
+	raidWarning = raidWarning,
+	uiErrorMessage = uiErrorMessage,
 }

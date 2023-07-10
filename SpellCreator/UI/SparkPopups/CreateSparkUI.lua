@@ -8,6 +8,7 @@ local SparkPopups = ns.UI.SparkPopups
 local ASSETS_PATH = ns.Constants.ASSETS_PATH
 local ADDON_COLORS = ns.Constants.ADDON_COLORS
 local SPARK_ASSETS_PATH = ASSETS_PATH .. "/Sparks/"
+local Tooltip = ns.Utils.Tooltip
 
 local getPlayerPositionData = C_Epsilon.GetPosition or function() return UnitPosition("player") end
 
@@ -16,61 +17,80 @@ local defaultSparkPopupStyle = 629199 -- "Interface\\ExtraButton\\Default";
 local addNewSparkPopupStyleTex = 308477
 local customStyleTexIter = 0
 
-local sparkPopupStyles = { -- You can still use one not listed here technically, but these are the ones supported in the UI. No simple way to use their own.
-	{ 629199, "Default" },
-	{ 629198, "Champion Light" },
-	{ 629200, "Feng Barrier" },
-	{ 629201, "Feng Shroud" },
-	{ 629202, "Ultra Xion" },
-	{ 629203, "Ysera" },
-	{ 629479, "Green Keg" },
-	{ 629480, "Smash" },
-	{ 629738, "Brown Keg" },
-	{ 653590, "Lightning Keg" },
-	{ 654130, "Hozu Bar" },
-	{ 667434, "Airstrike" },
-	{ 774879, "Engineering" },
-	{ 796702, "Soulswap" },
-	{ 876185, "Amber" },
-	{ 1016651, "Garr. Armory" },
-	{ 1016652, "Garr. Alliance" },
-	{ 1016653, "Garr. Horde" },
-	{ 1016654, "Garr. Inn (Hearthstone)" },
-	{ 1016655, "Garr. Lumbermill" },
-	{ 1016656, "Garr. Mage Tower" },
-	{ 1016657, "Garr. Stables" },
-	{ 1016658, "Garr. Trading Post" },
-	{ 1016659, "Garr. Training Pit" },
-	{ 1016660, "Garr. Workshop" },
-	{ 1129687, "Eye of Terrok" },
-	{ 1466424, "Fel" },
-	{ 1589183, "Soulcage" },
-	{ 2203955, "Heart of Az. Active" },
-	{ 2203956, "Heart of Az. Minimal" },
-	{ SPARK_ASSETS_PATH .. "1Simple", "Arcanum - Simple" },
-	{ SPARK_ASSETS_PATH .. "1Ornate", "Arcanum - Ornate" },
-	{ SPARK_ASSETS_PATH .. "1OrnateBG", "Arcanum - Aurora" },
-	{ SPARK_ASSETS_PATH .. "2Simple", "Arc Lens - Simple" },
-	{ SPARK_ASSETS_PATH .. "2CustomRed", "Arc Lens - Red" },
-	{ SPARK_ASSETS_PATH .. "2CustomOrange", "Arc Lens - Orange" },
-	{ SPARK_ASSETS_PATH .. "2CustomYellow", "Arc Lens - Yellow" },
-	{ SPARK_ASSETS_PATH .. "2CustomGreen", "Arc Lens - Green" },
-	{ SPARK_ASSETS_PATH .. "2CustomJade", "Arc Lens - Jade" },
-	{ SPARK_ASSETS_PATH .. "2CustomBlue", "Arc Lens - Blue" },
-	{ SPARK_ASSETS_PATH .. "2CustomIndigo", "Arc Lens - Indigo" },
-	{ SPARK_ASSETS_PATH .. "2CustomViolet", "Arc Lens - Violet" },
-	{ SPARK_ASSETS_PATH .. "2CustomPink", "Arc Lens - Pink" },
-	{ SPARK_ASSETS_PATH .. "2CustomPrismatic", "Arc Lens - Prismatic" },
-	{ SPARK_ASSETS_PATH .. "dicemaster_sanctum", "DiceMaster Sanctum" },
-	{ SPARK_ASSETS_PATH .. "ethereal-xtrabtn", "Arc+Dice - Ethereal" },
-	{ SPARK_ASSETS_PATH .. "nzoth-xtrabtn", "Arc+Dice - Nzoth" },
-	{ SPARK_ASSETS_PATH .. "forsaken-xtrabtn", "Arc+Dice - Forsaken" },
-	{ SPARK_ASSETS_PATH .. "worgen-xtrabtn", "Arc+Dice - Worgen" },
+local sparkPopupStyles = { -- You can still use one not listed here technically, but these are the ones supported in the UI.
+	{ 629199,                                          "Default" },
+	{ 629198,                                          "Champion Light" },
+	{ 629200,                                          "Feng Barrier" },
+	{ 629201,                                          "Feng Shroud" },
+	{ 629202,                                          "Ultra Xion" },
+	{ 629203,                                          "Ysera" },
+	{ 629479,                                          "Green Keg" },
+	{ 629480,                                          "Smash" },
+	{ 629738,                                          "Brown Keg" },
+	{ 653590,                                          "Lightning Keg" },
+	{ 654130,                                          "Hozu Bar" },
+	{ 667434,                                          "Airstrike" },
+	{ 774879,                                          "Engineering" },
+	{ 796702,                                          "Soulswap" },
+	{ 876185,                                          "Amber" },
+	{ 1016651,                                         "Garr. Armory" },
+	{ 1016652,                                         "Garr. Alliance" },
+	{ 1016653,                                         "Garr. Horde" },
+	{ 1016654,                                         "Garr. Inn (Hearthstone)" },
+	{ 1016655,                                         "Garr. Lumbermill" },
+	{ 1016656,                                         "Garr. Mage Tower" },
+	{ 1016657,                                         "Garr. Stables" },
+	{ 1016658,                                         "Garr. Trading Post" },
+	{ 1016659,                                         "Garr. Training Pit" },
+	{ 1016660,                                         "Garr. Workshop" },
+	{ 1129687,                                         "Eye of Terrok" },
+	{ 1466424,                                         "Fel" },
+	{ 1589183,                                         "Soulcage" },
+	{ 2203955,                                         "Heart of Az. Active" },
+	{ 2203956,                                         "Heart of Az. Minimal" },
+	{ SPARK_ASSETS_PATH .. "1Simple",                  "Arcanum - Simple" },
+	{ SPARK_ASSETS_PATH .. "1Ornate",                  "Arcanum - Ornate" },
+	{ SPARK_ASSETS_PATH .. "1OrnateBG",                "Arcanum - Aurora" },
+	{ SPARK_ASSETS_PATH .. "2Simple",                  "Arc Lens - Simple" },
+	{ SPARK_ASSETS_PATH .. "2CustomRed",               "Arc Lens - Red" },
+	{ SPARK_ASSETS_PATH .. "2CustomOrange",            "Arc Lens - Orange" },
+	{ SPARK_ASSETS_PATH .. "2CustomYellow",            "Arc Lens - Yellow" },
+	{ SPARK_ASSETS_PATH .. "2CustomGreen",             "Arc Lens - Green" },
+	{ SPARK_ASSETS_PATH .. "2CustomJade",              "Arc Lens - Jade" },
+	{ SPARK_ASSETS_PATH .. "2CustomBlue",              "Arc Lens - Blue" },
+	{ SPARK_ASSETS_PATH .. "2CustomIndigo",            "Arc Lens - Indigo" },
+	{ SPARK_ASSETS_PATH .. "2CustomViolet",            "Arc Lens - Violet" },
+	{ SPARK_ASSETS_PATH .. "2CustomPink",              "Arc Lens - Pink" },
+	{ SPARK_ASSETS_PATH .. "2CustomPrismatic",         "Arc Lens - Prismatic" },
+	{ SPARK_ASSETS_PATH .. "dicemaster_sanctum",       "DiceMaster Sanctum" },
+	{ SPARK_ASSETS_PATH .. "ethereal-xtrabtn",         "Arc+Dice - Ethereal" },
+	{ SPARK_ASSETS_PATH .. "nzoth-xtrabtn",            "Arc+Dice - Nzoth" },
+	{ SPARK_ASSETS_PATH .. "forsaken-xtrabtn",         "Arc+Dice - Forsaken" },
+	{ SPARK_ASSETS_PATH .. "worgen-xtrabtn",           "Arc+Dice - Worgen" },
 
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_metal",    "SF Dragon - Metal" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_arcane",   "SF Dragon - Arcane" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_black",    "SF Dragon - Black" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_blue",     "SF Dragon - Blue" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_bronze",   "SF Dragon - Bronze" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_brown",    "SF Dragon - Brown" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_darkblue", "SF Dragon - Darkblue" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_emerald",  "SF Dragon - Emerald" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_green",    "SF Dragon - Green" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_infinite", "SF Dragon - Infinite" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_jade",     "SF Dragon - Jade" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_orange",   "SF Dragon - Orange" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_phoenix",  "SF Dragon - Phoenix" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_pink",     "SF Dragon - Pink" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_purple",   "SF Dragon - Purple" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_red",      "SF Dragon - Red" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_ruby",     "SF Dragon - Ruby" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_white",    "SF Dragon - White" },
+	{ SPARK_ASSETS_PATH .. "sf_dragon_frame_yellow",   "SF Dragon - Yellow" },
 
 	-- always last
-	{ addNewSparkPopupStyleTex, "Add Other/Custom" },
-	-- 	{ ASSETS_PATH .. "/CustomFrame", "Custom Frame 1"},
+	{ addNewSparkPopupStyleTex,                        "Add Other/Custom" },
+	-- 	{ SPARK_ASSETS_PATH .. "CustomFrameFile", "Custom Frame 1"},
 }
 
 local sparkPopupStylesKVTable = {}
@@ -91,6 +111,9 @@ local sparkUI_Helper = {
 	z = 0,
 	mapID = 0,
 	overwriteIndex = nil,
+	cooldownTime = false,
+	cooldownTriggerSpellCooldown = false,
+	cooldownBroadcastToPhase = false,
 }
 
 ---@param num integer
@@ -130,6 +153,7 @@ local uiOptionsTable = {
 					name = "ArcSpell",
 					desc = "CommID of the ArcSpell from the Phase Vault",
 					type = "input",
+					dialogControl = "MAW-Editbox",
 					order = autoOrder(),
 					set = function(info, val) sparkUI_Helper.commID = val end,
 					get = function(info) return sparkUI_Helper.commID end
@@ -188,12 +212,116 @@ local uiOptionsTable = {
 						end
 					end
 				},
+				cooldownTime = {
+					name = "Spark Cooldown Override",
+					dialogControl = "MAW-Editbox",
+					desc = "Sets a cooldown on this Spark. Spark Cooldowns override spell cooldowns, and only apply for this instance of the Spell.",
+					type = "input",
+					order = autoOrder(),
+					get = function()
+						if sparkUI_Helper.cooldownTime then
+							return sparkUI_Helper.cooldownTime
+						else
+							return 0
+						end
+					end,
+					set = function(info, val)
+						if val and val ~= "" then
+							sparkUI_Helper.cooldownTime = val
+						else
+							sparkUI_Helper.cooldownTime = nil
+						end
+					end,
+					width = 0.8,
+				},
+				cooldownTriggerSpellCooldown = {
+					type = "toggle",
+					name = "Trigger Spell Cooldown",
+					desc = "When enabled, the Spark will still toggle both it's own Cooldown, and the Spells' cooldown.\nIf disabled, only this Spark's cooldown is triggered.",
+					order = autoOrder(),
+					get = function()
+						if sparkUI_Helper.cooldownTriggerSpellCooldown ~= nil then
+							return sparkUI_Helper.cooldownTriggerSpellCooldown
+						else
+							return false
+						end
+					end,
+					set = function(info, val)
+						sparkUI_Helper.cooldownTriggerSpellCooldown = val
+					end,
+					disabled = function() return not sparkUI_Helper.cooldownTime end,
+					width = 1.2,
+				},
+				cooldownBroadcastToPhase = {
+					type = "toggle",
+					name = "Broadcast Cooldown",
+					desc =
+					"When enabled, the Spark Cooldown is sent to everyone in the phase, and they will have the same cooldown.\n\rNote: The main spells' cooldown is NOT triggered for them, ONLY this single Spark's!\n\rNote note: This is broadcast to the phase when triggered; if anyone joins the phase AFTER, they will NOT be subject to the cooldown. Deal with it.",
+					order = autoOrder(),
+					get = function()
+						if sparkUI_Helper.cooldownBroadcastToPhase ~= nil then
+							return sparkUI_Helper.cooldownBroadcastToPhase
+						else
+							return false
+						end
+					end,
+					set = function(info, val)
+						sparkUI_Helper.cooldownBroadcastToPhase = val
+					end,
+					disabled = function() return not sparkUI_Helper.cooldownTime end,
+					width = 1,
+				},
+				requirementScript = {
+					name = "Spark Requirement (Script)",
+					dialogControl = "MAW-Editbox",
+					desc =
+						"Sets a requirement on this Spark via a script. If the script does not return a true value, then the Spark will not be shown.\n\rExample Scripts:\n" ..
+						Tooltip.genContrastText("ARC.XAPI.HasItem(19222)") ..
+						" to only show if they have atleast one \124cff1eff00\124Hitem:19222::::::::70:::::\124h[Cheap Beer]\124h\124r item." .. "\n\r" ..
+						Tooltip.genContrastText("ARC.XAPI.HasAura(131437)") .. " to only show if they have \124cff71d5ff\124Hspell:131437\124h[See Quest Invis 9]\124h\124r aura." .. "\n\r" ..
+						Tooltip.genContrastText("GetItemCount(108499) >= 23") ..
+						" to only show if they have 23 or more \124cff1eff00\124Hitem:108499::::::::70:::::\124h[Soothepetal Flower]\124h\124r in their inventory." .. "\n\r" ..
+						Tooltip.genContrastText("ARC.PHASE.IsMember()") .. " to only show if they are a Member of the Phase.",
+					type = "input",
+					order = autoOrder(),
+					get = function()
+						if sparkUI_Helper.requirement then
+							return sparkUI_Helper.requirement
+						else
+							return 0
+						end
+					end,
+					set = function(info, val)
+						if val and val ~= "" then
+							sparkUI_Helper.requirement = val
+						else
+							sparkUI_Helper.requirement = nil
+						end
+					end,
+					width = "full",
+				},
+				stylePreviewTitle = {
+					type = "description",
+					name = "\nBorder Preview:",
+					order = autoOrder(),
+				},
 				stylePreview = {
-					name = "",
+					--name = ""
+					name = function()
+						local vR, vG, vB = 255, 255, 255
+						if sparkUI_Helper.color then vR, vG, vB = CreateColorFromHexString(sparkUI_Helper.color):GetRGBAsBytes() end
+						return ns.Utils.UIHelpers.CreateTextureMarkupWithColor(sparkUI_Helper.style, 64 * 2, 32 * 2, 64 * 2, 32 * 2, 0, 1, 0, 1, 0, 0, vR, vG, vB)
+					end,
+					type = "header",
+					width = "full",
+					order = autoOrder(),
+					--image = function() return sparkUI_Helper.style, 64 * 2, 32 * 2 end,
+				},
+				spacer = {
+					name = " ",
 					type = "description",
 					width = "full",
 					order = autoOrder(),
-					image = function() return sparkUI_Helper.style, 64 * 2, 32 * 2 end,
 				},
 			}
 		},
@@ -207,6 +335,7 @@ local uiOptionsTable = {
 					name = "X",
 					desc = "The X Coordinate of the Trigger. Default is your current location.",
 					type = "input",
+					dialogControl = "MAW-Editbox",
 					validate = function(info, val) return tonumber(val) end,
 					order = autoOrder(),
 					set = function(info, val) sparkUI_Helper.x = (tonumber(val) and tonumber(val) or tonumber(getPosData(1))) end,
@@ -216,6 +345,7 @@ local uiOptionsTable = {
 					name = "Y",
 					desc = "The Y Coordinate of the Trigger. Default is your current location.",
 					type = "input",
+					dialogControl = "MAW-Editbox",
 					validate = function(info, val) if tonumber(val) then return true else return "You need to supply a valid number!" end end,
 					order = autoOrder(),
 					set = function(info, val) sparkUI_Helper.y = (tonumber(val) and tonumber(val) or tonumber(getPosData(2))) end,
@@ -225,6 +355,7 @@ local uiOptionsTable = {
 					name = "Z",
 					desc = "The Z Coordinate of the Trigger. Default is your current location.",
 					type = "input",
+					dialogControl = "MAW-Editbox",
 					validate = function(info, val) if tonumber(val) then return true else return "You need to supply a valid number!" end end,
 					order = autoOrder(),
 					set = function(info, val) sparkUI_Helper.z = (tonumber(val) and tonumber(val) or tonumber(getPosData(3))) end,
@@ -234,6 +365,7 @@ local uiOptionsTable = {
 					name = "Map ID",
 					desc = "The X Coordinate of the Trigger. Default is your current location.",
 					type = "input",
+					dialogControl = "MAW-Editbox",
 					pattern = "%d+",
 					validate = function(info, val) if tonumber(val) then return true else return "You need to supply a valid number!" end end,
 					order = autoOrder(),
@@ -244,6 +376,7 @@ local uiOptionsTable = {
 					name = "Radius",
 					desc = "How close to the point a player must be to show the Spark.",
 					type = "range",
+					dialogControl = "MAW-Slider",
 					min = 0,
 					max = 100,
 					softMin = 0.25,
@@ -261,8 +394,15 @@ local uiOptionsTable = {
 			name = function() if sparkUI_Helper.overwriteIndex then return "Save Spark" else return "Create Spark" end end,
 			width = "full",
 			func = function()
-				SparkPopups.SparkPopups.addPopupTriggerToPhaseData(sparkUI_Helper.commID, sparkUI_Helper.radius, sparkUI_Helper.style, sparkUI_Helper.x, sparkUI_Helper.y, sparkUI_Helper.z, sparkUI_Helper.color,
+				SparkPopups.SparkPopups.addPopupTriggerToPhaseData(sparkUI_Helper.commID, sparkUI_Helper.radius, sparkUI_Helper.style, sparkUI_Helper.x, sparkUI_Helper.y, sparkUI_Helper.z,
+					sparkUI_Helper.color,
 					sparkUI_Helper.mapID,
+					{
+						cooldownTime = sparkUI_Helper.cooldownTime,
+						trigSpellCooldown = sparkUI_Helper.cooldownTriggerSpellCooldown,
+						broadcastCooldown = sparkUI_Helper.cooldownBroadcastToPhase,
+						requirement = sparkUI_Helper.requirement
+					},
 					sparkUI_Helper.overwriteIndex)
 				AceConfigDialog:Close(theUIDialogName)
 			end,
@@ -271,7 +411,7 @@ local uiOptionsTable = {
 }
 
 AceConfig:RegisterOptionsTable(theUIDialogName, uiOptionsTable)
-AceConfigDialog:SetDefaultSize(theUIDialogName, 600, 420)
+AceConfigDialog:SetDefaultSize(theUIDialogName, 600, 495)
 
 ---@param num number the number to verify if it's a number
 ---@return number
@@ -287,20 +427,31 @@ local function openSparkCreationUI(commID, editIndex, editMapID)
 	sparkUI_Helper.overwriteIndex = editIndex or nil
 	sparkUI_Helper.commID = commID
 
-	local x, y, z, mapID, radius, style, colorHex
+	local x, y, z, mapID, radius, style, colorHex, cooldownTime, cooldownTriggerSpellCooldown, cooldownBroadcastToPhase, requirement
 	if editIndex then
 		local phaseSparkTriggers = SparkPopups.SparkPopups.getPhaseSparkTriggersCache()
 		local triggerData = phaseSparkTriggers[editMapID][editIndex]
 		x, y, z, mapID, radius, style, colorHex = triggerData[2], triggerData[3], triggerData[4], editMapID, triggerData[5], triggerData[6], triggerData[7]
+		local sparkOptions = triggerData[8] --[[@as PopupTriggerOptions]]
+		if sparkOptions ~= nil then
+			cooldownTime, cooldownTriggerSpellCooldown, cooldownBroadcastToPhase = sparkOptions.cooldownTime, sparkOptions.trigSpellCooldown, sparkOptions.broadcastCooldown
+			requirement = sparkOptions.requirement
+		end
 	else
 		radius = 5
 		x, y, z, mapID = getPlayerPositionData()
 		style = defaultSparkPopupStyle
 		colorHex = "ffffffff"
+		cooldownTime = false
+		cooldownTriggerSpellCooldown = false
+		cooldownBroadcastToPhase = false
+		requirement = nil
 	end
 
 	x, y, z = DataUtils.roundToNthDecimal(verifyNumber(x), 4), DataUtils.roundToNthDecimal(verifyNumber(y), 4), DataUtils.roundToNthDecimal(verifyNumber(z), 4)
 	sparkUI_Helper.x, sparkUI_Helper.y, sparkUI_Helper.z, sparkUI_Helper.mapID, sparkUI_Helper.radius, sparkUI_Helper.style, sparkUI_Helper.color = x, y, z, mapID, radius, style, colorHex
+	sparkUI_Helper.cooldownTime, sparkUI_Helper.cooldownTriggerSpellCooldown, sparkUI_Helper.cooldownBroadcastToPhase = cooldownTime, cooldownTriggerSpellCooldown, cooldownBroadcastToPhase
+	sparkUI_Helper.requirement = requirement
 	AceConfigDialog:Open(theUIDialogName)
 end
 

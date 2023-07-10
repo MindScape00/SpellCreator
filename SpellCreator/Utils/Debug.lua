@@ -16,19 +16,20 @@ local function dump(o)
 	else
 		DevTools_Dump(o);
 	end
-
-	--[[ -- Old Table String-i-zer.. Replaced with Blizzard_DebugTools nice dump :)
-   if type(o) == 'table' then
-      local s = '{ '
-      for k,v in pairs(o) do
-         if type(k) ~= 'number' then k = '"'..k..'"' end
-         s = s .. '['..k..'] = ' .. dump(v) .. ','
-      end
-      return s .. '} '
-   else
-      return tostring(o)
-   end
---]]
+	--[[
+	-- Old Table String-i-zer.. Replaced with Blizzard_DebugTools nice dump :)
+	if type(o) == 'table' then
+		local s = '{ '
+		for k, v in pairs(o) do
+			if type(k) ~= 'number' then k = '"' .. k .. '"' end
+			s = s .. '[' .. k .. '] = ' .. dump(v) .. ','
+		end
+		return s .. '} '
+	else
+		return tostring(o)
+	end
+	--]]
+	if SpellCreatorMasterTable.Options["debugTableInspector"] and type(o) == "table" then DisplayTableInspectorWindow(o) end
 end
 
 local function ddump(o)
@@ -52,8 +53,8 @@ if enable_eTrace_on_load and not EventTraceFrame then
 
 	EventTraceFrame:HookScript("OnShow", function(self)
 		self.ignoredEvents = {
-			CHAT_MSG_ADDON = true,
-			CHAT_MSG_ADDON_LOGGED = true,
+			CHAT_MSG_ADDON = false,
+			CHAT_MSG_ADDON_LOGGED = false,
 			CHAT_MSG_CHANNEL_JOIN = true,
 			CHAT_MSG_CHANNEL_LEAVE = true,
 			CHAT_MSG_SAY = true,

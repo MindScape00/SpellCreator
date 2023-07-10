@@ -7,6 +7,10 @@ local addonPath = "Interface/AddOns/" .. tostring(addonName)
 
 local ADDON_TITLE = GetAddOnMetadata(addonName, "Title")
 
+ARC = {}
+ARC.VAR = {}
+ARC._DEBUG = {}
+
 ---@enum SpellVisibility
 local SPELL_VISIBILITY = {
 	PRIVATE = "Private",
@@ -20,14 +24,14 @@ local VAULT_TYPE = {
 }
 
 local ADDON_COLORS = {
-	ADDON_COLOR = CreateColorFromHexString("ffce2eff"), -- ce2eff : Purple -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
-	UPDATED = CreateColorFromHexString("ff57F287"), -- 57F287 : Green
-	LIGHT_PURPLE = CreateColorFromHexString("ffAAAAFF"), -- AAAAFF : Light Purple
-	GAME_GOLD = CreateColorFromHexString("FFFFD700"), -- FFD700 : Game Gold | Also used as FFD100 in some places?
-	QC_DARKRED = CreateColorFromHexString("ffAA6F6F"), -- AA6F6F : Dark Red
-	MENU_SELECTED = CreateColorFromHexString("ffFFA600"), -- FFA600 : Orange-Gold
+	ADDON_COLOR = CreateColorFromHexString("ffce2eff"),     -- ce2eff : Purple -- options: 7e1af0 (hard to read) -- 7814ea -- 8a30f1 -- 9632ff
+	UPDATED = CreateColorFromHexString("ff57F287"),         -- 57F287 : Green
+	LIGHT_PURPLE = CreateColorFromHexString("ffAAAAFF"),    -- AAAAFF : Light Purple
+	GAME_GOLD = CreateColorFromHexString("FFFFD700"),       -- FFD700 : Game Gold | Also used as FFD100 in some places?
+	QC_DARKRED = CreateColorFromHexString("ffAA6F6F"),      -- AA6F6F : Dark Red
+	MENU_SELECTED = CreateColorFromHexString("ffFFA600"),   -- FFA600 : Orange-Gold
 	TOOLTIP_EXAMPLE = CreateColorFromHexString("ff85FF85"), -- 85FF85 : Mint Green
-	TOOLTIP_REVERT = CreateColorFromHexString("ffFFA600"), -- FFA600 : Orange-Gold
+	TOOLTIP_REVERT = CreateColorFromHexString("ffFFA600"),  -- FFA600 : Orange-Gold
 	TOOLTIP_NOREVERT = CreateColorFromHexString("ffAAAAAA"), -- AAAAAA : Mid Grey
 	TOOLTIP_CONTRAST = CreateColorFromHexString("FFFFAAAA"), -- FFAAAA : Light Red
 	TOOLTIP_WARNINGRED = CreateColorFromHexString("FFFF0000"), -- FF0000 : Bright Red

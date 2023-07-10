@@ -17,6 +17,7 @@ local isNotDefined = DataUtils.isNotDefined
 local nameBox
 local commandBox
 local descBox
+local cooldownBox
 local castbarCheckButton
 local author = UnitName("player")
 local editCommID
@@ -139,6 +140,37 @@ local function createInfoDescBox(mainFrame)
 	Tooltip.set(descBox, "Description", "A description of the spell. This will show up in tooltips.")
 
 	return descBox
+end
+
+---@param mainFrame SCForgeMainFrame
+local function createSpellCooldownBox(mainFrame)
+	cooldownBox = CreateFrame("EditBox", nil, mainFrame, "InputBoxInstructionsTemplate")
+	cooldownBox:SetFontObject(ChatFontNormal)
+	cooldownBox.disabledColor = GRAY_FONT_COLOR
+	cooldownBox.enabledColor = HIGHLIGHT_FONT_COLOR
+	cooldownBox.Instructions:SetText("Cooldown")
+	cooldownBox.Instructions:SetTextColor(0.5, 0.5, 0.5)
+
+	cooldownBox:SetAutoFocus(false)
+	cooldownBox:SetSize(90, 23)
+	cooldownBox:SetPoint("LEFT", descBox, "RIGHT", 6, 0)
+
+	cooldownBox:HookScript("OnTextChanged", function(self, userInput)
+		if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
+			self:SetTextColor(255, 255, 255, 1)
+		elseif self:GetText() == "" then
+			self:SetTextColor(255, 255, 255, 1)
+		elseif self:GetText():find("%a") then
+			self:SetText(self:GetText():gsub("%a", ""))
+		else
+			self:SetTextColor(1, 0, 0, 1)
+		end
+		if userInput then markEditorUnsaved() end
+	end)
+
+	Tooltip.set(cooldownBox, "Cooldown", "How long of a cooldown before you can cast the spell again, in seconds. May be left blank for no cooldown.")
+
+	return cooldownBox
 end
 
 ---@param mainFrame SCForgeMainFrame
@@ -305,6 +337,7 @@ local function getInfo()
 	newSpellData.commID = commandBox:GetText()
 	newSpellData.fullName = nameBox:GetText()
 	newSpellData.description = descBox:GetText()
+	newSpellData.cooldown = tonumber(cooldownBox:GetText())
 	newSpellData.castbar = castbarCheckButton:GetCheckState()
 	newSpellData.icon = iconButton:GetSelectedTexID()
 	newSpellData.profile = AtticProfileDropdown.getSelectedProfile()
@@ -317,6 +350,7 @@ end
 local function updateInfo(spell)
 	commandBox:SetText(spell.commID)
 	nameBox:SetText(spell.fullName)
+	cooldownBox:SetText(spell.cooldown and tostring(spell.cooldown) or "")
 	castbarCheckButton:SetCheckState(spell.castbar)
 	iconButton:SelectTex(spell.icon or 0)
 	if spell.description then
@@ -362,6 +396,7 @@ local function init(mainFrame, IconPicker)
 	mainFrame.SpellInfoNameBox = createNameBox(mainFrame)
 	mainFrame.SpellInfoCommandBox = createCommandBox(mainFrame)
 	mainFrame.SpellInfoDescBox = createInfoDescBox(mainFrame)
+	mainFrame.SpellCooldownBox = createSpellCooldownBox(mainFrame)
 	mainFrame.CastBarCheckButton = createCastbarCheckButton(mainFrame)
 	mainFrame.IconButton = createIconButton(mainFrame, IconPicker)
 	mainFrame.ProfileSelectMenu = AtticProfileDropdown.createDropdown({
@@ -372,10 +407,13 @@ local function init(mainFrame, IconPicker)
 	-- Enable Tabbing between editboxes
 	mainFrame.SpellInfoNameBox.nextEditBox = mainFrame.SpellInfoCommandBox
 	mainFrame.SpellInfoCommandBox.nextEditBox = mainFrame.SpellInfoDescBox
-	mainFrame.SpellInfoDescBox.nextEditBox = mainFrame.SpellInfoNameBox
+	mainFrame.SpellInfoDescBox.nextEditBox = mainFrame.SpellCooldownBox
+	mainFrame.SpellCooldownBox.nextEditBox = mainFrame.SpellInfoNameBox
+
+	mainFrame.SpellCooldownBox.previousEditBox = mainFrame.SpellInfoDescBox
 	mainFrame.SpellInfoDescBox.previousEditBox = mainFrame.SpellInfoCommandBox
 	mainFrame.SpellInfoCommandBox.previousEditBox = mainFrame.SpellInfoNameBox
-	mainFrame.SpellInfoNameBox.previousEditBox = mainFrame.SpellInfoDescBox
+	mainFrame.SpellInfoNameBox.previousEditBox = mainFrame.SpellCooldownBox
 
 	MainFrame.onSizeChanged(updateSize)
 end

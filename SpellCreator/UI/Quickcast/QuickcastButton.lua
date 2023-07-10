@@ -2,6 +2,7 @@
 local ns = select(2, ...)
 
 local Constants = ns.Constants
+local Cooldowns = ns.Actions.Cooldowns
 local Execute = ns.Actions.Execute
 local Tooltip = ns.Utils.Tooltip
 local UIHelpers = ns.Utils.UIHelpers
@@ -59,7 +60,7 @@ end
 ---@param self QuickcastButton
 ---@param commID CommID
 local function _Button_setNotFound(self, commID)
-	-- TODO use Tooltip util? -- no need, letting the button handle it is fine, since the codebase is already there from blizzard, and we do not need it on a delay
+	-- use Tooltip util? -- no need, letting the button handle it is fine, since the codebase is already there from blizzard, and we do not need it on a delay
 	self.tooltipTitle = "Error Loading Spell"
 	self.tooltipText = {
 		("Spell %s does not exist in your vault."):format(Tooltip.genContrastText(commID)),
@@ -100,6 +101,8 @@ local function _Button_setSpell(self, spell)
 		if btn == "RightButton" and IsShiftKeyDown() then
 			self:Remove()
 		else
+			-- trigger cooldown visual. This SHOULD be moved to the Cooldowns module and triggered by that, but honestly it was a lot of work to expose Books & Pages to check if a commID is currently shown?
+			if spell.cooldown and not Cooldowns.isSpellOnCooldown(spell.commID) then self.cooldown:SetCooldown(GetTime(), spell.cooldown) end
 			executeSpell(spell.actions, nil, spell.fullName, spell)
 
 			if not SpellCreatorMasterTable.Options.keepQCOpen then
@@ -122,6 +125,14 @@ local function Button_Update(self, commID)
 		self:_setNotFound(commID)
 	else
 		self:_setSpell(spellData)
+		if spellData.cooldown then
+			local cooldownTime = Cooldowns.isSpellOnCooldown(commID)
+			if cooldownTime then
+				self.cooldown:SetCooldown(GetTime() - (spellData.cooldown - cooldownTime), spellData.cooldown)
+			else
+				self.cooldown:Clear()
+			end
+		end
 	end
 
 	self:_UpdateTextures()
@@ -241,6 +252,12 @@ local function createButton(page, index)
 	button.anims.move = button.anims:CreateAnimation("Translation")
 	button.anims.move:SetOffset(0, 10)
 	button.anims.move:SetDuration(0.5)
+
+	button.cooldown = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
+	button.cooldown:SetAllPoints()
+	button.cooldown:SetUseCircularEdge(true)
+	button.cooldown:SetSwipeTexture(1307164)
+	button.cooldown:SetSwipeColor(0, 0, 0, 0.5)
 
 	---@class QuickcastButtonScene: MODELSCENE
 	---@field Actor ModelSceneActor

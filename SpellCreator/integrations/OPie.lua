@@ -12,6 +12,7 @@ local DataUtils = ns.Utils.Data
 local Execute = ns.Actions.Execute
 local Permissions = ns.Permissions
 local Vault = ns.Vault
+local Cooldowns = ns.Actions.Cooldowns
 
 local Icons = ns.UI.Icons
 
@@ -34,6 +35,7 @@ local function OPieTooltip(self, commID)
 
 	self:AddLine(spell.fullName, ADDON_COLORS.GAME_GOLD:GetRGB())
 	self:AddLine("Cast '" .. spell.commID .. "' (" .. #spell.actions .. " actions).", 1, 1, 1)
+	if spell.cooldown then self:AddLine(("Cooldown: %ss"):format(spell.cooldown), 0.7, 0.7, 0.7) end
 end
 
 local function addCategory()
@@ -58,8 +60,8 @@ end
 ---@return string icon
 ---@return string caption
 ---@return nil charges
----@return 0 cooldownRemaining
----@return 0 cooldownLength
+---@return number cooldownRemaining
+---@return number cooldownLength
 ---@return function tipFunc
 ---@return CommID tipArg
 local function spellHint(commID)
@@ -68,7 +70,8 @@ local function spellHint(commID)
 	local usable = spell and Permissions.canExecuteSpells() or false
 	local icon = spell and Icons.getFinalIcon(spell.icon) or Icons.FALLBACK_ICON
 
-	return usable, nil, icon, (spell and spell.fullName or commID), nil, 0, 0, OPieTooltip, commID
+	local cooldownRemaining, cooldownLength = Cooldowns.isSpellOnCooldown(commID)
+	return usable, nil, icon, (spell and spell.fullName or commID), nil, (cooldownRemaining and cooldownRemaining or 0), (cooldownLength and cooldownLength or 0), OPieTooltip, commID
 end
 
 local function createActionSlot(commID)

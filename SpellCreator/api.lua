@@ -16,8 +16,9 @@ local ADDON_COLOR = Constants.ADDON_COLOR
 local cprint, dprint, eprint = Logging.cprint, Logging.dprint, Logging.eprint
 local executeSpell, executePhaseSpell = Execute.executeSpell, Execute.executePhaseSpell
 
-ARC = {}
-ARC.VAR = {}
+-------------------
+--#region ARC VARS & STANDARD ARC API
+-------------------
 
 ---@param key string
 function ARC:UNLOCK(key)
@@ -90,7 +91,6 @@ function ARC:CAST(commID)
 		cprint('ARC:API SYNTAX - CAST - Casts a Spell from your Personal Vault.')
 		print(ADDON_COLOR .. 'Function: ' .. ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. 'ARC:CAST("commID")|r')
 		print(ADDON_COLOR .. 'Example: ' .. ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup() .. 'ARC:CAST("teleportEffectsSpell")')
-		print(ADDON_COLOR .. 'Silently Fails if there is no spell by that commID in your personal vault.')
 	end
 end
 
@@ -98,6 +98,19 @@ end
 ---@param commID CommID
 function ARC:CASTP(commID) -- Kept for backwards compatibility
 	ARC.PHASE:CAST(commID)
+end
+
+---Stop currently running instances of a spell by CommID
+---@param commID any
+function ARC:STOP(commID)
+	if commID and commID ~= "" then
+		ns.Actions.Execute.cancelSpellByCommID(commID)
+	else
+		cprint('ARC:API SYNTAX - STOP - Stops all currently running instances of a spell by CommID.')
+		print(ADDON_COLOR .. 'Function: ' .. ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. 'ARC:STOP("commID")|r')
+		print(ADDON_COLOR .. 'Example: ' .. ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup() .. 'ARC:STOP("teleportEffectsSpell")')
+		print(ADDON_COLOR .. 'Silently fails if there is no spell by that commID currently running.')
+	end
 end
 
 -- SYNTAX: ARC:IF(key, Command if True, Command if False, [Variables for True], [Variables for False])
@@ -151,7 +164,8 @@ function ARC:IFS(key, toEqual, command1, command2, var1, var2)
 			if ARC.VAR[key] == toEqual then return true; else return false; end
 		end
 	else
-		cprint('ARC:API SYNTAX - IFS - Checks if "key" is equal to "valueToEqual", and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands, the same as ARC:IF.')
+		cprint(
+			'ARC:API SYNTAX - IFS - Checks if "key" is equal to "valueToEqual", and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands, the same as ARC:IF.')
 		print(ADDON_COLOR .. 'Function: ' .. ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. 'ARC:IFS("key", "valueToEqual", "CommandTrue", "CommandFalse", "Var1")|r')
 		print(ADDON_COLOR .. 'Example: ' .. ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup() .. 'ARC:IFS("WhatFruit", "apple", "aura 243893", "unau 243893")|r')
 		print(ADDON_COLOR .. 'This example will check if WhatFruit is "apple" and will apply the aura if so.|r')
@@ -172,7 +186,7 @@ function ARC:TOG(key)
 	end
 end
 
--- SYNTAX: ARC:TOG(key) -- Sets the ArcVar to the specified string.
+-- SYNTAX: ARC:SET(key, string) -- Sets the ArcVar to the specified string.
 ---@param key string
 ---@param str string
 function ARC:SET(key, str)
@@ -180,7 +194,7 @@ function ARC:SET(key, str)
 	if str == "" then str = nil end
 	if str == "false" then str = false end
 	if str == "nil" then str = nil end
-	if key and str then
+	if key then
 		ARC.VAR[key] = str
 		dprint(false, key, "= " .. tostring(ARC.VAR[key]))
 	else
@@ -218,20 +232,23 @@ function ARC:RAND(...)
 	end
 end
 
----Save a spell from the phase vault to personal vault. So you can make spells that save other spells.
----@param commID CommID
----@param vocal boolean|string? technically a boolean but string works because we only test if vocal is
-function ARC:SAVE(commID, vocal)
-	if phaseVault.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Please try again in a moment."); return; end
-	dprint("Scanning Phase Vault for Spell to Save: " .. commID)
-	local spell = phaseVault.findSpellByID(commID)
-	local spellIndex = phaseVault.findSpellIndexByID(commID)
-	if not spell or not spellIndex then return eprint(("No Spell with CommID %s found in the Phase Vault"):format(ADDON_COLORS.TOOLTIP_CONTRAST:WrapTextInColorCode(commID))) end
-
-	dprint("Found & Saving Spell '" .. commID .. "' (Index: " .. spellIndex .. ") to your Personal Vault.")
-	--Vault.personal.saveSpell(spell)
-	ns.MainFuncs.downloadToPersonal(spellIndex, vocal)
-	ns.MainFuncs.updateSpellLoadRows()
+---Get random argument from a weighted pool
+---@param pool WeightedArgPool
+---@return any randomArgument
+function ARC:RANDW(pool)
+	if not pool or type(pool) ~= "table" then
+		cprint("ARC:API SYNTAX - RANDW - Return a random variable from a WeightedArgPool Table/Array.")
+		cprint(
+			"WeightedArgPool should be an array with sub-arrays for each item. Each item should have position 1 as the number for weighting, and position 2 as the return value/variable if selected.")
+		print(ADDON_COLOR .. 'Function: ' .. ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. 'ARC:RANDW(WeightedArgPool)|r')
+		print(ADDON_COLOR ..
+			'Example: ' ..
+			ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup() ..
+			'ARC:RANDW({{1,"Apple"},{5,"Banana"},{1,"Cherry"}})|r' .. ADDON_COLOR .. ' to select a random fruit, but weighted to select Banana usually.')
+		return
+	else
+		return ns.Utils.Data.getRandomWeightedArg(pool)
+	end
 end
 
 ---Globally accessible function to stop currently running spells for users to use in scripts.
@@ -239,7 +256,14 @@ function ARC:STOPSPELLS()
 	ns.Actions.Execute.stopRunningActions()
 end
 
------------ // Phase Variables
+-------------------
+--#endregion
+-------------------
+
+-------------------
+--#region ARC PHASE
+-------------------
+
 ARC.PHASE = {}
 
 ---@param var string
@@ -258,13 +282,37 @@ local function safeSetPhaseVar(var, set)
 	SpellCreatorCharacterTable.phaseArcVars[curPhase][var] = set
 end
 
+---Save a spell from the phase vault to personal vault. So you can make spells that save other spells.
+---@param commID CommID
+---@param vocal boolean|string? technically a boolean but string works because we only test if vocal is
+function ARC.PHASE:SAVE(commID, vocal)
+	if phaseVault.isSavingOrLoadingAddonData then
+		eprint("Phase Vault was still loading. Please try again in a moment."); return;
+	end
+	dprint("Scanning Phase Vault for Spell to Save: " .. commID)
+	local spell = phaseVault.findSpellByID(commID)
+	local spellIndex = phaseVault.findSpellIndexByID(commID)
+	if not spell or not spellIndex then return eprint(("No Spell with CommID %s found in the Phase Vault"):format(ADDON_COLORS.TOOLTIP_CONTRAST:WrapTextInColorCode(commID))) end
+
+	dprint("Found & Saving Spell '" .. commID .. "' (Index: " .. spellIndex .. ") to your Personal Vault.")
+	--Vault.personal.saveSpell(spell)
+	ns.MainFuncs.downloadToPersonal(spellIndex, vocal)
+	ns.MainFuncs.updateSpellLoadRows()
+end
+
+-- For backwards compatibility, keeping ARC.SAVE around.
+ARC.SAVE = ARC.PHASE.SAVE
+
 ---SYNTAX: ARC.PHASE:CAST("commID") - i.e., ARC.PHASE:CAST("teleportEffectsSpell") -- Casts an ArcSpell from Phase Vault
 ---@param commID CommID
-function ARC.PHASE:CAST(commID)
+---@param bypassCD boolean? true to bypass triggering the spell's cooldown
+function ARC.PHASE:CAST(commID, bypassCD)
 	if commID and commID ~= "" then
-		if Vault.phase.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Try again in a moment."); return; end
+		if Vault.phase.isSavingOrLoadingAddonData then
+			eprint("Phase Vault was still loading. Try again in a moment."); return;
+		end
 
-		executePhaseSpell(commID)
+		executePhaseSpell(commID, bypassCD)
 	else
 		cprint('ARC.PHASE:API SYNTAX - CAST - Casts a Spell from the Phase Vault.')
 		print(ADDON_COLOR .. 'Function: ' .. ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. 'ARC.PHASE:CASTP("commID")|r')
@@ -294,7 +342,8 @@ function ARC.PHASE:IF(key, command1, command2, var1, var2)
 			if safeGetPhaseVar(key) then return true; else return false; end
 		end
 	else
-		cprint('ARC.PHASE:API SYNTAX - IF - Checks if "key", in Phase ARCVARS, is true, and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands.')
+		cprint(
+			'ARC.PHASE:API SYNTAX - IF - Checks if "key", in Phase ARCVARS, is true, and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands.')
 		print(ADDON_COLOR .. 'Function: ' .. ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. 'ARC.PHASE:IF("key", "CommandTrue", "CommandFalse", "Var1")|r')
 		print(ADDON_COLOR .. 'Example 1: ' .. ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup() .. 'ARC.PHASE:IF("ToggleLight","aura 243893", "unau 243893")|r')
 		print(ADDON_COLOR .. 'Example 2: ' .. ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup() .. 'ARC.PHASE:IF("ToggleLight","aura", "unau", "243893")|r')
@@ -324,7 +373,8 @@ function ARC.PHASE:IFS(key, toEqual, command1, command2, var1, var2)
 			if safeGetPhaseVar(key) == toEqual then return true; else return false; end
 		end
 	else
-		cprint('ARC.PHASE:API SYNTAX - IFS - Checks if "key", in Phase ARCVARS, is equal to "valueToEqual", and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands, the same as ARC:IF.')
+		cprint(
+			'ARC.PHASE:API SYNTAX - IFS - Checks if "key", in Phase ARCVARS, is equal to "valueToEqual", and runs CommandTrue if so, or CommandFalse if not. Optionally you can define a "Var1" to append to both commands, the same as ARC:IF.')
 		print(ADDON_COLOR .. 'Function: ' .. ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() .. 'ARC.PHASE:IFS("key", "valueToEqual", "CommandTrue", "CommandFalse", "Var1")|r')
 		print(ADDON_COLOR .. 'Example: ' .. ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColorMarkup() .. 'ARC.PHASE:IFS("WhatFruit", "apple", "aura 243893", "unau 243893")|r')
 		print(ADDON_COLOR .. 'This example will check if WhatFruit is "apple" and will apply the aura if so.|r')
@@ -353,7 +403,7 @@ function ARC.PHASE:SET(key, str)
 	if str == "" then str = nil end
 	if str == "false" then str = false end
 	if str == "nil" then str = nil end
-	if key and str then
+	if key then
 		safeSetPhaseVar(key, str)
 		dprint(false, "Phase Key Set: " .. key, "= " .. tostring(safeGetPhaseVar(key)))
 	else
@@ -381,6 +431,86 @@ end
 local function retargetPhaseArcVarTable(table)
 	ARC.PHASEVAR = table
 end
+
+-- alias for Epsi functions
+ARC.PHASE.IsMember = C_Epsilon.IsMember
+ARC.PHASE.IsOfficer = C_Epsilon.IsOfficer
+ARC.PHASE.IsOwner = C_Epsilon.IsOwner
+ARC.PHASE.GetPhaseId = C_Epsilon.GetPhaseId
+ARC.PHASE.IsDM = function() return C_Epsilon.IsDM end
+
+-------------------
+--#endregion
+-------------------
+
+-------------------
+--#region ARC LOCATIONS
+-------------------
+
+ARC.LOCATIONS = {}
+ARC.LOCATIONS.locs = {}
+function ARC.LOCATIONS:SAVE(key)
+	self.locs[key] = { C_Epsilon.GetPosition() }
+end
+
+function ARC.LOCATIONS:LOAD(key)
+	return strjoin(" ", unpack(self.locs[key]))
+end
+
+function ARC.LOCATIONS:GOTO(key)
+	Cmd.cmd("worldport " .. strjoin(" ", unpack(self.locs[key])))
+end
+
+ARC.LOCATIONS.GetPosition = C_Epsilon.GetPosition
+
+-------------------
+--#endregion
+-------------------
+
+-------------------
+--#region Extended API
+-------------------
+
+ARC.XAPI = {
+	sparks = {
+		addPopupTriggerToPhaseData = ns.UI.SparkPopups.SparkPopups.addPopupTriggerToPhaseData,
+		getSparkLoadingStatus = ns.UI.SparkPopups.SparkPopups.getSparkLoadingStatus,
+		removeTriggerFromPhaseDataByMapAndIndex = ns.UI.SparkPopups.SparkPopups.removeTriggerFromPhaseDataByMapAndIndex,
+		savePopupTriggersToPhaseData = ns.UI.SparkPopups.SparkPopups.savePopupTriggersToPhaseData,
+		triggerSparkCooldownVisual = ns.UI.SparkPopups.SparkPopups.triggerSparkCooldownVisual,
+	},
+	UI = {
+		raidWarning = ns.Logging.raidWarning,
+		errorMessage = ns.Logging.uiErrorMessage,
+		showConfirmationDialog = ns.UI.Popups.showGenericConfirmation,
+		showCustomInputBox = ns.UI.Popups.showCustomGenericInputBox,
+		castbar = ns.UI.Castbar
+	},
+	Cooldowns = {
+		addSpellCooldown = ns.Actions.Cooldowns.addSpellCooldown,
+		isSpellOnCooldown = ns.Actions.Cooldowns.isSpellOnCooldown,
+		triggerCooldownVisuals = ns.Actions.Cooldowns.triggerCooldownVisuals,
+		clearOldCooldowns = ns.Actions.Cooldowns.clearOldCooldowns,
+	},
+	Phase = {
+		IsMember = ARC.PHASE.IsMember,
+		IsOfficer = ARC.PHASE.IsOfficer,
+		IsOwner = ARC.PHASE.IsOwner,
+		GetPhaseId = ARC.PHASE.GetPhaseId,
+		IsDM = ARC.PHASE.IsDM,
+	},
+	GetPosition = ARC.LOCATIONS.GetPosition,
+	HasAuraID = ns.Utils.Aura.checkForAuraID,
+	HasAura = ns.Utils.Aura.checkForAuraID,
+	HasItem = function(itemID)
+		local itemCount = GetItemCount(itemID)
+		return itemCount > 0 and itemCount or false
+	end,
+}
+
+-------------------
+--#endregion
+-------------------
 
 ns.API = {
 	retargetPhaseArcVarTable = retargetPhaseArcVarTable,

@@ -333,6 +333,8 @@ local function addRow(rowToAdd)
 				if actionData then
 					if actionData.revertDesc then
 						tinsert(strings, Tooltip.genTooltipText("revert", actionData.revertDesc))
+					elseif actionData.revertAlternative == true then
+						tinsert(strings, Tooltip.genTooltipText("norevert", "This Action cannot be reverted directly."))
 					elseif actionData.revertAlternative then
 						tinsert(strings, Tooltip.genTooltipText("norevert", "This Action cannot be reverted directly, use " .. actionData.revertAlternative .. "."))
 					else

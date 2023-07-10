@@ -6,6 +6,7 @@
 ---@field selfAble boolean
 ---@field inputDescription string
 ---@field dependency string | nil
+---@field softDependency boolean
 ---@field doNotDelimit boolean
 
 ---@class FunctionActionTypeData: ActionTypeDataBase
@@ -14,7 +15,7 @@
 ---@field example string?
 ---@field revert function | nil
 ---@field revertDesc string?
----@field revertAlternative string?
+---@field revertAlternative string|boolean?
 
 ---@class ServerActionTypeData: ActionTypeDataBase
 ---@field command string
