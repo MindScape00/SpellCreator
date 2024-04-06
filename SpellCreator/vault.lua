@@ -2,6 +2,7 @@
 local ns = select(2, ...)
 
 --#region Personal
+local Libs = ns.Libs
 
 ---@return table<CommID, VaultSpell>
 local function getPersonalSpells()
@@ -26,6 +27,10 @@ end
 ---@param spell VaultSpell
 local function savePersonalSpell(spell)
 	SpellCreatorSavedSpells[spell.commID] = spell
+	if spell.profile then
+		ns.ProfileFilter.toggleFilter(spell.profile, true)
+	end
+	ns.UI.ItemIntegration.scripts.updateCache(true)
 end
 
 ---@param commID CommID
@@ -74,9 +79,15 @@ local function getPhaseSpells()
 	return phaseSpells
 end
 
+local tIndexOf = tIndexOf
 ---@param spell VaultSpell
 local function addPhaseSpell(spell)
-	tinsert(phaseSpells, spell)
+	local index = findPhaseSpellIndexByID(spell.commID)
+	if index then
+		phaseSpells[index] = spell
+	else
+		tinsert(phaseSpells, spell)
+	end
 end
 
 local function clearPhaseSpells()
@@ -101,6 +112,20 @@ local function isSavingOrLoadingAddonData(val)
 end
 --]]
 
+---@param commID CommID
+local function notifyPhaseOfSpellUpdate(commID)
+	local addonMsgPrefix = ns.Comms.PREFIX
+	local scforge_ChannelID = ns.Constants.ADDON_CHANNEL
+	local phaseID = tostring(C_Epsilon.GetPhaseId())
+	Libs.AceComm:SendCommMessage(addonMsgPrefix .. "_PSUP", phaseID .. string.char(31) .. commID, "CHANNEL", tostring(scforge_ChannelID))
+	ns.Logging.dprint("Sending Phase Spell Update Message for phase " .. phaseID .. " & Spell " .. commID)
+end
+
+local function uploadSingleSpellAndNotifyUsers(commID, spell)
+	ns.MainFuncs.uploadSpellDataToPhaseData(commID, spell)
+	notifyPhaseOfSpellUpdate(commID)
+end
+
 ns.Vault = {
 	personal = {
 		getSpells = getPersonalSpells,
@@ -120,5 +145,7 @@ ns.Vault = {
 		getSpells = getPhaseSpells,
 		addSpell = addPhaseSpell,
 		clearSpells = clearPhaseSpells,
+
+		uploadSingleSpellAndNotifyUsers = uploadSingleSpellAndNotifyUsers,
 	},
 }

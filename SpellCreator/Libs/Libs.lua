@@ -37,4 +37,5 @@ ns.Libs = {
 	LibDeflate = LibDeflate,
 	LibRPMedia = LibRPMedia,
 	LibBase64 = LibBase64,
+	Indent = {}, -- placeholder
 }

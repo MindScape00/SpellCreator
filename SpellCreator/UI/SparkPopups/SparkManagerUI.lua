@@ -89,7 +89,7 @@ local function drawMapGroup(group, mapID, callback)
 	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 	-- groupScrollContainer
 
-	local groupScrollContainer = AceGUI:Create("SimpleGroup")
+	local groupScrollContainer = AceGUI:Create("SimpleGroup") --[[@as AceGUISimpleGroup]]
 	groupScrollContainer:SetFullWidth(true)
 	groupScrollContainer:SetFullHeight(true)
 	groupScrollContainer:SetLayout("Fill")
@@ -98,7 +98,7 @@ local function drawMapGroup(group, mapID, callback)
 	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 	-- groupScrollFrame
 
-	local groupScrollFrame = AceGUI:Create("ScrollFrame")
+	local groupScrollFrame = AceGUI:Create("ScrollFrame") --[[@as AceGUIScrollFrame]]
 	groupScrollFrame:SetFullWidth(true)
 	groupScrollFrame:SetFullHeight(true)
 	groupScrollFrame:SetLayout("Flow")
@@ -107,14 +107,14 @@ local function drawMapGroup(group, mapID, callback)
 	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 	-- gen our inline groups
 	if not phaseSparkTriggers or not phaseSparkTriggers[mapID] then
-		local noSparksLabel = AceGUI:Create("Label")
+		local noSparksLabel = AceGUI:Create("Label") --[[@as AceGUILabel]]
 		noSparksLabel:SetText("There are no Sparks on this map.")
 		noSparksLabel:SetRelativeWidth(1)
 		groupScrollFrame:AddChild(noSparksLabel)
 		return
 	end
 	for k, triggerData in ipairs(phaseSparkTriggers[mapID]) do
-		local triggerGroup = AceGUI:Create("InlineGroup")
+		local triggerGroup = AceGUI:Create("InlineGroup") --[[@as AceGUIInlineGroup]]
 		triggerGroup:SetLayout("Flow")
 		triggerGroup:SetRelativeWidth(1)
 		triggerGroup:SetAutoAdjustHeight(false)
@@ -122,36 +122,36 @@ local function drawMapGroup(group, mapID, callback)
 		triggerGroup:SetTitle(k .. ". " .. Tooltip.genContrastText(triggerData[1]) .. " Trigger")
 		groupScrollFrame:AddChild(triggerGroup)
 
-		local triggerInfoSection = AceGUI:Create("SimpleGroup")
+		local triggerInfoSection = AceGUI:Create("SimpleGroup") --[[@as AceGUISimpleGroup]]
 		triggerInfoSection:SetLayout("List")
-		triggerInfoSection:SetRelativeWidth(0.25)
+		triggerInfoSection:SetRelativeWidth(0.3)
 		triggerInfoSection:SetAutoAdjustHeight(false)
 		triggerInfoSection:SetHeight(50)
 		triggerGroup:AddChild(triggerInfoSection)
 		local numExtraLines = 0
 
 		do
-			local xLabel = AceGUI:Create("Label")
+			local xLabel = AceGUI:Create("Label") --[[@as AceGUILabel]]
 			xLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("X: ") .. round(verifyNumber(triggerData[2]), 4))
 			xLabel:SetRelativeWidth(1)
 			triggerInfoSection:AddChild(xLabel)
 
-			local yLabel = AceGUI:Create("Label")
+			local yLabel = AceGUI:Create("Label") --[[@as AceGUILabel]]
 			yLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Y: ") .. round(verifyNumber(triggerData[3]), 4))
 			yLabel:SetRelativeWidth(1)
 			triggerInfoSection:AddChild(yLabel)
 
-			local zLabel = AceGUI:Create("Label")
+			local zLabel = AceGUI:Create("Label") --[[@as AceGUILabel]]
 			zLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Z: ") .. round(verifyNumber(triggerData[4]), 4))
 			zLabel:SetRelativeWidth(1)
 			triggerInfoSection:AddChild(zLabel)
 
-			local radiusLabel = AceGUI:Create("Label")
+			local radiusLabel = AceGUI:Create("Label") --[[@as AceGUILabel]]
 			radiusLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Radius: ") .. round(triggerData[5], 4))
 			radiusLabel:SetRelativeWidth(1)
 			triggerInfoSection:AddChild(radiusLabel)
 
-			local tintLabel = AceGUI:Create("Label")
+			local tintLabel = AceGUI:Create("Label") --[[@as AceGUILabel]]
 			local colorHex = triggerData[7]
 			tintLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Tint: ") .. (colorHex and WrapTextInColorCode(colorHex, colorHex) or "None"))
 			tintLabel:SetRelativeWidth(1)
@@ -160,17 +160,35 @@ local function drawMapGroup(group, mapID, callback)
 			local popupOptions = triggerData[8] --[[@as PopupTriggerOptions]]
 			if popupOptions then
 				if popupOptions.cooldownTime then
-					local cdTimeLabel = AceGUI:Create("Label")
-					cdTimeLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Cooldown: ") .. tostring((popupOptions.cooldownTime) .. "s"))
+					local cdTimeLabel = AceGUI:Create("Label") --[[@as AceGUILabel]]
+					cdTimeLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("CD: ") .. tostring((popupOptions.cooldownTime) .. "s"))
 					cdTimeLabel:SetRelativeWidth(1)
 					triggerInfoSection:AddChild(cdTimeLabel)
 					numExtraLines = numExtraLines + 1
 				end
-				if popupOptions.requirement then
-					local requirementLabel = AceGUI:Create("InteractiveLabel")
-					requirementLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Requirements:"))
+				if (popupOptions.conditions and #popupOptions.conditions > 0) or popupOptions.requirement then
+					local requirementLabel = AceGUI:Create("InteractiveLabel") --[[@as AceGUIInteractiveLabel]]
+					requirementLabel:SetText(ADDON_COLORS.GAME_GOLD:WrapTextInColorCode("Has Conditions"))
 					requirementLabel:SetRelativeWidth(1)
-					Tooltip.setAceTT(requirementLabel, "Requirement:", popupOptions.requirement)
+					Tooltip.setAceTT(requirementLabel, "Conditions:", function()
+						local lines = {
+							" "
+						}
+						if popupOptions.conditions and #popupOptions.conditions > 0 then
+							for gi, groupData in ipairs(popupOptions.conditions) do
+								local groupString = (gi == 1 and "If") or "..Or"
+								for ri, rowData in ipairs(groupData) do
+									local continueStatement = (ri ~= 1 and "and ") or ""
+									local condName = ns.Actions.ConditionsData.getByKey(rowData.Type).name
+									groupString = string.join(" ", groupString, continueStatement .. condName)
+								end
+								tinsert(lines, groupString)
+							end
+						else
+							tinsert(lines, "This Spark has Legacy Requirements. Edit & Resave to convert to Conditions!")
+						end
+						return lines
+					end, { forced = true, delay = 0 })
 					triggerInfoSection:AddChild(requirementLabel)
 					numExtraLines = numExtraLines + 1
 				end
@@ -179,14 +197,14 @@ local function drawMapGroup(group, mapID, callback)
 
 		triggerInfoSection:SetHeight(50 + (numExtraLines * 10))
 
-		local triggerIconSection = AceGUI:Create("SimpleGroup")
+		local triggerIconSection = AceGUI:Create("SimpleGroup") --[[@as AceGUISimpleGroup]]
 		triggerIconSection:SetLayout("Flow")
-		triggerIconSection:SetRelativeWidth(0.44)
+		triggerIconSection:SetRelativeWidth(0.39)
 		--triggerIconSection:SetFullHeight(true)
 		triggerGroup:AddChild(triggerIconSection)
 
 		do
-			local styleBorder = AceGUI:Create("Label")
+			local styleBorder = AceGUI:Create("Label") --[[@as AceGUILabel]]
 			local styleBorderImage = triggerData[6]
 			if type(styleBorderImage) == "string" then styleBorderImage = styleBorderImage:gsub("SpellCreator%-dev", "SpellCreator"):gsub("SpellCreator", addonName) end
 			styleBorder:SetImage(styleBorderImage)
@@ -201,7 +219,7 @@ local function drawMapGroup(group, mapID, callback)
 			triggerIconSection:AddChild(styleBorder)
 			triggerIconSection:SetAutoAdjustHeight(false)
 
-			local spellIcon = AceGUI:Create("Label")
+			local spellIcon = AceGUI:Create("Label") --[[@as AceGUILabel]]
 			local theSpell = ns.Vault.phase.findSpellByID(triggerData[1])
 			if theSpell then
 				spellIcon:SetImage(ns.UI.Icons.getFinalIcon(theSpell.icon))
@@ -223,7 +241,7 @@ local function drawMapGroup(group, mapID, callback)
 			end)
 		end
 
-		local triggerButtonsSection = AceGUI:Create("SimpleGroup")
+		local triggerButtonsSection = AceGUI:Create("SimpleGroup") --[[@as AceGUISimpleGroup]]
 		triggerButtonsSection:SetLayout("List")
 		triggerButtonsSection:SetAutoAdjustHeight(false)
 		triggerButtonsSection:SetHeight(70)
@@ -231,14 +249,14 @@ local function drawMapGroup(group, mapID, callback)
 		triggerGroup:AddChild(triggerButtonsSection)
 
 		do
-			local editButton = AceGUI:Create("Button")
+			local editButton = AceGUI:Create("Button") --[[@as AceGUIButton]]
 			editButton:SetText("Edit")
 			editButton:SetRelativeWidth(1)
 			editButton:SetCallback("OnClick", function() sparkEditButtonClick(mapID, k) end)
 			editButton:SetDisabled((not Permissions.isOfficerPlus() and not SpellCreatorMasterTable.Options["debug"]))
 			triggerButtonsSection:AddChild(editButton)
 
-			local gotoButton = AceGUI:Create("Button")
+			local gotoButton = AceGUI:Create("Button") --[[@as AceGUIButton]]
 			gotoButton:SetText("Go To")
 			gotoButton:SetRelativeWidth(1)
 			gotoButton:SetDisabled((not Permissions.isMemberPlus() and not SpellCreatorMasterTable.Options["debug"]))
@@ -247,7 +265,7 @@ local function drawMapGroup(group, mapID, callback)
 			end)
 			triggerButtonsSection:AddChild(gotoButton)
 
-			local deleteButton = AceGUI:Create("Button")
+			local deleteButton = AceGUI:Create("Button") --[[@as AceGUIButton]]
 			deleteButton:SetText("Delete")
 			deleteButton:SetRelativeWidth(1)
 			deleteButton:SetDisabled((not Permissions.isOfficerPlus() and not SpellCreatorMasterTable.Options["debug"]))
@@ -272,7 +290,7 @@ end
 local function showSparkManagerUI(mapSelectOverride)
 	hideSparkManagerUI()
 
-	local frame = AceGUI:Create("Frame")
+	local frame = AceGUI:Create("Frame") --[[@as AceGUIFrame]]
 	frame:SetTitle("Arcanum - Spark Manager")
 	frame:SetWidth(600)
 	frame:SetHeight(525)
@@ -281,7 +299,7 @@ local function showSparkManagerUI(mapSelectOverride)
 	frame:EnableResize(false)
 	sparkManagerUI = frame
 
-	local mapSelectTree = AceGUI:Create("TreeGroup")
+	local mapSelectTree = AceGUI:Create("TreeGroup") --[[@as AceGUITreeGroup]]
 	mapSelectTree:SetFullHeight(true)
 	mapSelectTree:SetLayout("Flow")
 	mapSelectTree:SetTree(getSparkManagerMapTree())

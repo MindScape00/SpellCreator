@@ -29,6 +29,12 @@ local cooldownFrameFuncs = {
 	qcFrame = function(commID, cooldownTime, phase)
 		-- this is done manually in the quickcast book page buttons
 	end,
+	spellBookUI = function(commID, cooldownTime, phase)
+		ns.UI.SpellBookUI.updateButtons()
+	end,
+	actionButtons = function(commID, cooldownTime, phase)
+		ns.UI.ActionButton.updateArcActionButtonCooldowns()
+	end,
 }
 
 ---Trigger all spell icon cooldown frame visuals
@@ -73,9 +79,14 @@ end
 
 ---Check if a spell is on cooldown. Returns false if not on cooldown, or the time remaining & original length of cooldown if it's on cooldown
 ---@param commID CommID
----@param phase integer?
----@return false | number, nil | number
+---@param phase integer|boolean|string?
+---@return false | number remainingTime, nil | number cooldownLength
 local function isSpellOnCooldown(commID, phase)
+	if phase == true then
+		phase = C_Epsilon.GetPhaseId()
+	elseif type(phase) == "number" then
+		phase = tostring(phase)
+	end
 	local currentTime = GetTime()
 	if phase then
 		if spellCooldowns.phase[phase] then

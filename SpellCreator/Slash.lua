@@ -72,14 +72,14 @@ local arcCommands = {
 		}
 	},
 	cast = {
-		cmd = "cast $commID",
-		desc = "Cast from your personal vault, same as /arcanum or /sf",
+		cmd = "cast $commID, $input1, $input2, ... $input8",
+		desc = "Cast from your personal vault, same as /arcanum or /sf, with optional Spell Inputs.",
 		fn = "CAST",
 		numArgs = 1,
 	},
 	castp = {
-		cmd = "castp $commID",
-		desc = "Cast a spell from the Phase Vault if it exists.",
+		cmd = "castp $commID, $input1, $input2, ... $input8",
+		desc = "Cast a spell from the Phase Vault if it exists, with optional Spell Inputs.",
 		fn = "CASTP",
 		numArgs = 1,
 	},
@@ -215,12 +215,16 @@ local function arcSlashCommandHandler(msg)
 				printArcSubCmd(arcCommands[command])
 				return
 			end
-			args = { AceConsole:GetArgs(msg, arcSubCommand.numArgs + 2) }
-			args = { unpack(args, 2, arcSubCommand.numArgs + 2) } -- drop the command, subcommand, and nextposition
+			local numArgs = math.max(arcSubCommand.numArgs + 2, 10)
+			args = { AceConsole:GetArgs(msg, numArgs) }
+			table.remove(args, 1) -- remove the base
+			table.remove(args, numArgs-1) -- remove the nextposition. Nils are dropped once we unpack
 			ARC[arcSubCommand.fnTable][arcSubCommand.fn](unpack(args))
 		else
-			args = { AceConsole:GetArgs(msg, arcCommand.numArgs + 1) }
-			args = { unpack(args, 1, arcCommand.numArgs + 1) } -- drop the command and nextposition
+			local numArgs = math.max(arcCommand.numArgs + 2, 10)
+			args = { AceConsole:GetArgs(msg, numArgs) }
+			table.remove(args, 1) -- remove the base
+			table.remove(args, numArgs-1) -- remove the nextposition. Nils are dropped once we unpack
 			ARC[arcCommand.fn](unpack(args))
 		end
 	else -- need to make this a general else instead of just a capture of nil because otherwise we miss if they do an invalid command also

@@ -15,6 +15,7 @@ local DataUtils = ns.Utils.Data
 local Tooltip = ns.Utils.Tooltip
 
 local ChatLink = ns.UI.ChatLink
+local Dropdown = ns.UI.Dropdown
 local LoadSpellFrame = ns.UI.LoadSpellFrame
 local Icons = ns.UI.Icons
 local Popups = ns.UI.Popups
@@ -119,6 +120,34 @@ local function onIconClick(self, button)
 	end
 end
 
+local function genSpellTooltipLines(spell, isClickable)
+	local strings = {}
+	local hotkeyKey = Hotkeys.getHotkeyByCommID(spell.commID)
+
+	if spell.description then tinsert(strings, spell.description) end
+	tinsert(strings, " ")
+
+	if spell.profile then tinsert(strings, Tooltip.createDoubleLine("Profile: ", spell.profile)) end
+
+	if spell.cooldown then
+		tinsert(strings, Tooltip.createDoubleLine("Actions: " .. #spell.actions, "Cooldown: " .. spell.cooldown .. "s"))
+	else
+		tinsert(strings, "Actions: " .. #spell.actions)
+	end
+
+	if spell.author then tinsert(strings, "Author: " .. spell.author); end
+	if spell.items and next(spell.items) then tinsert(strings, "Items: " .. table.concat(spell.items, ", ")) end
+	if hotkeyKey then tinsert(strings, "Hotkey: " .. hotkeyKey) end
+	tinsert(strings, " ")
+
+	if isClickable then
+		tinsert(strings, Tooltip.genContrastText("Left-Click") .. " to cast " .. ADDON_COLORS.TOOLTIP_EXAMPLE:WrapTextInColorCode(spell.commID))
+	else
+		tinsert(strings, "Command: " .. Tooltip.genContrastText("/sf " .. spell.commID))
+	end
+	return strings
+end
+
 ---@param frame SpellLoadRowIcon | SpellLoadRow
 local function setTooltip(frame, isIcon)
 	Tooltip.set(
@@ -128,43 +157,15 @@ local function setTooltip(frame, isIcon)
 		end,
 		function(self)
 			local spell = getSpell(self.commID)
-			local strings = {}
-
-			if spell.description then
-				tinsert(strings, spell.description)
-			end
-
-			tinsert(strings, " ")
-
-			if spell.cooldown then
-				tinsert(strings, Tooltip.createDoubleLine("Actions: " .. #spell.actions, "Cooldown: " .. spell.cooldown .. "s"))
-			else
-				tinsert(strings, "Actions: " .. #spell.actions)
-			end
-
-			if spell.author then
-				tinsert(strings, "Author: " .. spell.author);
-			end
-
-			local hotkeyKey = Hotkeys.getHotkeyByCommID(self.commID)
-			if hotkeyKey then
-				tinsert(strings, "Hotkey: " .. hotkeyKey)
-			end
-
-			tinsert(strings, " ")
-			if isIcon then
-				tinsert(strings, Tooltip.genContrastText("Left-Click") .. " to cast " .. ADDON_COLORS.TOOLTIP_EXAMPLE:WrapTextInColorCode(spell.commID))
-			else
-				tinsert(strings, "Command: " .. Tooltip.genContrastText("/sf " .. spell.commID))
-			end
+			local strings = genSpellTooltipLines(spell, isIcon)
 			tinsert(strings, Tooltip.genContrastText("Right-Click") .. " for more options!")
 			tinsert(strings, Tooltip.genContrastText("Shift-Click") .. " to link in chat.")
-
 			return strings
 		end,
 		{
 			-- we expect a tooltip on the spell even if tooltips are disabled
-			forced = true
+			forced = true,
+			delay = function() return isIcon and 0 or 0.7 end,
 		}
 	)
 end
@@ -197,6 +198,7 @@ local function createSpellIcon(row)
 
 	spellIcon:SetScript("OnClick", onIconClick)
 	spellIcon:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	ns.UI.ActionButton.makeButtonDraggableToActionBar(spellIcon)
 
 	return spellIcon
 end
@@ -209,15 +211,16 @@ local function createHotkeyIcon(row)
 	hotkeyIcon:SetPoint("CENTER", row.spellIcon, "TOPRIGHT", -4, -5)
 	hotkeyIcon:SetSize(20, 10)
 
-	hotkeyIcon:SetNormalTexture("interface/tradeskillframe/ui-tradeskill-linkbutton")
-	hotkeyIcon.normal = hotkeyIcon:GetNormalTexture()
-	hotkeyIcon.normal:SetTexCoord(0, 1, 0, 0.5)
-	hotkeyIcon.normal:SetRotation(math.rad(-45))
+	ns.Utils.UIHelpers.setupCoherentButtonTextures(hotkeyIcon, "interface/tradeskillframe/ui-tradeskill-linkbutton")
 
-	hotkeyIcon:SetHighlightTexture("interface/tradeskillframe/ui-tradeskill-linkbutton")
-	hotkeyIcon.hilight = hotkeyIcon:GetHighlightTexture()
-	hotkeyIcon.hilight:SetTexCoord(0, 1, 0, 0.5)
-	hotkeyIcon.hilight:SetRotation(math.rad(-45))
+	hotkeyIcon.NormalTexture:SetTexCoord(0, 1, 0, 0.5)
+	hotkeyIcon.NormalTexture:SetRotation(math.rad(-45))
+
+	hotkeyIcon.HighlightTexture:SetTexCoord(0, 1, 0, 0.5)
+	hotkeyIcon.HighlightTexture:SetRotation(math.rad(-45))
+
+	hotkeyIcon.PushedTexture:SetTexCoord(0, 1, 0, 0.5)
+	hotkeyIcon.PushedTexture:SetRotation(math.rad(-45))
 
 	Tooltip.set(hotkeyIcon,
 		function(self)
@@ -242,6 +245,46 @@ local function createHotkeyIcon(row)
 	hotkeyIcon:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
 	return hotkeyIcon
+end
+
+local buttonType = 0
+local function createItemConnectedIcon(row)
+	---@class SpellLoadRowItemLinkedIcon: BUTTON
+	---@field commID CommID
+	local itemConnectedIcon = CreateFrame("BUTTON", nil, row)
+
+	itemConnectedIcon:SetPoint("CENTER", row.spellIcon, "BOTTOMRIGHT", -4, 4)
+	itemConnectedIcon:SetSize(16, 16)
+	ns.Utils.UIHelpers.setupCoherentButtonTextures(itemConnectedIcon, "QuestSharing-QuestLog-Loot", true)
+
+	Tooltip.set(itemConnectedIcon,
+		function(self)
+			--local spell = ns.Vault.personal.findSpellByID(self.commID)
+			local spell = getSpell(self.commID)
+			local spellLinks = {}
+			for k, v in ipairs(spell.items) do
+				local _, link = GetItemInfo(v)
+				tinsert(spellLinks, link)
+			end
+			return "Connected Items:\n" .. table.concat(spellLinks, ", ")
+		end,
+		{
+			" ",
+			"Left-Click to Edit Item Connections",
+		}
+	)
+
+	itemConnectedIcon:SetFrameLevel(row.spellIcon:GetFrameLevel() + 1)
+
+	itemConnectedIcon:SetScript("OnClick", function(self, button)
+		--local spell = ns.Vault.personal.findSpellByID(self.commID)
+		local spell = getSpell(self.commID)
+		local hasItems, itemsMenu = ns.UI.ItemIntegration.manageUI.genItemMenuSubMenu(spell)
+		Dropdown.open(itemsMenu, row.contextMenu, "cursor", 0, 0, "MENU")
+	end)
+	itemConnectedIcon:RegisterForClicks("LeftButtonUp")
+
+	return itemConnectedIcon
 end
 
 local function createDeleteButton(row)
@@ -405,7 +448,10 @@ local function createPrivateIconButton(row)
 		local priv = self:SetPrivacy()
 		if priv == nil then priv = false end
 
-		upload(self.commID, priv)
+		--upload(self.commID, priv) -- // replaced with single-upload updater. Feel free to spam away. Or.. Or don't still.. please.. but you can..
+		local theSpell = getSpell(self.commID)
+		theSpell.private = priv
+		ns.Vault.phase.uploadSingleSpellAndNotifyUsers(theSpell.commID, theSpell)
 	end)
 
 	return privateIconButton
@@ -446,6 +492,7 @@ local function createRow(parent, rowNum)
 
 	thisRow.spellIcon = createSpellIcon(thisRow)
 	thisRow.hotkeyIcon = createHotkeyIcon(thisRow)
+	thisRow.itemConnectedIcon = createItemConnectedIcon(thisRow)
 	thisRow.deleteButton = createDeleteButton(thisRow)
 	thisRow.loadButton = createLoadButton(thisRow)
 	thisRow.gossipButton = createGossipButton(thisRow)
@@ -543,10 +590,12 @@ local function updateRow(row, rowNum, commIDOrIndex, spell)
 	row.privateIconButton.commID = commID
 	row.spellIcon.commID = commID
 	row.hotkeyIcon.commID = commID
+	row.itemConnectedIcon.commID = commID
 	row.commID = commID -- used in new Transfer to Phase Button - all the other ones should probably move to using this anyways..
 	row.rowID = rowNum
 
 	row.hotkeyIcon:SetShown(Hotkeys.getHotkeyByCommID(commID) ~= nil)
+	row.itemConnectedIcon:SetShown(spell.items and #spell.items > 0)
 	row.spellIcon:SetNormalTexture(Icons.getFinalIcon(spell.icon))
 
 	setMode(row)

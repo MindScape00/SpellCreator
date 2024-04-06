@@ -30,9 +30,43 @@ local function exportSpell(spell)
 	showExportMenu("ArcSpell " .. ns.Utils.Tooltip.genContrastText(spell.fullName), spell.commID .. ":" .. Serializer.compressForExport(spell))
 end
 
+---@param text string input data
+local function getDataFromImportString(text)
+	if not text then
+		ns.Logging.eprint("Import Error: No ArcSpell import data provided.")
+		return
+	end
+	local rest
+	text, rest = strsplit(":", text, 2)
+	local spellData
+	if text and rest and rest ~= "" then
+		spellData = Serializer.decompressForImport(rest)
+	elseif text ~= "" then
+		spellData = Serializer.decompressForImport(text)
+	else
+		Logging.eprint("Import Error: Invalid ArcSpell data. Try again.")
+		return
+	end
+
+	return spellData
+end
+
+---@param text string input data
+---@param vocal boolean|string? if we should tell them
+local function importSpell(text, vocal)
+	if not text then
+		ns.Logging.eprint("Import Error: No ArcSpell import data provided.")
+		return
+	end
+
+	local spellData = getDataFromImportString(text)
+
+	if spellData and spellData ~= "" then ns.MainFuncs.saveSpell(nil, nil, spellData, vocal) end
+end
+
 local function exportAllSparks()
 	local thePhaseID = C_Epsilon.GetPhaseId()
-	showExportMenu(("Sparks (%s)"):format(thePhaseID), "Phase" .. thePhaseID .. "Sparks" .. ":" .. Serializer.compressForExport(ns.UI.SparkPopups.SparkPopups.getPhaseSparkTriggersCache()))
+	showExportMenu(("Sparks (Phase %s)"):format(thePhaseID), "Phase" .. thePhaseID .. "Sparks" .. ":" .. Serializer.compressForExport(ns.UI.SparkPopups.SparkPopups.getPhaseSparkTriggersCache()))
 end
 
 local function showImportSpellMenu()
@@ -47,7 +81,7 @@ local function showImportSparksMenu()
 	dialog.insertedFrame.ScrollFrame.EditBox:SetFocus()
 end
 
-local function init(saveSpell)
+local function init(saveSpell) -- this doesn't need an init anymore cuz we no longer need to pass saveSpell but WHATEVER
 	StaticPopupDialogs["SCFORGE_EXPORT_MENU"] = {
 		text = "Arcanum Export: %s",
 		subText = "CTRL+C to Copy",
@@ -66,18 +100,7 @@ local function init(saveSpell)
 		button1 = "Import",
 		OnButton1 = function(self)
 			local text = self.insertedFrame.ScrollFrame.EditBox:GetText()
-			if not text then return end
-			local text, rest = strsplit(":", text, 2)
-			local spellData
-			if text and rest and rest ~= "" then
-				spellData = Serializer.decompressForImport(rest)
-			elseif text ~= "" then
-				spellData = Serializer.decompressForImport(text)
-			else
-				Logging.dprint("Invalid ArcSpell data. Try again.")
-				return
-			end
-			if spellData and spellData ~= "" then saveSpell(nil, nil, spellData) end
+			importSpell(text)
 		end,
 		hideOnEscape = true,
 		whileDead = true,
@@ -117,6 +140,10 @@ end
 ns.UI.ImportExport = {
 	init = init,
 	exportSpell = exportSpell,
+	importSpell = importSpell,
+
+	getDataFromImportString = getDataFromImportString,
+
 	showImportSpellMenu = showImportSpellMenu,
 	exportAllSparks = exportAllSparks,
 	showImportSparksMenu = showImportSparksMenu,

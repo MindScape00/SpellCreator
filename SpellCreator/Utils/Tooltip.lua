@@ -10,6 +10,10 @@ local function setTitle(title)
 	GameTooltip:SetText(title, nil, nil, nil, nil, true)
 end
 
+local function clearLines()
+	GameTooltip:ClearLines()
+end
+
 ---@param line string
 local function addLine(line)
 	if line:match(strchar(31)) then
@@ -39,6 +43,7 @@ end
 ---@field atlas string? atlasName
 ---@field iconH integer?
 ---@field iconW integer?
+---@field additionalParsing function? additional parsing function
 
 ---@type { [TooltipStyle]: TooltipStyleData }
 local tooltipTextStyles = {
@@ -48,6 +53,13 @@ local tooltipTextStyles = {
 	example = {
 		color = ADDON_COLORS.TOOLTIP_EXAMPLE:GenerateHexColor(),
 		tag = "Example: ",
+		additionalParsing = function(text)
+			if text:find("<.*>") then
+				-- convert < > to contrast text
+				text = text:gsub("<(.-)>", ns.Utils.Tooltip.genContrastText("%1"))
+			end
+			return text
+		end
 	},
 	norevert = {
 		color = ADDON_COLORS.TOOLTIP_NOREVERT:GenerateHexColor(),
@@ -72,6 +84,10 @@ local tooltipTextStyles = {
 ---@param text string
 local function genTooltipText(style, text)
 	local styledata = tooltipTextStyles[style]
+
+	if styledata.additionalParsing then
+		text = styledata.additionalParsing(text)
+	end
 
 	local color = styledata.color and "|c" .. styledata.color or nil
 	local iconH, iconW = styledata.iconH and styledata.iconH or 0,
@@ -127,8 +143,11 @@ local function setTooltip(self, title, lines)
 		_title = _title(self)
 	end
 
-	if not _title then return end -- nil checking incase we are passed a nil tooltip title
-	setTitle(_title)
+	if _title then
+		setTitle(_title)
+	else
+		clearLines()
+	end
 
 	if _lines then
 		if type(_lines) == "function" then
@@ -147,12 +166,20 @@ local function setTooltip(self, title, lines)
 	GameTooltip:Show()
 end
 
+---Call to directly show a tooltip; this is mostly so you can update / redraw a tooltip live if needed.
+---@param title string | fun(self): string
+---@param lines? string[] | string | fun(self): (string[] | string)
+local function rawSetTooltip(self, title, lines)
+	GameTooltip:SetOwner(self, self.tooltipAnchor or "ANCHOR_LEFT")
+	setTooltip(self, title, lines)
+end
+
 ---@class TooltipOptions
----@field updateOnClick boolean
----@field delay integer | function
----@field forced boolean
----@field anchor string
----@field predicate function
+---@field updateOnClick boolean?
+---@field delay (integer | function)?
+---@field forced boolean?
+---@field anchor string?
+---@field predicate function?
 
 ---@param title string | fun(self): string
 ---@param lines? string[] | string | fun(self): (string[] | string)
@@ -232,4 +259,6 @@ ns.Utils.Tooltip = {
 	createDoubleLine = createDoubleLine,
 
 	setAceTT = setAceTT,
+
+	rawSetTooltip = rawSetTooltip,
 }

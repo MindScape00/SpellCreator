@@ -22,7 +22,9 @@ local castbarCheckButton
 local author = UnitName("player")
 local editCommID
 local iconButton
+local condButton
 local editorsaved = true
+local itemsCached
 
 local function markEditorSaved()
 	editorsaved = true
@@ -152,7 +154,7 @@ local function createSpellCooldownBox(mainFrame)
 	cooldownBox.Instructions:SetTextColor(0.5, 0.5, 0.5)
 
 	cooldownBox:SetAutoFocus(false)
-	cooldownBox:SetSize(90, 23)
+	cooldownBox:SetSize(60, 23)
 	cooldownBox:SetPoint("LEFT", descBox, "RIGHT", 6, 0)
 
 	cooldownBox:HookScript("OnTextChanged", function(self, userInput)
@@ -182,7 +184,7 @@ local function createCastbarCheckButton(mainFrame)
 	castbarCheckButton = CreateFrame("CheckButton", nil, mainFrame, "UICheckButtonTemplate")
 	castbarCheckButton:SetSize(20, 20)
 	castbarCheckButton:SetPoint("LEFT", commandBox, "RIGHT", 0, 0)
-	castbarCheckButton.text:SetText(" Cast/Channel")
+	castbarCheckButton.text:SetText("Channeled")
 	castbarCheckButton.checkState = 1 -- 0 = none, 1 = cast, 2 = channel; default to cast
 
 	castbarCheckButton.checkTex = castbarCheckButton:GetCheckedTexture()
@@ -191,17 +193,20 @@ local function createCastbarCheckButton(mainFrame)
 
 		if checkState == 0 then
 			self:SetChecked(false)
+			self.text:SetText("None")
 		elseif checkState == 1 then
 			local checkTex = self:GetCheckedTexture()
 			self:SetChecked(true);
 			self.checkTex:SetTexture("Interface/Buttons/UI-CheckBox-Check")
 			self.checkTex:SetAllPoints()
+			self.text:SetText("Cast")
 		elseif checkState == 2 then
 			self:SetChecked(true);
 			self.checkTex:SetAtlas("common-checkbox-partial")
 			self.checkTex:ClearAllPoints()
 			self.checkTex:SetPoint("CENTER")
 			self.checkTex:SetSize(self:GetWidth() * 0.5, self:GetHeight() * 0.5)
+			self.text:SetText("Channel")
 		end
 	end
 	castbarCheckButton:UpdateCheckedTex()
@@ -322,6 +327,104 @@ local function createIconButton(mainFrame, IconPicker)
 	return iconButton
 end
 
+local copiedFXFinFunc = function(self)
+	self:GetRegionParent():Hide()
+end
+local copiedFXPlayFunc = function(self, action)
+	if action == "copy" then
+		self.copyFX:SetAtlas("GarrMission_CounterHalfCheck")
+	elseif action == "paste" then
+		self.copyFX:SetAtlas("GarrMission_CounterCheck")
+	else
+		self.copyFX:SetAtlas("groupfinder-icon-redx")
+	end
+	self.copyFX:Show()
+	self.copyFX.anims:Play()
+end
+
+---@param mainFrame SCForgeMainFrame
+---@return BUTTON
+local function createConditionsButton(mainFrame)
+	condButton = CreateFrame("BUTTON", nil, mainFrame)
+	condButton:SetSize(26, 26)
+	condButton:SetPoint("BOTTOMLEFT", cooldownBox, "BOTTOMRIGHT", 0, 6)
+	ns.Utils.UIHelpers.setupCoherentButtonTextures(condButton, ASSETS_PATH .. "/ConditionsButtonGreyed")
+	condButton:SetMotionScriptsWhileDisabled(true)
+	condButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+	condButton.copyFX = condButton:CreateTexture(nil, "OVERLAY")
+	condButton.copyFX:SetAllPoints()
+	condButton.copyFX:Hide()
+	condButton.copyFX:SetAtlas("GarrMission_CounterHalfCheck")
+
+	condButton.copyFX.anims = condButton.copyFX:CreateAnimationGroup()
+	condButton.copyFX.anims.iconFlash = condButton.copyFX.anims:CreateAnimation("Alpha")
+	condButton.copyFX.anims.iconFlash:SetFromAlpha(1)
+	condButton.copyFX.anims.iconFlash:SetToAlpha(0)
+	condButton.copyFX.anims.iconFlash:SetDuration(0.25)
+	condButton.copyFX.anims.iconFlash:SetScript("OnFinished", copiedFXFinFunc)
+	condButton.copyFX.anims.iconFlash:SetSmoothing("IN")
+	condButton.copied = copiedFXPlayFunc
+
+	--mainFrame.conditionsData = {}
+
+	Tooltip.set(condButton,
+		"Add Conditions to this Spell",
+		function()
+			local lines = {
+				"This allows you to set it so the spell will only cast IF the conditions are met.",
+				"For example, you could set a condition for this spell to only cast if you currently have a specific item in your inventory.",
+				" "
+			}
+			if mainFrame.conditionsData and #mainFrame.conditionsData > 0 then
+				tinsert(lines, "Current Conditions:")
+				for gi, groupData in ipairs(mainFrame.conditionsData) do
+					local groupString = (gi == 1 and "If") or "..Or"
+					for ri, rowData in ipairs(groupData) do
+						local continueStatement = (ri ~= 1 and "and ") or ""
+						local condName = ns.Actions.ConditionsData.getByKey(rowData.Type).name
+						groupString = string.join(" ", groupString, continueStatement .. condName)
+					end
+					tinsert(lines, groupString)
+				end
+				tinsert(lines, Tooltip.genTooltipText("norevert", "Ctrl+Left Click to Copy\nCtrl+Right Click to Paste"))
+			else
+				tinsert(lines, "This Spell has no current Conditions")
+				tinsert(lines, Tooltip.genTooltipText("norevert", "Ctrl+Right Click to Paste"))
+			end
+			return lines
+		end
+	)
+	condButton:SetScript("OnClick", function(self, button)
+		local isCtrlDown = IsControlKeyDown()
+		if button == "RightButton" then
+			if not isCtrlDown then return end
+			-- paste
+			mainFrame.conditionsData = ns.Actions.ConditionsData.copyGet()
+			self:copied("paste")
+			self:update()
+			return
+		elseif button == "LeftButton" and isCtrlDown then
+			-- copy
+			ns.Actions.ConditionsData.copySave(mainFrame.conditionsData)
+			self:copied("copy")
+			return
+		end
+
+		ns.UI.ConditionsEditor.open(mainFrame, "spell", mainFrame.conditionsData)
+		markEditorUnsaved()
+	end)
+	condButton.update = function(self)
+		if mainFrame.conditionsData and #mainFrame.conditionsData > 0 then
+			self:SetNormalTexture(ASSETS_PATH .. "/ConditionsButton")
+		else
+			self:SetNormalTexture(ASSETS_PATH .. "/ConditionsButtonGreyed")
+		end
+	end
+
+	return condButton
+end
+
 local function getEditCommId()
 	return editCommID
 end
@@ -342,6 +445,8 @@ local function getInfo()
 	newSpellData.icon = iconButton:GetSelectedTexID()
 	newSpellData.profile = AtticProfileDropdown.getSelectedProfile()
 	newSpellData.author = author or nil
+	newSpellData.items = itemsCached
+	newSpellData.conditions = (SCForgeMainFrame.conditionsData and #SCForgeMainFrame.conditionsData > 0) and SCForgeMainFrame.conditionsData or nil
 
 	return newSpellData
 end
@@ -359,6 +464,10 @@ local function updateInfo(spell)
 	AtticProfileDropdown.setSelectedProfile(spell.profile)
 	editCommID = spell.commID
 	author = spell.author or nil
+	itemsCached = spell.items or nil
+	SCForgeMainFrame.conditionsData = spell.conditions or {}
+
+	condButton:update()
 end
 
 local function isInfoValid()
@@ -377,6 +486,7 @@ local function updateSize(mainFrameWidth)
 	descBox:SetWidth((mainFrameWidth / 2.5) * squareRootWidthScale)
 
 	iconButton:SetPoint("TOPRIGHT", nameBox, "TOPLEFT", -14 * effectiveOffsetScale, -6)
+	condButton:SetPoint("BOTTOMLEFT", cooldownBox, "BOTTOMRIGHT", 2 * (effectiveOffsetScale * 3) - 3, 6)
 	--print(widthScale, effectiveOffsetScale, squareRootWidthScale)
 end
 
@@ -399,6 +509,7 @@ local function init(mainFrame, IconPicker)
 	mainFrame.SpellCooldownBox = createSpellCooldownBox(mainFrame)
 	mainFrame.CastBarCheckButton = createCastbarCheckButton(mainFrame)
 	mainFrame.IconButton = createIconButton(mainFrame, IconPicker)
+	mainFrame.ConditionalButton = createConditionsButton(mainFrame)
 	mainFrame.ProfileSelectMenu = AtticProfileDropdown.createDropdown({
 		mainFrame = mainFrame,
 		markEditorUnsaved = markEditorUnsaved,

@@ -1,6 +1,6 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
 ..\FrameXML\UI.xsd">
-  
+
   <CheckButton name="SC_ExtraActionButtonTemplate" virtual="true">
     <Size x="52" y="52"/>
     <Layers>
@@ -36,11 +36,11 @@
       </OnLoad>
     </Scripts>
   </CheckButton>
-  
-  <Frame name="SC_ExtraActionBarFrameTemplate" virtual="true" frameStrata="LOW" parent="MainMenuBar" enableMouse="true" toplevel="true" hidden="true">
+
+  <Frame name="SC_ExtraActionBarFrameTemplate" virtual="true" frameStrata="LOW" parent="UIParent" enableMouse="true" toplevel="true" hidden="true">
     <Size x="64" y="64"/>
     <Anchors>
-      <Anchor point="BOTTOM" x="0" y="160"/>
+      <Anchor point="BOTTOM" x="0" y="240"/>
     </Anchors>
     <Animations>
       <AnimationGroup parentKey="intro">
@@ -63,10 +63,10 @@
     </Animations>
     <Scripts>
       <OnLoad function="ExtraActionBar_OnLoad"/>
-      <OnHide function="ExtraActionBar_OnHide"/>
+      <!-- <OnHide function="ExtraActionBar_OnHide"/> -->
     </Scripts>
-  </Frame>  
-  
+  </Frame>
+
   <Script file="UI/SparkPopups/Init.lua"/>
   <Script file="UI/SparkPopups/CreateSparkUI.lua"/>
   <Script file="UI/SparkPopups/SparkManagerUI.lua"/>

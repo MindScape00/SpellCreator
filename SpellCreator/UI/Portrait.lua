@@ -7,6 +7,8 @@ local Gems = ns.UI.Gems
 local minimapModels, modelFrameSetModel = ns.UI.Models.minimapModels, ns.UI.Models.modelFrameSetModel
 
 local runeIconOverlay
+local minimapModelID
+local gemToUse
 
 local function initRuneIcon()
 	local runeIconOverlays = {
@@ -22,82 +24,100 @@ local function initRuneIcon()
 		{tex = ASSETS_PATH .. "/BookIcon", desat = false, x = 26, y = 26},
 	}
 	runeIconOverlay = runeIconOverlays[fastrandom(#runeIconOverlays)]
+	minimapModelID = fastrandom(#minimapModels)
+	gemToUse = Gems.randomLimitedGem()
 end
 
-local function createIcon()
-	SCForgeMainFrame.portrait.icon = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 6)
-	SCForgeMainFrame.portrait.icon:SetTexture(Gems.randomLimitedGem())
-	SCForgeMainFrame.portrait.icon:SetAllPoints(SCForgeMainFrame.portrait)
-	SCForgeMainFrame.portrait.icon:SetAlpha(0.93)
-	--SCForgeMainFrame.portrait.icon:SetBlendMode("ADD")
+---@param frame frame frame to assign the table accessor (i.e., SCForgeMainFrame.portrait (which creates SCForgeMainFrame.portrait.icon))
+---@param parent frame the actual parent the texture is created on (i.e., SCForgeMainFrame)
+local function createIcon(frame, parent)
+	frame.icon = parent:CreateTexture(nil, "OVERLAY", nil, 6)
+	frame.icon:SetTexture(gemToUse)
+	frame.icon:SetAllPoints(frame)
+	frame.icon:SetAlpha(0.93)
+	--frame.icon:SetBlendMode("ADD")
 end
 
-local function createModel()
-	SCForgeMainFrame.portrait.Model = CreateFrame("PLAYERMODEL", nil, SCForgeMainFrame, "MouseDisabledModelTemplate")
-	SCForgeMainFrame.portrait.Model:SetAllPoints(SCForgeMainFrame.portrait)
-	SCForgeMainFrame.portrait.Model:SetFrameStrata("MEDIUM")
-	SCForgeMainFrame.portrait.Model:SetFrameLevel(SCForgeMainFrame:GetFrameLevel())
-	SCForgeMainFrame.portrait.Model:SetModelDrawLayer("OVERLAY")
-	SCForgeMainFrame.portrait.Model:SetKeepModelOnHide(true)
-	modelFrameSetModel(SCForgeMainFrame.portrait.Model, fastrandom(#minimapModels), minimapModels)
-	SCForgeMainFrame.portrait.Model:SetScript("OnMouseDown", function()
+---@param frame frame frame to assign the table accessor (i.e., SCForgeMainFrame.portrait.icon)
+---@param parent frame the actual parent the texture is created on (i.e., SCForgeMainFrame)
+local function createModel(frame, parent)
+	frame.Model = CreateFrame("PLAYERMODEL", nil, parent, "MouseDisabledModelTemplate")
+	frame.Model:SetAllPoints(frame)
+	frame.Model:SetFrameStrata("MEDIUM")
+	frame.Model:SetFrameLevel(parent:GetFrameLevel())
+	frame.Model:SetModelDrawLayer("OVERLAY")
+	frame.Model:SetKeepModelOnHide(true)
+	modelFrameSetModel(frame.Model, minimapModelID, minimapModels)
+	frame.Model:SetScript("OnMouseDown", function()
 		local randID = fastrandom(#minimapModels)
-		modelFrameSetModel(SCForgeMainFrame.portrait.Model, randID, minimapModels)
+		modelFrameSetModel(frame.Model, randID, minimapModels)
 		dprint("Portrait Icon BG Model Set to ID "..randID)
 	end)
 end
 
-local function createRune()
-	SCForgeMainFrame.portrait.rune = SCForgeMainFrame:CreateTexture(nil, "OVERLAY", nil, 7)
+---@param frame frame frame to assign the table accessor (i.e., SCForgeMainFrame.portrait.icon)
+---@param parent frame the actual parent the texture is created on (i.e., SCForgeMainFrame)
+local function createRune(frame, parent)
+	frame.rune = parent:CreateTexture(nil, "OVERLAY", nil, 7)
 
 	local function setRuneTex(texInfo)
 		if texInfo.atlas then
-			SCForgeMainFrame.portrait.rune:SetAtlas(texInfo.atlas)
+			frame.rune:SetAtlas(texInfo.atlas)
 		else
-			SCForgeMainFrame.portrait.rune:SetTexture(texInfo.tex)
+			frame.rune:SetTexture(texInfo.tex)
 		end
 		if texInfo.desat then
-			SCForgeMainFrame.portrait.rune:SetDesaturated(true)
-			SCForgeMainFrame.portrait.rune:SetVertexColor(0.9,0.9,0.9)
+			frame.rune:SetDesaturated(true)
+			frame.rune:SetVertexColor(0.9,0.9,0.9)
 		else
-			SCForgeMainFrame.portrait.rune:SetDesaturated(false)
-			SCForgeMainFrame.portrait.rune:SetVertexColor(1,1,1)
+			frame.rune:SetDesaturated(false)
+			frame.rune:SetVertexColor(1,1,1)
 		end
-		SCForgeMainFrame.portrait.rune:SetPoint("CENTER", SCForgeMainFrame.portrait)
-		SCForgeMainFrame.portrait.rune:SetSize(texInfo.x or 28, texInfo.y or 28)
-		SCForgeMainFrame.portrait.rune:SetBlendMode(texInfo.blend or "ADD")
-		SCForgeMainFrame.portrait.rune:SetAlpha(texInfo.alpha or 1)
+		frame.rune:SetPoint("CENTER", frame)
+		frame.rune:SetSize(texInfo.x or 28, texInfo.y or 28)
+		frame.rune:SetBlendMode(texInfo.blend or "ADD")
+		frame.rune:SetAlpha(texInfo.alpha or 1)
 	end
 
 	setRuneTex(runeIconOverlay)
 end
 
-local function initPortrait()
-	--local SC_randomFramePortrait = frameIconOptions[fastrandom(#frameIconOptions)] -- Old Random Icon Stuff
-	--SCForgeMainFrame:SetPortraitToAsset(SC_randomFramePortrait) -- Switched to using our version.
-	--SCForgeMainFrame.portrait:SetTexture(ASSETS_PATH .. "/arcanum_icon")
-	SCForgeMainFrame.portrait:SetTexture(ASSETS_PATH .. "/CircularBG")
-	SCForgeMainFrame.portrait:SetTexCoord(0.25,1-0.25,0,1)
-	SCForgeMainFrame.portrait.mask = SCForgeMainFrame:CreateMaskTexture()
-	SCForgeMainFrame.portrait.mask:SetAllPoints(SCForgeMainFrame.portrait)
-	SCForgeMainFrame.portrait.mask:SetTexture("Interface/CHARACTERFRAME/TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-	SCForgeMainFrame.portrait:AddMaskTexture(SCForgeMainFrame.portrait.mask)
+---@param frame frame frame to assign the table accessor (i.e., SCForgeMainFrame.portrait.icon)
+---@param parent frame the actual parent the texture is created on (i.e., SCForgeMainFrame)
+local function initPortrait(frame, parent)
+	frame:SetTexture(ASSETS_PATH .. "/CircularBG")
+	frame:SetTexCoord(0.25,1-0.25,0,1)
+	frame.mask = parent:CreateMaskTexture()
+	frame.mask:SetAllPoints(frame)
+	frame.mask:SetTexture("Interface/CHARACTERFRAME/TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+	frame:AddMaskTexture(frame.mask)
+end
+
+---@param frame frame frame reference to set the portrait data on - this will likely be a texture unit, so you need a real parent to use also
+---@param parent frame the parent frame since the frame frame is likely a texture
+local function createGemPortraitOnFrame(frame, parent)
+	if not runeIconOverlay then
+		initRuneIcon()
+	end
+
+	initPortrait(frame, parent)
+
+	createIcon(frame, parent)
+
+	createRune(frame, parent)
+
+	createModel(frame, parent)
 end
 
 local function init()
-	initPortrait()
+	local frameToUse = SCForgeMainFrame.portrait
+	local parent = SCForgeMainFrame
 
-	createIcon()
-
-	initRuneIcon()
-	-- debug over-ride, comment out when done
-	-- runeIconOverlay = {tex = "Interface/AddOns/SpellCreator/assets/BookIcon"}
-	createRune()
-
-	createModel()
+	createGemPortraitOnFrame(frameToUse, parent)
 end
 
 ---@class UI_Portrait
 ns.UI.Portrait = {
 	init = init,
+	createGemPortraitOnFrame = createGemPortraitOnFrame,
 }

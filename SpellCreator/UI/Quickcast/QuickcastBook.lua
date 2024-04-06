@@ -166,7 +166,7 @@ end
 
 ---@param self QuickcastBook
 local function hidePageIndicator(self)
-	local pageIndicator = self.pageIndicator
+	local pageIndicator = self.pageIndicator --[[@as frame]]
 	if pageIndicator.timer then pageIndicator.timer:Cancel() end
 	if pageIndicator:IsShown() then
 		pageIndicator.timer = C_Timer.NewTimer(0.1, function() ns.UI.Quickcast.Animation.CustomUIFrameFadeOut(pageIndicator, 1, pageIndicator:GetAlpha(), 0) end) -- stored per indicator because multiple could be running
@@ -207,6 +207,13 @@ end
 ---@return QuickcastPage
 local function Book_GetCurrentPage(self)
 	return self.savedData._pages[self:GetCurrentPageNumber()]
+end
+
+---@param self QuickcastBook
+---@param index integer
+---@return QuickcastPage
+local function Book_GetPageByIndex(self, index)
+	return self.savedData._pages[index]
 end
 
 ---@param self QuickcastBook
@@ -280,7 +287,7 @@ end
 local function Book_MovePage(self, currentIndex, newIndex)
 	if currentIndex == newIndex then return end
 	local numPages = self:GetNumPages()
-	if newIndex > numPages then return end
+	if newIndex > numPages then return error("Cannot move page outside bounds of the array (newIndex > number of Pages)") end
 
 	local pages = self.savedData._pages
 	local thePage = pages[currentIndex]
@@ -328,6 +335,16 @@ local function getBookIndex(book)
 	for i, v in ipairs(_booksDB) do
 		if book == v then
 			return i
+		end
+	end
+end
+
+---@param name string
+---@return QuickcastBook|nil
+local function findBookByName(name)
+	for i, book in ipairs(_booksDB) do
+		if book.savedData.name == name then
+			return book
 		end
 	end
 end
@@ -383,6 +400,7 @@ local function createBook(index, name, indexFromStorage)
 	book.AddPage = Book_AddPage
 	book.GetCurrentPageNumber = Book_GetCurrentPageNumber
 	book.GetCurrentPage = Book_GetCurrentPage
+	book.GetPageByIndex = Book_GetPageByIndex
 	book.GoToPageNumber = Book_GoToPageNumber
 	book.GoToPage = Book_GoToPage
 	book.GoToFirstPage = Book_GoToFirstPage
@@ -503,8 +521,8 @@ end
 local function setPageInBook(bookName, pageNum)
 	for k, v in ipairs(_booksDB) do
 		if v.savedData.name == bookName then
-			local pageNum = tonumber(pageNum)
-			if pageNum <= v:GetNumPages() then
+			pageNum = tonumber(pageNum) --[[@as number]]
+			if pageNum and pageNum <= v:GetNumPages() then
 				v:GoToPageNumber(pageNum)
 			end
 		end
@@ -513,14 +531,15 @@ end
 
 ---Switch a book by name to a specific style
 ---@param bookName string
----@param styleName string
-local function changeBookStyle(bookName, styleName)
+---@param styleNameOrID string|integer
+local function changeBookStyle(bookName, styleNameOrID)
+	local theStyle = ns.UI.Quickcast.Style.getStyleIDFromNameOrID(styleNameOrID)
+	if not theStyle then return false end
+
 	for k, v in ipairs(_booksDB) do
 		if v.savedData.name == bookName then
-			local theStyle = QuickcastStyle.BOOK_STYLE[strupper(styleName)]
-			if theStyle then
-				v:SetStyle(theStyle)
-			end
+			v:SetStyle(theStyle)
+			return true
 		end
 	end
 end
@@ -534,6 +553,8 @@ ns.UI.Quickcast.Book = {
 	deleteBook = deleteBook,
 	deletePageFromBook = deletePageFromBook,
 	booksDB = _booksDB,
+
+	findBookByName = findBookByName,
 
 	addBookToCharacterMemory = addBookToCharacterMemory,
 	removeBookFromCharacterMemory = removeBookFromCharacterMemory,

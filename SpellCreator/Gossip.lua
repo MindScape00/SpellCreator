@@ -59,7 +59,8 @@ end
 ---@param index integer
 ---@return Button
 local function getTitleButton(index)
-	local titleButton = _G["GossipTitleButton" .. index]
+	--local titleButton = _G["GossipTitleButton" .. index]
+	local titleButton = GossipFrame.buttons[index]
 	if ImmersionFrame then
 		local immersionButton = _G["ImmersionTitleButton" .. index]
 		if immersionButton then
@@ -76,9 +77,9 @@ local function setGreeting()
 
 	while gossipGreetingText and gossipGreetingText:match(gossipTags.default) do -- while gossipGreetingText has an arcTag - this allows multiple tags - For Immersion, we need to split our filters between the whole text, and the displayed text
 		shouldLoadSpellVault = true
-		gossipGreetPayload = gossipGreetingText:match(gossipTags.capture) -- capture the tag
-		local strTag, strArg = strsplit(":", gossipGreetPayload, 2) -- split the tag from the data
-		local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
+		gossipGreetPayload = gossipGreetingText:match(gossipTags.capture)     -- capture the tag
+		local strTag, strArg = strsplit(":", gossipGreetPayload, 2)           -- split the tag from the data
+		local mainTag, extTags = strsplit("_", strTag, 2)                     -- split the main tag from the extension tags
 
 		if gossipReloadCheck() then
 			dprint("Gossip Reload of the Same Page detected. Skipping Auto Functions.")
@@ -129,10 +130,9 @@ local function hookTitleButtons()
 			shouldLoadSpellVault = true
 			gossipOptionPayload = titleButtonText:match(gossipTags.capture) -- capture the tag
 			local strTag, strArg = strsplit(":", gossipOptionPayload, 2) -- split the tag from the data
-			local mainTag, extTags = strsplit("_", strTag, 2) -- split the main tag from the extension tags
+			local mainTag, extTags = strsplit("_", strTag, 2)      -- split the main tag from the extension tags
 
-			if gossipTags.option[mainTag] then -- Checking Main Tags & Running their code if present
-
+			if gossipTags.option[mainTag] then                     -- Checking Main Tags & Running their code if present
 				local function _newOnClickHook()
 					gossipTags.option[mainTag].script(strArg)
 					dprint("Hooked gossip clicked for <" .. mainTag .. ":" .. (strArg or "") .. ">")
@@ -194,8 +194,7 @@ local function hookTitleButtons()
 		if needToHookLateForImmersion then
 			titleButton.isHookedByArc = true
 		end
-		GossipResize(titleButton) -- Fix the size if the gossip option changed number of lines.
-
+		titleButton:Resize() -- Fix the size if the gossip option changed number of lines.
 	end
 end
 
@@ -240,8 +239,14 @@ end
 
 local function onGossipClosed()
 	for k, v in pairs(modifiedGossips) do
-		v:SetScript("OnClick", function()
-			SelectGossipOption(k)
+		v:SetScript("OnClick", function(self)
+			if (self.type == "Available") then
+				C_GossipInfo.SelectAvailableQuest(self:GetID());
+			elseif (self.type == "Active") then
+				C_GossipInfo.SelectActiveQuest(self:GetID());
+			else
+				C_GossipInfo.SelectOption(self:GetID());
+			end
 		end)
 		v.isHookedByArc = nil
 		modifiedGossips[k] = nil
@@ -273,7 +278,9 @@ local function init(callbacks)
 			executePhaseSpell(payLoad)
 		end,
 		save = function(payLoad)
-			if phaseVault.isSavingOrLoadingAddonData then eprint("Phase Vault was still loading. Please try again in a moment."); return; end
+			if phaseVault.isSavingOrLoadingAddonData then
+				eprint("Phase Vault was still loading. Please try again in a moment."); return;
+			end
 			dprint("Scanning Phase Vault for Spell to Save: " .. payLoad)
 
 			local index = Vault.phase.findSpellIndexByID(payLoad)

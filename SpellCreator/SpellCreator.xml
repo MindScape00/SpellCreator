@@ -58,6 +58,7 @@
 	<Script file="Constants.lua"/>
 	<Script file="Localization.lua"/>
 	<Script file="Logging.lua"/>
+	<Script file="Cmd.lua"/>
 	<Script file="Permissions.lua"/>
 	<Script file="Serializer.lua"/>
 	<Script file="Vault.lua"/>
@@ -66,20 +67,25 @@
 	<Script file="UI/Gems.lua"/>
 	<Script file="UI/Icons.lua"/>
 
+	<Script file="UI/Dropdown.lua"/>
+
 	<Script file="Utils/Utils.lua"/>
 	<Script file="Utils/Aura.lua"/>
 	<Script file="Utils/ChatLinkCache.lua"/>
 	<Script file="Utils/Data.lua"/>
 	<Script file="Utils/Debug.lua"/>
+	<Script file="Utils/HookLib.lua"/>
 	<Script file="Utils/HTML.lua"/>
+	<Script file="Utils/InputHelper.lua"/>
 	<Script file="Utils/NineSlice.lua"/>
 	<Script file="Utils/UIHelpers.lua"/>
+	<Script file="Utils/StringSubs.lua"/>
 	<Script file="Utils/Tooltip.lua"/>
 
-	<Script file="Cmd.lua"/>
 	<Script file="Comms.lua"/>
 
 	<Script file="Actions/Actions.lua"/>
+	<Script file="Actions/ConditionsData.lua"/>
 	<Script file="Actions/Data_Scripts.lua"/>
 	<Script file="Actions/Data.lua"/>
 	<Script file="Actions/Cooldowns.lua"/>
@@ -93,12 +99,14 @@
 
 	<Script file="UI/NineSliceTemplates.lua"/>
 
+	<Script file="UI/ActionButtons.lua"/>
 	<Script file="UI/Animation.lua"/>
 	<Script file="UI/Castbar.lua"/>
 	<Script file="UI/ChatLink.lua"/>
+	<Script file="UI/ConditionsEditor.lua"/>
 	<Script file="UI/DataSalvager.lua"/>
-	<Script file="UI/Dropdown.lua"/>
 	<Script file="UI/ImportExport.lua"/>
+	<Include file="UI/ItemTextBookFrame.xml"/>
 	<Script file="UI/LoadSpellFrame.lua"/>
 	<Include file="UI/MainFrame/Init.xml" />
 	<Include file="UI/IconPicker.xml" />
@@ -107,9 +115,11 @@
 	<Script file="UI/Popups.lua"/>
 	<Script file="UI/Portrait.lua"/>
 	<Script file="UI/ProfileFilterMenu.lua"/>
+	<Script file="UI/SimpleHTMLEditor.lua"/>
 
 	<Include file="UI/Quickcast/Init.xml" />
 	<Include file="UI/SparkPopups/SparkPopups.xml" />
+	<Include file="UI/ItemIntegration/Init.xml" />
 
 	<Include file="UI/WelcomeUI/Init.xml" />
 
@@ -120,9 +130,13 @@
 	<Script file="UI/SpellVaultFrame.lua"/>
 	<Script file="UI/Options.lua"/>
 
+	<Include file="UI/SpellBookUI.xml"/>
+	<Script file="UI/SpellBookUI.lua"/>
+
 	<Script file="SpellCreator.lua"/>
 	<Script file="API.lua"/>
 	<Script file="Slash.lua"/>
 
 	<Script file="Integrations/OPie.lua"/>
+	<Script file="Integrations/TRP3e.lua"/>
 </Ui>

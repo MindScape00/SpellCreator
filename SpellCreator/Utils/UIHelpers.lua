@@ -1,6 +1,8 @@
 ---@class ns
 local ns = select(2, ...)
 
+local Constants = ns.Constants
+
 ---@param frame frame
 ---@return number
 local function getCursorDistanceFromFrame(frame)
@@ -17,7 +19,6 @@ end
 ---@param startAlpha integer
 ---@param endAlpha integer
 local function CustomUIFrameFadeOut(frame, timeToFade, startAlpha, endAlpha)
-	-- TODO : Move this to UIHelpers or something like that, since this is more generic and not really animation related
 	local fadeInfo = {}
 	fadeInfo.mode = "OUT"
 	fadeInfo.timeToFade = timeToFade
@@ -57,7 +58,7 @@ local function setHighlightToOffsetWithPushed(frame, x, y)
 	frame:HookScript("OnMouseUp", function(self) setTextureOffset(highlight, 0, 0) end)
 end
 
----@param button BUTTON
+---@param button BUTTON|Button
 ---@param path string
 ---@param useAtlas? boolean
 local function setupCoherentButtonTextures(button, path, useAtlas)
@@ -120,6 +121,23 @@ local function CreateTextureMarkupWithColor(filePath, fileWidth, fileHeight, wid
 	);
 end
 
+local function CreateSimpleTextureMarkup(filePath, height, width)
+	local stringToUse = "|T%s:%d|t"
+	if not height then
+		height = 0
+	end
+
+	if width then
+		stringToUse = "|T%s:%d:%d|t"
+	end
+
+	return stringToUse:format(filePath, height, width)
+end
+
+local function getAddonAssetFilePath(fileName)
+	return Constants.ASSETS_PATH .. "/" .. fileName
+end
+
 ---@class Utils_UIHelpers
 ns.Utils.UIHelpers = {
 	getCursorDistanceFromFrame = getCursorDistanceFromFrame,
@@ -128,5 +146,9 @@ ns.Utils.UIHelpers = {
 	setTextureOffset = setTextureOffset,
 	setHighlightToOffsetWithPushed = setHighlightToOffsetWithPushed,
 	setupCoherentButtonTextures = setupCoherentButtonTextures,
+	
 	CreateTextureMarkupWithColor = CreateTextureMarkupWithColor,
+	CreateSimpleTextureMarkup = CreateSimpleTextureMarkup,
+
+	getAddonAssetFilePath = getAddonAssetFilePath,
 }

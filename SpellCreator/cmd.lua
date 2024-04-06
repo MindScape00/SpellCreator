@@ -18,7 +18,7 @@ local function cmdWithDotCheck(text)
 	if text:sub(1, 1) == "." then cmdNoDot(text) else cmd(text) end
 end
 
-local dummy = function() end
+local dummy = function(...) return ... end
 
 local function runMacroText(command)
 	local result
@@ -40,7 +40,17 @@ local function runMacroText(command)
 			local ran, ret1 = xpcall(ChatEdit_SendText, dummy, MacroEditBox)
 			result = ret1
 			if not ran then
-				eprint("This command failed: " .. command)
+				if ret1:match("Invalid escape code") then
+					-- try again with escape codes escaped:
+					MacroEditBox:SetText(command:gsub("|", "||"))
+					ran, ret1 = xpcall(ChatEdit_SendText, dummy, MacroEditBox)
+					result = ret1
+					if not ran then
+						eprint("Error in Chat Message (Invalid Escape Code): Double check if you used a  |  in the message - if you meant this for a nameless emote or chat, use a double bar ('||||') instead!", "Error: " .. ret1)
+					end
+				else
+					eprint("This command failed: " .. command, ret1)
+				end
 			end
 		end
 	else

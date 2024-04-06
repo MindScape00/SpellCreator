@@ -1,4 +1,3 @@
-
 ---@meta
 
 ---@class VaultSpell
@@ -11,3 +10,5 @@
 ---@field castbar (0 | 1 | 2)?
 ---@field actions VaultSpellAction[]
 ---@field author string
+---@field items table
+---@field conditions ConditionDataTable

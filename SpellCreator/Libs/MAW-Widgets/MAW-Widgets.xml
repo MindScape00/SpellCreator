@@ -2,4 +2,8 @@
 ..\FrameXML\UI.xsd">
 	<Script file="Widgets\MAW-Slider.lua"/>
 	<Script file="Widgets\MAW-Editbox.lua"/>
+	<Script file="Widgets\MAW-Newline.lua"/>
+	<Script file="Widgets\MAW-Icon.lua"/>
+
+	<Script file="Widgets\MAW-Layout-OptionalFlow.lua"/>
 </Ui>

@@ -1,4 +1,3 @@
-
 ---@meta
 
 ---@class VaultSpellAction
@@ -7,3 +6,4 @@
 ---@field delay number
 ---@field revertDelay? number
 ---@field selfOnly boolean
+---@field conditions ConditionDataTable

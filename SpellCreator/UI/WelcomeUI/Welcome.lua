@@ -8,13 +8,24 @@ local Constants = ns.Constants
 local addonVersion, addonAuthor, addonTitle = GetAddOnMetadata(addonName, "Version"), GetAddOnMetadata(addonName, "Author"), GetAddOnMetadata(addonName, "Title")
 local addonCredits = GetAddOnMetadata(addonName, "X-Credits")
 
-
 local Libs = ns.Libs
 local AC = Libs.AceConfig
 local ACD = Libs.AceConfigDialog
+local AceGUI = Libs.AceGUI
+
+local COLORS = Constants.ADDON_COLORS
+
+local Shared = ns.UI.WelcomeUI.Shared
+
+-- -- -- -- -- -- -- -- -- -- -- --
+-- Helper Functions
+-- -- -- -- -- -- -- -- -- -- -- --
 
 local orderGroup = 0
 local orderItem = 0
+---Auto incrementing order number. Use isGroup true to increment the orderGroup and reset the orderItem counter. Only use on top level groups (ignoring root).
+---@param isGroup boolean?
+---@return integer
 local function autoOrder(isGroup)
 	if isGroup then
 		orderGroup = orderGroup + 1
@@ -68,27 +79,18 @@ local function credLine(text)
 	return line
 end
 
-local COLORS = Constants.ADDON_COLORS
+-- -- -- -- -- -- -- -- -- -- -- --
+-- Menu Data / Options Table
+-- -- -- -- -- -- -- -- -- -- -- --
+
+local width = Shared.width
+local height = Shared.height
 
 local WhatIs__ = [[
-Arcanum is a UI for creating timed macros, similar to using /in, but with a UI & extra features, such as easy sharing, Gossip integration, Pop-up Buttons, and more!
+Arcanum is a UI for creating timed sequences, similar to making macros using /in, but with a UI & extra features, such as easy sharing, Gossip & Item integration, Pop-up Buttons, and  way, way more!
 
-Arcanum allows you to easily create timed-sequences of 'actions'. Actions can range from casting default spells, performing animations/emotes, and even spawning game objects - technically speaking, there's almost no limit to what actions can be!
+Arcanum allows you to easily create timed-sequences of 'actions'. Actions can range from casting default spells, performing animations/emotes, and even spawning game objects - technically speaking, there's almost no limit to what actions can be - if an AddOn, Script, or Command can do it, it can be put into an ArcSpell!
 ]]
-
-local shiftSprintDesc = [[
-- Ditch the macros & stop typing '.mod speed'! Tap or Hold SHIFT to start sprinting!
-- Customize your Sprint to anything from a simple run, to an ominous hover, complete with Aura & Arcanum functionality.
-- Set your speeds for ground, flight and swim separately, & switch between hold and toggle options!
-
-]] .. COLORS.UPDATED:WrapTextInColorCode("TL;DR: Tap or Hold SHIFT to start sprinting! Use '/kn' to configure Sprint Speeds & Spells!")
-
-local flightDesc = [[
-- Double or triple Jump to enable/disable fly mode, also complete with Aura/Arcanum functionality!
-- Complete with auto-land to disable flying, you can customize how long it takes before auto-land takes effect - or disable it entirely!
-- Customize how fast your double/triple jumps will need to connect to enable/disable flight.
-
-]] .. COLORS.UPDATED:WrapTextInColorCode("TL;DR: Double/Triple Jump to Fly, Double/Triple Jump again to land! Use '/kn' to configure Flight Toggle customization options & Spells!")
 
 local welcomeMenu = {
 	name = "Welcome to Arcanum!" .. " (v" .. addonVersion .. ")",
@@ -125,8 +127,9 @@ local welcomeMenu = {
 							name = "Epsilon Forums",
 							dialogControl = "SFX-Info-URL",
 							order = autoOrder(),
-							get = function() return "https://forums.epsilonwow.net/topic/3413-addon-arcanum-spell-forge-user-guide/" end,
-							set = function() end,
+							arg = "https://forums.epsilonwow.net/topic/3413-addon-arcanum-spell-forge-user-guide/",
+							get = getArgFunc,
+							set = setNullFunc,
 						},
 						spacer = spacer(),
 						buildersHaven = {
@@ -134,8 +137,18 @@ local welcomeMenu = {
 							name = "Builder's Haven",
 							dialogControl = "SFX-Info-URL",
 							order = autoOrder(),
-							get = function() return "https://discord.com/channels/718813797611208788/1031832007031930880/1032773498600439898" end,
-							set = function() end,
+							arg = "https://discord.com/channels/718813797611208788/1031832007031930880/1032773498600439898",
+							get = getArgFunc,
+							set = setNullFunc,
+						},
+						API_Wiki = {
+							type = "input",
+							name = "Arcanum Wiki",
+							dialogControl = "SFX-Info-URL",
+							order = autoOrder(),
+							arg = "https://github.com/MindScape00/SpellCreator/wiki",
+							get = getArgFunc,
+							set = setNullFunc,
 						},
 					},
 				},
@@ -170,10 +183,35 @@ local welcomeMenu = {
 	},
 }
 AC:RegisterOptionsTable(addonName .. "-Welcome", welcomeMenu)
-ACD:SetDefaultSize(addonName .. "-Welcome", 600, 620)
+ACD:SetDefaultSize(addonName .. "-Welcome", width, height)
+
+-- -- -- -- -- -- -- -- -- -- -- --
+-- Control Functions
+-- -- -- -- -- -- -- -- -- -- -- --
 
 local function showWelcomeScreen(showChangelog)
-	ACD:Open(addonName .. "-Welcome")
+	local self = ACD
+	local f
+	local appName = addonName .. "-Welcome"
+	if not self.OpenFrames[appName] then
+		f = AceGUI:Create("Frame")
+		self.OpenFrames[appName] = f
+	else
+		f = self.OpenFrames[appName]
+	end
+	f:ReleaseChildren()
+	f:SetCallback("OnClose", function()
+		local appName = f:GetUserData("appName")
+		ACD.OpenFrames[appName] = nil
+		AceGUI:Release(f)
+	end)
+	f:SetUserData("appName", appName)
+
+	f:SetWidth(width)
+	f:SetHeight(height)
+	f:EnableResize(false)
+
+	ACD:Open(addonName .. "-Welcome", f)
 	if showChangelog then
 		ACD:SelectGroup(addonName .. "-Welcome", "changelogTab")
 	end

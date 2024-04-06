@@ -72,22 +72,12 @@ local ipairs = ipairs
 
 local AceComm = ns.Libs.AceComm
 
--- local utils = Epsilon.utils
--- local messages = utils.messages
--- local server = utils.server
--- local tabs = utils.tabs
-
--- local main = Epsilon.main
-
 local C_Epsilon = C_Epsilon
 
 -------------------------------------------------------------------------------
 -- Simple Chat & Helper Functions
 -------------------------------------------------------------------------------
 
---[[ local function sendChat(text)
-  SendChatMessage(text, "SAY");
-end ]]
 -- Frame Listeners
 local phaseAddonDataListener = CreateFrame("Frame")
 local phaseAddonDataListener2 = CreateFrame("Frame")
@@ -191,6 +181,42 @@ local function loadSpell(spellToLoad)
 	Attic.markEditorSaved()
 end
 
+---Reset & Clears the Editor UI back to blank
+---@param resetButton Button direct reference to the editor button in the basement
+local function resetEditorUI(resetButton)
+	-- 2 types of reset: Delete all the Rows, and load an empty spell to effectively reset the UI. We're doing both, the delete rows for visual, load for the actual reset
+	local emptySpell = {
+		["fullName"] = "",
+		["commID"] = "",
+		["description"] = "",
+		["actions"] = { { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, },
+			{ ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, },
+	}
+
+	resetButton:Disable()
+
+	UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay, 0.1, 0.05, 0.8)
+	Animation.setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
+	local numActiveRows = SpellRow.getNumActiveRows()
+	local resetTime = min(numActiveRows / 40, 0.5)
+	local resetPerRowTime = resetTime / numActiveRows
+	local deleteRowIter = 0
+	for i = numActiveRows, 1, -1 do
+		deleteRowIter = deleteRowIter + 1
+		C_Timer.After(resetPerRowTime * deleteRowIter, function() SpellRow.removeRow(i) end)
+	end
+
+	C_Timer.After(resetTime, function()
+		C_Timer.After(0, function()
+			Attic.markEditorSaved()
+			loadSpell(emptySpell)
+			Attic.setAuthorMe()
+			Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
+			resetButton:Enable();
+		end)
+	end)
+end
+
 Basement.init(SCForgeMainFrame, {
 	getForgeActions = function()
 		local actionsToCommit = {}
@@ -214,39 +240,7 @@ Basement.init(SCForgeMainFrame, {
 	toggleVault = function()
 		SCForgeMainFrame.LoadSpellFrame:SetShown(not SCForgeMainFrame.LoadSpellFrame:IsShown())
 	end,
-	resetUI = function(resetButton)
-		-- 2 types of reset: Delete all the Rows, and load an empty spell to effectively reset the UI. We're doing both, the delete rows for visual, load for the actual reset
-		local emptySpell = {
-			["fullName"] = "",
-			["commID"] = "",
-			["description"] = "",
-			["actions"] = { { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, { ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, },
-				{ ["vars"] = "", ["actionType"] = "reset", ["delay"] = "", ["selfOnly"] = false, }, },
-		}
-
-		resetButton:Disable()
-
-		UIFrameFadeIn(SCForgeMainFrame.Inset.Bg.Overlay, 0.1, 0.05, 0.8)
-		Animation.setFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 3, nil, nil, 0.05, 0.8)
-		local numActiveRows = SpellRow.getNumActiveRows()
-		local resetTime = min(numActiveRows / 40, 0.5)
-		local resetPerRowTime = resetTime / numActiveRows
-		local deleteRowIter = 0
-		for i = numActiveRows, 1, -1 do
-			deleteRowIter = deleteRowIter + 1
-			C_Timer.After(resetPerRowTime * deleteRowIter, function() SpellRow.removeRow(i) end)
-		end
-
-		C_Timer.After(resetTime, function()
-			C_Timer.After(0, function()
-				Attic.markEditorSaved()
-				loadSpell(emptySpell)
-				Attic.setAuthorMe()
-				Animation.stopFrameFlicker(SCForgeMainFrame.Inset.Bg.Overlay, 0.05, 0.25)
-				resetButton:Enable();
-			end)
-		end)
-	end,
+	resetUI = resetEditorUI,
 })
 
 local phaseVaultKeys = {}
@@ -324,6 +318,9 @@ local tempVaultSpellStrings = {}
 ---@param keys table
 ---@param callback function?
 local function getPhaseVaultDataFromKeys(keys, callback)
+	phaseVaultLoadingCount = 0
+	phaseVaultLoadingExpected = #keys
+
 	phaseAddonDataListener2:RegisterEvent("CHAT_MSG_ADDON")
 	phaseAddonDataListener2:SetScript("OnEvent", function(self, event, prefix, text, channel, sender, ...)
 		if event == "CHAT_MSG_ADDON" and messageTicketQueue[prefix] and text then
@@ -382,7 +379,7 @@ local function getPhaseVaultDataFromKeys(keys, callback)
 				tempVaultSpellTable[expectedCommID] = interAction
 			end
 			phaseVaultLoadingCount = phaseVaultLoadingCount + 1
-			--print("phaseVaultLoadingCount: ",phaseVaultLoadingCount," | phaseVaultLoadingExpected: ",phaseVaultLoadingExpected)
+			dprint("phaseVaultLoadingCount: " .. phaseVaultLoadingCount .. " | phaseVaultLoadingExpected: " .. phaseVaultLoadingExpected)
 			if phaseVaultLoadingCount == phaseVaultLoadingExpected then
 				dprint("All Spells should be loaded, adding them to the vault..")
 				for k, v in ipairs(keys) do
@@ -393,6 +390,9 @@ local function getPhaseVaultDataFromKeys(keys, callback)
 				phaseAddonDataListener2:UnregisterEvent("CHAT_MSG_ADDON")
 				phaseVault.isSavingOrLoadingAddonData = false
 				phaseVault.isLoaded = true
+
+				ns.UI.ItemIntegration.scripts.updateCache(true)
+
 				if callback then callback(true); end
 			end
 		end
@@ -500,12 +500,30 @@ local function savePhaseVaultKeys(keys)
 	end
 end
 
+local function cancelCurrentVaultLoad()
+	-- cancel pending loading stuff
+	cancelPendingPhaseVaultLoadingTimers()
+	table.wipe(phaseVaultCommIDQueue)
+	table.wipe(messageTicketQueue)
+
+	-- clear any vault spells
+	Vault.phase.clearSpells()
+
+	-- reset all the temp tables
+	tempPhaseVaultKeyStrings = {}
+	tempPhaseVaultKeyStringsIter = 0
+	tempVaultSpellTable = {}
+	tempVaultSpellStrings = {}
+
+	-- clear loading status
+	phaseVault.isSavingOrLoadingAddonData = false
+end
+
 ---@param callback function?
 ---@param iter integer?
 local function getSpellForgePhaseVault(callback, iter)
 	if not iter then
-		cancelPendingPhaseVaultLoadingTimers()
-		Vault.phase.clearSpells()
+		cancelCurrentVaultLoad()
 		dprint("Phase Spell Vault Loading...")
 	end
 
@@ -520,8 +538,6 @@ local function getSpellForgePhaseVault(callback, iter)
 		dprint("Phase spell keys: ")
 		Debug.ddump(phaseVaultKeys)
 		Vault.phase.clearSpells()
-		phaseVaultLoadingCount = 0
-		phaseVaultLoadingExpected = #phaseVaultKeys
 		table.wipe(messageTicketQueue)
 		getPhaseVaultDataFromKeys(phaseVaultKeys, callback)
 	end)
@@ -716,7 +732,7 @@ end ]]
 
 local loadRowSpacing = 5
 
----@param fromPhaseDataLoaded boolean
+---@param fromPhaseDataLoaded boolean?
 local function updateSpellLoadRows(fromPhaseDataLoaded)
 	spellLoadRows = SCForgeMainFrame.LoadSpellFrame.Rows
 	for i = 1, #spellLoadRows do
@@ -823,29 +839,29 @@ local function updateSpellLoadRows(fromPhaseDataLoaded)
 		end
 	end
 	MainFrame.updateFrameChildScales(SCForgeMainFrame)
+
+	ns.UI.SpellBookUI.updateArcSpellBook()
 end
 
 ---@param overwriteBypass boolean? did we want to overwrite a spell if it exists already
 ---@param fromPhaseVaultID integer? the index of the vault spell to save, if we are saving from the phase vault
 ---@param manualData VaultSpell? manual data passed in to save, instead of pulling from the phaseVault or from the forge UI
 ---@param sendLearnedMessage boolean? if we should send a fun 'You have learned a new ArcSpell' message
-saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData, sendLearnedMessage)
+---@param callback function? optional callback function if it succeeds
+saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData, sendLearnedMessage, callback)
 	local wasOverwritten = false
 	local newSpellData = {}
 	if fromPhaseVaultID then
 		local phaseSpell = Vault.phase.getSpellByIndex(fromPhaseVaultID)
-		newSpellData.commID = phaseSpell.commID
-		newSpellData.fullName = phaseSpell.fullName
-		newSpellData.description = phaseSpell.description or nil
-		newSpellData.actions = phaseSpell.actions
-		newSpellData.castbar = phaseSpell.castbar
-		newSpellData.icon = phaseSpell.icon
-		newSpellData.author = phaseSpell.author
-		newSpellData.cooldown = phaseSpell.cooldown
+		-- this was setup originally to manually copy each VaultSpell field, except profile (to avoid copying profile). This is stupid, let's just nil profile every time instead..
+
+		newSpellData = CopyTable(phaseSpell)
+		newSpellData.profile = nil -- hard set profile to nil; will be set later by ensureProfile
+
 		dprint("Saving Spell from Phase Vault, fake commID: " .. fromPhaseVaultID .. ", real commID: " .. newSpellData.commID)
 	elseif manualData then
 		newSpellData = manualData
-		Debug.dump(manualData)
+		Debug.ddump(manualData)
 		dprint("Saving Manual Spell Data (Import): " .. newSpellData.commID)
 	else
 		newSpellData = Attic.getInfo()
@@ -854,6 +870,7 @@ saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData, sendLearnedM
 	end
 
 	ProfileFilter.ensureProfile(newSpellData)
+	ProfileFilter.toggleFilter(newSpellData.profile, true)
 
 	if isNotDefined(newSpellData.fullName) or isNotDefined(newSpellData.commID) then
 		cprint("Spell Name and/or Spell Command cannot be blank.")
@@ -865,7 +882,7 @@ saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData, sendLearnedM
 		if overwriteBypass then
 			wasOverwritten = true
 		else
-			Popups.showPersonalVaultOverwritePopup(newSpellData, existingSpell, fromPhaseVaultID, manualData, saveSpell, sendLearnedMessage)
+			Popups.showPersonalVaultOverwritePopup(newSpellData, existingSpell, fromPhaseVaultID, manualData, saveSpell, sendLearnedMessage, callback)
 			return;
 		end
 	end
@@ -900,17 +917,25 @@ saveSpell = function(overwriteBypass, fromPhaseVaultID, manualData, sendLearnedM
 		end
 	else
 		cprint("Spell has no valid actions and was not saved. Please double check your actions & try again. You can turn on debug mode to see more information when trying to save (/sfdebug).")
+		return false
 	end
 	if not fromPhaseVaultID then
 		updateSpellLoadRows()
 	end
+	if manualData and newSpellData.items and next(newSpellData.items) then
+		ns.UI.ItemIntegration.manageUI.checkIfNeedItems(newSpellData)
+	end
+
+	if callback then callback() end
 	return true
 end
 
 ---@param index integer
-local function downloadToPersonal(index, vocal)
+---@param vocal boolean?
+---@param callback function?
+local function downloadToPersonal(index, vocal, callback)
 	Debug.ddump(Vault.phase.getSpellByIndex(index)) -- Dump the table of the phase vault spell for debug
-	saveSpell(nil, index, nil, vocal)
+	saveSpell(nil, index, nil, vocal, callback)
 end
 
 local function updateRows()
@@ -1124,6 +1149,13 @@ local aceCommReceivedHandlers = {
 		local commID, locData = strsplit(string.char(31), sparkCDNameOverride, 2)
 		ns.Actions.Cooldowns.addSparkCooldown(sparkCDNameOverride, cdTime, commID, phaseID)
 	end,
+	[addonMsgPrefix .. "_PSUP"] = function(prefix, message, channel, sender)
+		local curPhaseID = C_Epsilon.GetPhaseId()
+		local phaseID, commID = strsplit(string.char(31), message, 2)
+		if phaseID == curPhaseID then
+			getPhaseVaultDataFromKeys({ commID }, function() updateSpellLoadRows(true) end)
+		end
+	end,
 }
 
 local function aceCommInit()
@@ -1165,6 +1197,7 @@ local function phaseChangeHandler()
 	-- // Reset our PhaseVault loading since we changed phase and should no longer be tracking that we are loading - if they were loading, it will likely fail anyways.
 	phaseVault.isSavingOrLoadingAddonData = false
 	phaseVault.isLoaded = false
+	cancelCurrentVaultLoad() -- force this immediately so we cancel any currently loading spells.
 
 	-- // Reset phase DM tracker - TODO : this should move to the Epsilon AddOn later..
 	C_Epsilon.IsDM = false
@@ -1191,8 +1224,10 @@ local function addonLoadedHandler()
 	LoadMinimapPosition();
 	aceCommInit()
 	Hotkeys.updateHotkeys()
-	SparkPopups.SparkPopups.setSparkKeybind(SpellCreatorMasterTable.quickcast.keybind)
+	--SparkPopups.SparkPopups.setSparkKeybind(SpellCreatorMasterTable.Options.sparkKeybind) -- handled by delayed one now
 	Quickcast.init()
+	ns.UI.ItemIntegration.scripts.updateCache(true)
+	C_Timer.After(5, ns.UI.ActionButton.loadActionButtonsFromRegister)
 
 	hooksecurefunc("SetUIVisibility", function(shown)
 		if shown then
@@ -1204,8 +1239,9 @@ local function addonLoadedHandler()
 		end
 	end)
 
-	local channelType, channelName = JoinChannelByName("scforge_comm")
-	ns.Constants.ADDON_CHANNEL = GetChannelName("scforge_comm")
+	local broadcastChannelName = ns.Constants.broadcastChannelName
+	local channelType, channelName = JoinChannelByName(broadcastChannelName)
+	ns.Constants.ADDON_CHANNEL = GetChannelName(broadcastChannelName)
 
 	--Quickly Show / Hide the Frame on Start-Up to initialize everything for key bindings & loading
 	C_Timer.After(1, function()
@@ -1259,6 +1295,10 @@ local function addonLoadedHandler()
 	end
 end
 
+local function addonLoadedHandler_Delayed()
+	SavedVariables.delayed_init()
+end
+
 ------------------------------------
 -- // Event Handler Functions
 ------------------------------------
@@ -1282,11 +1322,15 @@ local SC_Event_Listener = CreateFrame("frame");
 local scEventHandlers = {
 	ADDON_ACTION_BLOCKED = addonActionBlockedHandler,
 	SCENARIO_UPDATE = phaseChangeHandler,
-	PLAYER_ENTERING_WORLD = function()
+	PLAYER_ENTERING_WORLD = function(isInitialLogin, isReloadingUi)
 		C_Timer.After(0, function()
 			phaseChangeHandler()
 			dprint("PLAYER_ENTERING_WORLD: " .. C_Epsilon.GetPhaseId())
 		end)
+		if isInitialLogin then
+			Hotkeys.updateHotkeys()
+			--SparkPopups.SparkPopups.setSparkKeybind(SpellCreatorMasterTable.Options.sparkKeybind) -- handled by delayed one now
+		end
 	end,
 	ADDON_LOADED = function(nameVar)
 		if nameVar == addonName then
@@ -1310,6 +1354,10 @@ local scEventHandlers = {
 	GOSSIP_CLOSED = function()
 		Gossip.onGossipClosed()
 		updateGossipVaultButtons(false)
+	end,
+	VARIABLES_LOADED = function()
+		dprint("VARIABLES_LOADED, initializing delayed addonLoadedHandler")
+		C_Timer.After(0.5, addonLoadedHandler_Delayed)  -- Must delay to next frame, but we do 0.5 to be safe & ensure Blizzard's shit is actually loaded.
 	end,
 	--[[ -- Unused for now. Note, this may only be reliable if the phase has any hotfix data it needs to pull when you enter it?
 	INITIAL_HOTFIXES_APPLIED = function()
@@ -1468,6 +1516,8 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 			ns.UI.DataSalvager.showSalvagerMenu()
 		elseif command == "resetCooldowns" then
 			ns.Actions.Cooldowns.clearOldCooldowns(true)
+		elseif command == "refreshActionBars" then
+			ns.UI.ActionButton.loadActionButtonsFromRegister()
 		end
 	else
 		cprint("DEBUG LIST")
@@ -1486,6 +1536,7 @@ function SlashCmdList.SCFORGEDEBUG(msg, editbox) -- 4.
 		print("... resetPhaseSpellKeys: reset your phase vault to empty. Technically the spell data remains, and can be exported to your WTF file by using getPhaseSpellData.")
 		print("... removePhaseKey: Removes a single phase key from the Phase Vault. The data for the spell remains, and can be retrieved using getPhaseSpellData also.")
 		print("... dataSalvager: Show a large edit box with Data Salvaging Tools to convert exported Arc data to readable format.")
+		print("... refreshActionBars: Reload Action Bars from the saved Arcanum Action Bar cache. This should only be used if your Action Bars did not load the Arcanum spells onto them correctly.")
 	end
 end
 
@@ -1495,15 +1546,6 @@ function SlashCmdList.SCFORGETEST(msg, editbox) -- 4.
 	if testComVar and testComVar < #Models.minimapModels then testComVar = testComVar + 1 else testComVar = 1 end
 	Models.modelFrameSetModel(SCForgeMainFrame.portrait.Model, testComVar, Models.minimapModels)
 	print(testComVar)
-
-	--[[
-	if msg ~= "" then
-		Models.modelFrameSetModel(minimapButton.Model, msg, Models.minimapModels)
-	else
-		initRuneIcon()
-		setRuneTex(runeIconOverlay)
-	end
---]]
 end
 
 local function getSavedSpellFromVaultTable()
@@ -1513,8 +1555,18 @@ end
 ---@class MainFuncs
 ns.MainFuncs = {
 	updateSpellLoadRows = updateSpellLoadRows,
-	saveSpellToPhaseVault = saveSpellToPhaseVault,          -- Move to SpellStrorage when done
+	saveSpellToPhaseVault = saveSpellToPhaseVault,          -- Move to SpellStorage when done
 	getSavedSpellFromVaultTable = getSavedSpellFromVaultTable, -- I think this would move to spell storage later?
 	deleteSpellFromPhaseVault = deleteSpellFromPhaseVault,  -- Move to Spell Storage? Vaults?
 	downloadToPersonal = downloadToPersonal,
+
+	getSpellForgePhaseVault = getSpellForgePhaseVault,
+
+	uploadSpellDataToPhaseData = uploadSpellDataToPhaseData,
+	getPhaseVaultDataFromKeys = getPhaseVaultDataFromKeys,
+
+	saveSpell = saveSpell,
+
+	resetEditorUI = resetEditorUI,
+	scforge_showhide = scforge_showhide,
 }

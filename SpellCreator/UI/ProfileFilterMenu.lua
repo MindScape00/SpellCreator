@@ -69,7 +69,7 @@ local function genFilterItem(profileName)
 		get = function()
 			return ProfileFilter.isShown(profileName)
 		end,
-		set = function(value)
+		set = function(self, value)
 			ProfileFilter.toggleFilter(profileName, value)
 			onProfileFilterChanged()
 		end,

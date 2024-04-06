@@ -6,6 +6,7 @@ local Logging = ns.Logging
 local Serializer = ns.Serializer
 local Constants = ns.Constants
 local Vault = ns.Vault
+local Tooltip = ns.Utils.Tooltip
 
 local AceComm = Libs.AceComm
 local cprint, dprint, eprint = Logging.cprint, Logging.dprint, Logging.eprint
@@ -67,6 +68,7 @@ end
 local function saveReceivedSpell(spell, charName)
 	Vault.personal.saveSpell(spell)
 	cprint("Saved Spell from " .. charName .. ": " .. spell.commID)
+	ns.UI.ItemIntegration.manageUI.checkIfNeedItems(spell)
 end
 
 ---@param spell VaultSpell

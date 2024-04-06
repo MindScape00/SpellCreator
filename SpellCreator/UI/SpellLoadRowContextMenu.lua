@@ -2,6 +2,7 @@
 local ns = select(2, ...)
 
 local Constants = ns.Constants
+local Cmd = ns.Cmd
 local Execute = ns.Actions.Execute
 local Gossip = ns.Gossip
 local SavedVariables = ns.SavedVariables
@@ -20,6 +21,7 @@ local ADDON_COLORS = ns.Constants.ADDON_COLORS
 local VAULT_TYPE = Constants.VAULT_TYPE
 local PLAYER_NAME = Constants.CHARACTER_NAME --[[@as string]]
 
+local cmd = Cmd.cmd
 local executeSpell = Execute.executeSpell
 local getCurrentVault = LoadSpellFrame.getCurrentVault
 local isOfficerPlus = Permissions.isOfficerPlus
@@ -68,6 +70,18 @@ local function getProfileNames()
 end
 
 ---@param spell VaultSpell
+---@param isPhase boolean?
+---@return DropdownItem
+local function createAssignItemMenu(spell, isPhase)
+	local hasSpells, items = ns.UI.ItemIntegration.manageUI.genItemMenuSubMenu(spell, isPhase)
+	local shouldDisable = isPhase and not Permissions.isMemberPlus()
+	local text = hasSpells and "Manage Items" or (shouldDisable and "No Items" or "Assign Items")
+	return Dropdown.submenu(text, items, {
+		disabled = not (hasSpells or not shouldDisable)
+	})
+end
+
+---@param spell VaultSpell
 ---@return table<string, AceConfigOptionsTable>
 local function getPhaseSpellArgs(spell)
 	return {
@@ -84,6 +98,7 @@ local function getPhaseSpellArgs(spell)
 				loadSpell(spell)
 			end
 		),
+		Dropdown.divider(),
 		Dropdown.execute(
 			function()
 				return Gossip.isLoaded() and "Add to Gossip" or "(Open a Gossip Menu)"
@@ -104,13 +119,15 @@ local function getPhaseSpellArgs(spell)
 			end,
 			{
 				tooltipTitle = "Create a Spark!",
-				tooltipText = "Sparks are Pop-up ArcSpell Icons that trigger when a player gets within range of the trigger location. Players can click the Spark's Icon to then cast the spell directly.\n\r"
+				tooltipText =
+					"Sparks are Pop-up ArcSpell Icons that trigger when a player gets within range of the trigger location. Players can click the Spark's Icon to then cast the spell directly.\n\r"
 					.. Tooltip.genTooltipText("example", "Set a Spark for a dark ritual ArcSpell at the center of a ritual circle!"),
 				hidden = function()
 					return not isOfficerPlus()
 				end,
 			}
 		),
+		createAssignItemMenu(spell, true),
 	}
 end
 
@@ -132,7 +149,7 @@ local function createProfileMenu(spell)
 		tooltipText = "Assign this to a new profile.",
 		placeholder = "New Profile Name",
 		get = function() end,
-		set = function(text)
+		set = function(self, text)
 			setSpellProfile(spell.commID, text)
 		end,
 	}))
@@ -158,7 +175,7 @@ local function genQCBookItem(spell, book)
 		tinsert(items, Dropdown.checkbox(title,
 			{
 				get = function() return doesPageContainSpell(spell, page) end,
-				set = function(value)
+				set = function(self, value)
 					local spells = page.spells
 					if value then
 						tinsert(spells, spell.commID)
@@ -241,21 +258,10 @@ local function getPersonalSpellItems(spell)
 		Dropdown.divider(),
 
 		createAddQCMenu(spell),
-		--[[
-		Dropdown.execute(
-			inQuickcast and "Remove from QuickCast" or "Add to QuickCast",
-			function()
-				if inQuickcast then
-					tDeleteItem(SpellCreatorMasterTable.quickCastSpells, spell.commID)
-				else
-					tinsert(SpellCreatorMasterTable.quickCastSpells, spell.commID);
-				end
-			end
-		),
-		--]]
+		createAssignItemMenu(spell),
 
 		Dropdown.execute(
-			"Link Hotkey",
+			"Assign Hotkey",
 			function()
 				Popups.showLinkHotkeyDialog(spell.commID)
 			end

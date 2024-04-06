@@ -8,7 +8,10 @@ local Constants = ns.Constants
 local Permissions = ns.Permissions
 local Vault = ns.Vault
 local DataUtils = ns.Utils.Data
+local StringSubs = ns.Utils.StringSubs
 local Cooldowns = ns.Actions.Cooldowns
+
+local parseStringToArgs = ns.Utils.Data.parseStringToArgs
 
 local actionTypeData = ns.Actions.Data.actionTypeData
 local cmd = ns.Cmd.cmd
@@ -130,12 +133,38 @@ local function cancelSpellByCommID(commID)
 	end
 end
 
+local Conditions = ns.Actions.ConditionsData
+
+---@param conditions ConditionDataTable
+local function checkConditions(conditions)
+	if not conditions then return true end
+	if conditions and #conditions == 0 then return true end -- No Conditions, pass the check!
+
+	local continueGroup
+	for _, groupData in ipairs(conditions) do
+		local continueRow = true
+		for _, rowData in ipairs(groupData) do
+			local conditionData = Conditions.getByKey(rowData.Type)
+			local func = conditionData.script
+			local condInputTable, numInputs = parseStringToArgs(rowData.Input)
+			continueRow = func(unpack(condInputTable, 1, numInputs))
+			if rowData.IsNot then continueRow = not (continueRow) end
+			if not continueRow then break end -- row failed, break the current group
+		end
+		if continueRow then return true end -- group passed, return true
+	end
+	return false                      -- All groups failed, return false
+end
+
 ---@param varTable any
 ---@param actionData any
 ---@param selfOnly any
 ---@param isRevert any
+---@param conditions ConditionDataTable
 ---@param runningActionID any|table Could be the Timer Reference..
-local function executeAction(varTable, actionData, selfOnly, isRevert, runningActionID)
+local function executeAction(varTable, actionData, selfOnly, isRevert, conditions, runningActionID)
+	if not checkConditions(conditions) then return dprint(nil, "Execute Action Failed Conditions Check, Action Skipped!") end
+
 	local comTarget = actionData.comTarget
 	for i = 1, #varTable do
 		local v = varTable[i]
@@ -186,16 +215,69 @@ local function createRevertTimer(revertDelay, revertFunction)
 	end
 end
 
+local function checkReqString(text)
+	if not text then return true end -- No string is technically nil which is technically.. true? or .. not true? IDFK.
+	local textTable = strsplittable(".", text)
+	local lastVar = true
+	for i = 1, #textTable do
+		local str = textTable[i]
+		if i == 1 then
+			lastVar = _G[str]
+		else
+			lastVar = lastVar[str]
+		end
+		if not lastVar then return false end
+	end
+
+	if lastVar then return true end
+end
+
+---@param actionData FunctionActionTypeData|ServerActionTypeData
+---@param doNotWarn boolean Disable the eprint warning. So that the function is usable between both passive checks and active checks.
+local function checkDepAndReq(actionData, doNotWarn)
+	if actionData.dependency and not (IsAddOnLoaded(actionData.dependency) or IsAddOnLoaded(actionData.dependency .. "-dev")) then
+		if not doNotWarn then
+			if not actionData.softDependency then
+				eprint("AddOn " .. actionData.dependency .. " required for action " .. actionData.name);
+			else
+				dprint("AddOn " .. actionData.dependency .. " required for action " .. actionData.name .. ". Soft dependency, no visible error.");
+			end
+		end
+		return false;
+	end
+	local req = actionData.requirement
+	local reqMet = true
+	if req then
+		if type(req) == "function" then
+			reqMet = req()
+		elseif type(req) == "string" then
+			reqMet = checkReqString(req)
+		end
+		if not reqMet then -- requirements not met
+			if not doNotWarn then -- give a warning
+				eprint(("Action '%s' has additional script requirements that are not met: %s"):format(actionData.name, actionData.reqError or "Seek additional help in Epsilon Discord -> #tech-support."))
+			end
+			return reqMet
+		end
+	end
+
+	-- if we get here, we had no valid dep or req
+	return true
+end
+
 ---Handle processing an action - either executing it, or creating the timer to execute on delay, as well as tracking it.
 ---@param delay number
 ---@param actionType ActionType
 ---@param revertDelay number
 ---@param selfOnly boolean
+---@param conditions ConditionDataTable
 ---@param vars any
-local function processAction(delay, actionType, revertDelay, selfOnly, vars)
+local function processAction(delay, actionType, revertDelay, selfOnly, conditions, vars)
 	if not actionType then return; end
 	local actionData = actionTypeData[actionType]
 	if revertDelay then revertDelay = tonumber(revertDelay) end
+
+	--[[ -- // Replaced with checkDepAndReq
 	if actionData.dependency and not (IsAddOnLoaded(actionData.dependency) or IsAddOnLoaded(actionData.dependency .. "-dev")) then
 		if not actionData.softDependency then
 			eprint("AddOn " .. actionData.dependency .. " required for action " .. actionData.name);
@@ -204,9 +286,15 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 		end
 		return;
 	end
+	--]]
+	if not checkDepAndReq(actionData) then return end
+
 	local varTable
 
 	if vars then
+		if actionData.convertLinks then
+			vars = ns.Utils.Data.convertLinksToIDs(vars)
+		end
 		if actionData.doNotDelimit then
 			varTable = { vars }
 		else
@@ -214,10 +302,7 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 		end
 	end
 
-	if actionType == ns.Actions.Data.ACTION_TYPE.SecureMacro then
-		-- insert Secure Macro handler here? No? Just avoid doing anything here I guess?
-		-- This should be defined onto a SecureMacro handler as soon as it is clicked, from the click action, on the actual button being clicked. I.e., "OnClick for k,v in actions do if action==secureMacro then do macro end"
-	elseif actionType == ns.Actions.Data.ACTION_TYPE.ArcStopThisSpell then -- taking over this Action for special case handling.
+	if actionType == ns.Actions.Data.ACTION_TYPE.ArcStopThisSpell then -- taking over this Action for special case handling.
 		local timer = C_Timer.NewTimer(delay, function(self)
 			if actionData.command(vars) then
 				dprint("ArcStopThisSpell triggered, true - Stopping Spell..")
@@ -229,15 +314,15 @@ local function processAction(delay, actionType, revertDelay, selfOnly, vars)
 			timer = timer,
 		}
 	elseif delay == 0 then
-		executeAction(varTable, actionData, selfOnly, nil, nil)
+		executeAction(varTable, actionData, selfOnly, nil, conditions, nil)
 		if revertDelay and revertDelay > 0 then
-			createRevertTimer(revertDelay, function(self) executeAction(varTable, actionData, selfOnly, true, self) end)
+			createRevertTimer(revertDelay, function(self) executeAction(varTable, actionData, selfOnly, true, conditions, self) end)
 		end
 	else
 		local timer = C_Timer.NewTimer(delay, function(self)
-			executeAction(varTable, actionData, selfOnly, nil, self)
+			executeAction(varTable, actionData, selfOnly, nil, conditions, self)
 			if revertDelay and revertDelay > 0 then
-				createRevertTimer(revertDelay, function(self) executeAction(varTable, actionData, selfOnly, true, self) end)
+				createRevertTimer(revertDelay, function(self) executeAction(varTable, actionData, selfOnly, true, conditions, self) end)
 			end
 		end)
 		runningActions[timer] = {
@@ -252,17 +337,37 @@ end
 ---@param bypassCheck boolean | nil
 ---@param spellName string
 ---@param spellData VaultSpell?
-local function executeSpellFinal(actionsToCommit, bypassCheck, spellName, spellData)
+---@param ... any spell inputs
+local function executeSpellFinal(actionsToCommit, bypassCheck, spellName, spellData, ...)
 	local longestDelay = 0
 
 	spellCastID = spellCastID + 1
-	for _, spell in pairs(actionsToCommit) do
-		processAction(spell.delay, spell.actionType, spell.revertDelay, spell.selfOnly, DataUtils.sanitizeNewlinesToCSV(spell.vars))
-		if spell.delay > longestDelay then
-			longestDelay = spell.delay
-		end
-		if spell.revertDelay and spell.revertDelay > longestDelay then
-			longestDelay = spell.revertDelay
+	for index, action in pairs(actionsToCommit) do
+		local vars = action.vars
+
+		if actionTypeData[action.actionType] then
+			if not actionTypeData[action.actionType].doNotSanitizeNewLines then
+				vars = DataUtils.sanitizeNewlinesToCSV(action.vars)
+			end
+			--vars = replaceInputPlaceholders(vars, ...)
+			if vars:find("@.-@") or vars:find("%%") then -- only spend the energy to parse substitutions if we actually see there might be one..
+				vars = StringSubs.parseStringForAllSubs(vars, ...)
+			end
+			processAction(action.delay, action.actionType, action.revertDelay, action.selfOnly, action.conditions, vars)
+			if action.delay > longestDelay then
+				longestDelay = action.delay
+			end
+			if action.revertDelay then
+				local fixedRevertDelay = action.revertDelay + action.delay
+				if fixedRevertDelay > longestDelay then
+					longestDelay = fixedRevertDelay
+				end
+			end
+		else
+			-- error handle that the action type didn't exist
+			local errorMessage = ("Action Error (Action #%s): Action Type does not exist. This Action may require another AddOn.\n\rAction ID: %s"):format(index,
+				ns.Utils.Tooltip.genContrastText(action.actionType))
+			ns.Logging.arcWarning(errorMessage)
 		end
 	end
 
@@ -287,7 +392,8 @@ end
 ---@param bypassCheck boolean | nil
 ---@param spellName string
 ---@param spellData VaultSpell?
-local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
+---@param ... any spell inputs
+local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData, ...)
 	if ((not bypassCheck) and (not SpellCreatorMasterTable.Options["debug"])) then
 		if not Permissions.canExecuteSpells() then
 			print("Casting Arcanum Spells in Main Phase Start Zone is Disabled. Trying to test the Main Phase Vault spells? Head somewhere other than " .. START_ZONE_NAME .. ".")
@@ -296,6 +402,15 @@ local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 	end
 
 	if spellData then
+		if spellData.conditions and #spellData.conditions > 0 then
+			if not checkConditions(spellData.conditions) then
+				PlayVocalErrorSoundID(48);
+				local cooldownMessage = Constants.ADDON_COLORS.ADDON_COLOR:WrapTextInColorCode(("You can't cast that ArcSpell (%s) right now."):format(spellData.fullName))
+				UIErrorsFrame:AddMessage(cooldownMessage, Constants.ADDON_COLORS.ADDON_COLOR:GetRGB(), 1)
+				return dprint(nil, "Execute Action Failed Conditions Check, Spell Skipped!")
+			end
+		end
+
 		local spellCooldownRemaining, spellCooldownLength = Cooldowns.isSpellOnCooldown(spellData.commID)
 		if spellCooldownRemaining then
 			local cooldownMessage = Constants.ADDON_COLORS.ADDON_COLOR:WrapTextInColorCode(("ArcSpell %s (%s) is currently on cooldown (%ss remaining)."):format(spellData.fullName, spellData
@@ -308,15 +423,16 @@ local function executeSpell(actionsToCommit, bypassCheck, spellName, spellData)
 		end
 	end
 
-	executeSpellFinal(actionsToCommit, bypassCheck, spellName, spellData);
+	executeSpellFinal(actionsToCommit, bypassCheck, spellName, spellData, ...);
+	return true
 end
 
 ---@param commID CommID
 ---@param bypassCD boolean? true to bypass triggering spell's cooldown
-local function executePhaseSpell(commID, bypassCD)
+---@param ... any spell inputs
+local function executePhaseSpell(commID, bypassCD, ...)
 	local spell = Vault.phase.findSpellByID(commID)
 	local currentPhase = C_Epsilon.GetPhaseId()
-	local currentTime = GetTime()
 	if spell then
 		local spellCooldownRemaining, spellCooldownLength = Cooldowns.isSpellOnCooldown(commID, currentPhase)
 		if spellCooldownRemaining then
@@ -324,14 +440,17 @@ local function executePhaseSpell(commID, bypassCD)
 				.commID, ns.Utils.Data.roundToNthDecimal(spellCooldownRemaining, 2)))
 			UIErrorsFrame:AddMessage(cooldownMessage, Constants.ADDON_COLORS.ADDON_COLOR:GetRGB(), 1)
 			PlayVocalErrorSoundID(12);
+			return false
 		else
-			executeSpellFinal(spell.actions, true, spell.fullName, spell);
+			executeSpellFinal(spell.actions, true, spell.fullName, spell, ...);
 			if spell.cooldown and not bypassCD then
 				addSpellCooldown(spell.commID, spell.cooldown, currentPhase)
 			end
+			return true
 		end
 	else
 		cprint("No spell with command " .. commID .. " found in the Phase Vault (or vault was not loaded). Please let a phase officer know.")
+		return false
 	end
 end
 
@@ -350,4 +469,7 @@ ns.Actions.Execute = {
 	executePhaseSpell = executePhaseSpell,
 	stopRunningActions = stopRunningActions,
 	cancelSpellByCommID = cancelSpellByCommID,
+
+	checkConditions = checkConditions,
+	checkDepAndReq = checkDepAndReq,
 }

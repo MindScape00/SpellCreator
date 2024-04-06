@@ -71,6 +71,7 @@ if enable_eTrace_on_load and not EventTraceFrame then
 			UNIT_POWER_FREQUENT = true,
 			UNIT_POWER_UPDATE = true,
 			UPDATE_MOUSEOVER_UNIT = true,
+			VARIABLES_LOADED = false,
 		}
 	end)
 	EventTraceFrame:Show()

@@ -110,7 +110,7 @@ local function spacer(order, size)
 	local item = {
 		name = " ",
 		type = "description",
-		order = order,
+		order = order or autoOrder(),
 		fontSize = size or "medium",
 	}
 	return item
@@ -120,7 +120,7 @@ local function divider(order)
 	local item = {
 		name = " ",
 		type = "header",
-		order = order,
+		order = order or autoOrder(),
 	}
 	return item
 end
@@ -157,6 +157,11 @@ local myOptionsTable = {
 			type = "group",
 			order = autoOrder(true),
 			args = {
+				optionsHeader = {
+					name = "Options",
+					type = "header",
+					order = autoOrder(),
+				},
 				enableMMButton = {
 					name = "Enable Minimap Button",
 					order = autoOrder(),
@@ -282,6 +287,7 @@ local myOptionsTable = {
 				showSparkManagerUI = {
 					name = "Spark Manager",
 					order = autoOrder(),
+					disabled = function() return not (ns.Permissions.isOfficerPlus() or SpellCreatorMasterTable.Options["debug"]) end,
 					type = "execute",
 					func = function(info)
 						ns.UI.SparkPopups.SparkManagerUI.showSparkManagerUI()
@@ -309,9 +315,9 @@ local myOptionsTable = {
 				},
 				sparkClickKeybind = {
 					type = "keybinding",
-					name = "Spark Click Keybind",
+					name = "Activate Spark Keybind",
 					desc =
-					"When set, this key can be used to click on Sparks via the keypress instead of using the mouse. This will override any other bindings on this key, until you unset it. Once unset, your original keybind will be returned.\n\rDefault: F",
+					"When set, this key can be used to activate a currently shown Spark via the keypress instead of clicking with the mouse. This will override any other bindings on this key, until you unset it. Once unset, your original keybind will be returned.\n\rDefault: F",
 					get = function() return ns.UI.SparkPopups.SparkPopups.getSparkKeybind() end,
 					set = function(info, val)
 						ns.UI.SparkPopups.SparkPopups.setSparkKeybind(val)
@@ -388,6 +394,30 @@ local myOptionsTable = {
 					arg = "debugTableInspector",
 					set = genericSet,
 					get = genericGet,
+				},
+				toolSpacer = spacer(),
+				miscToolsHeader = {
+					name = "Miscellaneous Tools",
+					type = "header",
+					order = autoOrder(),
+				},
+				refreshActionBars = {
+					name = "Refresh Action Bars",
+					order = autoOrder(),
+					desc =
+					"Refreshes your Arcanum Action Button Overrides from your saved cache.\n\rThis should only be used if your Action Bars did not load the Arcanum Spells onto them when reloading/logging in.",
+					type = "execute",
+					func = ns.UI.ActionButton.loadActionButtonsFromRegister,
+					width = 1,
+				},
+				dataSalvager = {
+					name = "Data Salvager",
+					order = autoOrder(),
+					desc =
+					"Show a large edit box with Data Salvaging Tools to convert exported Arc data to readable format.",
+					type = "execute",
+					func = ns.UI.DataSalvager.showSalvagerMenu,
+					width = 1,
 				},
 			},
 		},

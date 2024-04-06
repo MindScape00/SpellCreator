@@ -36,7 +36,7 @@ titleBar.Overlay = overlay
 local mainDelay = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 mainDelay:SetWidth(columnWidths.delay)
 mainDelay:SetJustifyH("CENTER")
-mainDelay:SetPoint("LEFT", titleBar, "LEFT", 13 + 25, 0)
+mainDelay:SetPoint("LEFT", titleBar, "LEFT", 25, 0)
 mainDelay:SetText("Delay")
 
 titleBar.MainDelay = mainDelay
@@ -72,5 +72,13 @@ revertDelay:SetPoint("LEFT", titleBar.InputEntry, "RIGHT", 25, 0)
 revertDelay:SetText("Revert")
 
 titleBar.RevertDelay = revertDelay
+
+local conditional = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+conditional:SetWidth(columnWidths.conditional)
+conditional:SetJustifyH("CENTER")
+conditional:SetPoint("LEFT", titleBar.RevertDelay, "RIGHT", 5, 0)
+conditional:SetText("If")
+
+titleBar.Conditional = conditional
 
 SCForgeMainFrame.TitleBar = titleBar

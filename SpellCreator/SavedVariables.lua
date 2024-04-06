@@ -48,8 +48,11 @@ local function isUnlockedByKeyOrTime(key, dateData)
 end
 
 ---@param key string
+---@return boolean success only false if it was already unlocked
 local function unlock(key)
+	if isUnlocked(key) then return false end
 	SpellCreatorMasterTable.Unlocks[key] = true
+	return true
 end
 
 ---@param key string
@@ -116,7 +119,7 @@ local function init()
 	end
 	--if isNotDefined(SpellCreatorMasterTable.quickcastBooks) then SpellCreatorMasterTable.quickcastBooks = {} end
 
-	if isNotDefined(SpellCreatorMasterTable.Options.sparkKeybind) then SpellCreatorMasterTable.Options.sparkKeybind = "F" end
+	--if isNotDefined(SpellCreatorMasterTable.Options.sparkKeybind) then SpellCreatorMasterTable.Options.sparkKeybind = "F" end -- Moved to Delayed Init
 	if isNotDefined(SpellCreatorMasterTable.Options["debug"]) then SpellCreatorMasterTable.Options["debug"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["locked"]) then SpellCreatorMasterTable.Options["locked"] = false end
 	if isNotDefined(SpellCreatorMasterTable.Options["mmLoc"]) then SpellCreatorMasterTable.Options["mmLoc"] = 2.7 end
@@ -131,11 +134,19 @@ local function init()
 	if isNotDefined(SpellCreatorMasterTable.Options["keepQCOpen"]) then SpellCreatorMasterTable.Options["keepQCOpen"] = true end
 	if isNotDefined(SpellCreatorMasterTable.Options["allowQCOverscrolling"]) then SpellCreatorMasterTable.Options["allowQCOverscrolling"] = true end
 
+	if isNotDefined(SpellCreatorMasterTable.arcVarLocations) then SpellCreatorMasterTable.arcVarLocations = {} end
+	ns.API.retargetSavedLocationsTable(SpellCreatorMasterTable.arcVarLocations)
+
+	-- Per-Character Vars
+
 	if isNotDefined(SpellCreatorCharacterTable.phaseArcVars) then SpellCreatorCharacterTable.phaseArcVars = {} end
 	ns.API.retargetPhaseArcVarTable(SpellCreatorCharacterTable.phaseArcVars)
 
 	if isNotDefined(SpellCreatorCharacterTable.cooldownsTable) then SpellCreatorCharacterTable.cooldownsTable = { phase = {}, personal = {}, sparks = {} } end
 	ns.Actions.Cooldowns.retargetCooldownsTable(SpellCreatorCharacterTable.cooldownsTable)
+
+	if isNotDefined(SpellCreatorCharacterTable.actionButtonsRegister) then SpellCreatorCharacterTable.actionButtonsRegister = {} end
+	ns.UI.ActionButton.retargetSavedActionButtons(SpellCreatorCharacterTable.actionButtonsRegister)
 
 	-- // Unlocks Tracker table
 	if isNotDefined(SpellCreatorMasterTable.Unlocks) then SpellCreatorMasterTable.Unlocks = {} end
@@ -161,8 +172,15 @@ local function init()
 	return hadUpdate
 end
 
+local function delayed_init() -- These are variables that need to be delayed because blizzard variables need to be loaded first
+	if isNotDefined(SpellCreatorMasterTable.Options.sparkKeybind) then
+		ns.UI.SparkPopups.SparkPopups.setSparkDefaultKeybind()
+	end
+end
+
 ns.SavedVariables = {
 	init = init,
+	delayed_init = delayed_init,
 	getProfileNames = getProfileNames,
 	getDefaultProfile = getDefaultProfile,
 	setDefaultProfile = setDefaultProfile,

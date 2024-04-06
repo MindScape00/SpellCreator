@@ -132,10 +132,10 @@ minimapButton.rune:SetSize(12,12)
 
 -- Minimap Border Ideas (Atlas):
 local mmBorders = {
-	{ atlas = "Artifacts-PerkRing-Final", size = 0.58, posx = 1, posy = -1 }, -- 1 -- Thin Gold Border with gloss over the icon area like glass
+	{ atlas = "Artifacts-PerkRing-Final",            size = 0.58, posx = 1,  posy = -1 },                                  -- 1 -- Thin Gold Border with gloss over the icon area like glass
 	{ atlas = "auctionhouse-itemicon-border-purple", size = 0.62, posx = -1, posy = 0, hilight = "Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
 	{ atlas = "legionmission-portraitring-epicplus", size = 0.65, posx = -1, posy = 0, hilight = "Relic-Arcane-TraitGlow", }, -- 2 -- thicker purple ring w/ gold edges & decor
-	{ tex = ASSETS_PATH .. "/Icon_Ring_Border", size = 0.62, posx = -1, posy = 0, hilight = "Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
+	{ tex = ASSETS_PATH .. "/Icon_Ring_Border",      size = 0.62, posx = -1, posy = 0, hilight = "Relic-Arcane-TraitGlow", }, -- 2 -- purple ring w/ arcane highlight
 }
 
 local mmBorder = mmBorders[4] -- put your table choice here
@@ -170,9 +170,16 @@ minimapButton.contextMenu = Dropdown.create(minimapButton, "SCForgeMinimapContex
 local function createMenu()
 	local menuArgs = {
 		Dropdown.execute("Open Arcanum", function() callback() end),
-		Dropdown.execute("Arcanum Settings", function() callback("options") end),
 		Dropdown.divider(),
-		ns.UI.Quickcast.ContextMenu.genShowBookMenu("Toggle Quickcast Books"),
+		Dropdown.execute("Quickcast Manager", ns.UI.Quickcast.ManagerUI.showQCManagerUI),
+		Dropdown.execute("Sparks Manager", ns.UI.SparkPopups.SparkManagerUI.showSparkManagerUI, {
+			disabled = function() return not (ns.Permissions.isOfficerPlus() or SpellCreatorMasterTable.Options["debug"]) end,
+		}),
+		Dropdown.divider(),
+		Dropdown.execute("Settings", function() callback("options") end),
+		Dropdown.execute("Changelog", function() ns.UI.WelcomeUI.WelcomeMenu.showWelcomeScreen(true) end),
+		--Dropdown.divider(),
+		--ns.UI.Quickcast.ContextMenu.genShowBookMenu("Toggle Quickcast Books"),
 	}
 	return menuArgs
 end
@@ -191,9 +198,9 @@ minimapButton:SetScript("OnMouseUp", function(self, button)
 		callback()
 		Models.modelFrameSetModel(minimapButton.Model, fastrandom(#Models.minimapModels), Models.minimapModels)
 	elseif button == "RightButton" then
-		callback("options")
-		--Dropdown.open(createMenu(), self.contextMenu, self, 0, 0, "MENU")
-		--GameTooltip:Hide()
+		--callback("options")
+		Dropdown.open(createMenu(), self.contextMenu, self, 0, 0, "MENU")
+		GameTooltip:Hide()
 	end
 end)
 
@@ -217,7 +224,6 @@ minimapButton:SetScript("OnEnter", function(self)
 
 	if self.Flash:IsShown() then UIFrameFlashStop(self.Flash) end
 	Animation.stopRainbowVertex(self.Flash)
-
 end)
 minimapButton:SetScript("OnLeave", function(self)
 	self.highlight.anim:Pause()

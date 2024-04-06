@@ -126,9 +126,9 @@ local function Button_Update(self, commID)
 	else
 		self:_setSpell(spellData)
 		if spellData.cooldown then
-			local cooldownTime = Cooldowns.isSpellOnCooldown(commID)
-			if cooldownTime then
-				self.cooldown:SetCooldown(GetTime() - (spellData.cooldown - cooldownTime), spellData.cooldown)
+			local remainingTime = Cooldowns.isSpellOnCooldown(commID)
+			if remainingTime then
+				self.cooldown:SetCooldown(GetTime() - (spellData.cooldown - remainingTime), spellData.cooldown)
 			else
 				self.cooldown:Clear()
 			end

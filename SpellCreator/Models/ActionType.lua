@@ -2,16 +2,21 @@
 ---@field name string
 ---@field description string
 ---@field command string | function
----@field dataName? string
+---@field dataName? string Leave nil to infer no input / disable input
 ---@field selfAble boolean
----@field inputDescription string
----@field dependency string | nil
----@field softDependency boolean
----@field doNotDelimit boolean
+---@field inputDescription? string
+---@field dependency? string | nil AddOn name it is dependent on. This is a direct AddOn dependency used for hiding it from the list if not available.
+---@field softDependency? boolean
+---@field doNotDelimit? boolean
+---@field doNotSanitizeNewLines? boolean
+---@field convertLinks? boolean
+---@field requirement? function|string
+---@field disabledWarning? string The message shown in the tooltip if the action is disabled.
+---@field reqError? string The message shown in verbose areas to inform them of the requirements needed.
 
 ---@class FunctionActionTypeData: ActionTypeDataBase
 ---@field command function
----@field comTarget "func"
+---@field comTarget? "func"
 ---@field example string?
 ---@field revert function | nil
 ---@field revertDesc string?
@@ -19,7 +24,7 @@
 
 ---@class ServerActionTypeData: ActionTypeDataBase
 ---@field command string
----@field comTarget "server"
+---@field comTarget? "server"
 ---@field example string?
 ---@field revert string | nil
 ---@field revertDesc string?

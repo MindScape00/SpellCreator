@@ -36,23 +36,37 @@ local MSG_MULTI_LAST           = multiMessageData.MSG_MULTI_LAST
 local MAX_CHARS_PER_SEGMENT    = multiMessageData.MAX_CHARS_PER_SEGMENT
 
 ---@class PopupTriggerOptions
----@field cooldownTime integer?
----@field trigSpellCooldown boolean?
----@field broadcastCooldown boolean?
----@field requirement string?
+---@field cooldownTime? integer
+---@field trigSpellCooldown? boolean
+---@field broadcastCooldown? boolean
+---@field requirement? string
+---@field inputs? string
+---@field conditions? ConditionDataTable
 
 local function genSparkCDNameOverride(commID, x, y, z)
 	local sparkCDNameOverride = strjoin(string.char(31), commID, x, y, z)
 	return sparkCDNameOverride
 end
 
-local sparkPopup           = CreateFrame("Frame", "SCForgePhaseCastPopup", MainMenuBar, "SC_ExtraActionBarFrameTemplate")
+local sparkPopup           = CreateFrame("Frame", "SCForgePhaseCastPopup", UIParent, "SC_ExtraActionBarFrameTemplate")
 sparkPopup.button          = CreateFrame("CheckButton", "SCForgePhaseCastPopupButton", sparkPopup, "SC_ExtraActionButtonTemplate")
 sparkPopup.button.cooldown = CreateFrame("Cooldown", nil, sparkPopup.button, "CooldownFrameTemplate")
 sparkPopup.button.cooldown:SetAllPoints()
 
+-- make the sparkPopup able to be moved by dragging it; slightly smaller than the actual style frame to account for transparency on the edges
+sparkPopup:SetSize(200, 100)
+sparkPopup:SetMovable(true)
+sparkPopup:EnableMouse(true)
+sparkPopup:RegisterForDrag("LeftButton")
+sparkPopup:SetScript("OnDragStart", function(self, button)
+	self:StartMoving()
+end)
+sparkPopup:SetScript("OnDragStop", function(self)
+	self:StopMovingOrSizing()
+end)
+
 local castbutton = sparkPopup.button
-castbutton:SetPoint("BOTTOM", 0, 80)
+castbutton:SetPoint("CENTER")
 castbutton:SetScript("OnClick", function(self, button)
 	self:SetChecked(false)
 	if (isOfficerPlus() or SpellCreatorMasterTable.Options["debug"]) and button == "RightButton" then
@@ -73,7 +87,7 @@ castbutton:SetScript("OnClick", function(self, button)
 	local cdData = self.cdData
 	--local sparkCDNameOverride = spell.commID .. cdData.loc[1] .. cdData.loc[2] .. cdData.loc[3]
 	local sparkCDNameOverride = genSparkCDNameOverride(spell.commID, cdData.loc[1], cdData.loc[2], cdData.loc[3])
-	local sparkCdTimeRemaining, SparkCdLength = Cooldowns.isSparkOnCooldown(sparkCDNameOverride)
+	local sparkCdTimeRemaining, sparkCdLength = Cooldowns.isSparkOnCooldown(sparkCDNameOverride)
 	local spellCdTimeRemaining, spellCdLength = Cooldowns.isSpellOnCooldown(spell.commID, C_Epsilon.GetPhaseId())
 	if sparkCdTimeRemaining then
 		return print(("This spark (%s) is on cooldown (%ss)."):format(sparkCDNameOverride, sparkCdTimeRemaining))
@@ -93,7 +107,11 @@ castbutton:SetScript("OnClick", function(self, button)
 			-- send something to the comms to trigger that cd on the phase.. ick..
 		end
 	end
-	ARC.PHASE:CAST(spell.commID, bypassCD)
+	if cdData.inputs then
+		ARC.PHASE:CAST(spell.commID, bypassCD, unpack(DataUtils.parseStringToArgs(cdData.inputs)))
+	else
+		ARC.PHASE:CAST(spell.commID, bypassCD)
+	end
 end)
 
 Tooltip.set(sparkPopup.button,
@@ -195,13 +213,20 @@ local function showCastPopup(commID, barTex, index, colorHex, sparkData)
 	end
 
 	-- spark cooldown overrides
-	local sparkOptions = sparkData[8] --[[@as PopupTriggerOptions]]
-	local sparkCdTime, sparkCdTrigger, sparkCdBroadcast, sparkRequirement
+	local sparkOptions = sparkData[8] or {} --[[@as PopupTriggerOptions]]
+	local sparkCdTime, sparkCdTrigger, sparkCdBroadcast, sparkRequirement, sparkConditions
 	if sparkOptions then
 		sparkCdTime, sparkCdTrigger, sparkCdBroadcast = sparkOptions.cooldownTime, sparkOptions.trigSpellCooldown, sparkOptions.broadcastCooldown
 		sparkRequirement = sparkOptions.requirement
+		sparkConditions = sparkOptions.conditions
 	end
-	bar.button.cdData = { sparkCdTime, sparkCdTrigger, sparkCdBroadcast, loc = { sparkData[2], sparkData[3], sparkData[4] } }
+	bar.button.cdData = {
+		sparkCdTime,
+		sparkCdTrigger,
+		sparkCdBroadcast,
+		loc = { sparkData[2], sparkData[3], sparkData[4] },
+		inputs = (sparkOptions.inputs or nil)
+	}
 
 	--local sparkCDNameOverride = spell.commID .. sparkData[2] .. sparkData[3] .. sparkData[4]
 	local sparkCDNameOverride = genSparkCDNameOverride(spell.commID, sparkData[2], sparkData[3], sparkData[4])
@@ -259,12 +284,20 @@ CoordinateListener:SetScript("OnUpdate", function(self, elapsed)
 			if commID and sX and sY and sZ and sR and barTex then
 				if getDistanceBetweenPoints(sX, sY, x, y) < sR then
 					if getDistanceBetweenPoints(z, sZ) <= sR then
-						if sparkOptions and sparkOptions.requirement then
-							local script = sparkOptions.requirement
-							if not script:match("return") then
-								script = "return " .. script
+						if sparkOptions then
+							local shouldShowSpark = true
+							if sparkOptions.conditions then
+								shouldShowSpark = ns.Actions.Execute.checkConditions(sparkOptions.conditions)
+							elseif sparkOptions.requirement then
+								local script = sparkOptions.requirement
+								if not script:match("return") then
+									script = "return " .. script
+								end
+								if ns.Cmd.runMacroText(script) then
+									shouldShowSpark = true
+								end
 							end
-							if ns.Cmd.runMacroText(script) then
+							if shouldShowSpark then
 								shouldHideCastbar = not showCastPopup(commID, barTex, i, colorHex, v)
 							end
 						else
@@ -503,6 +536,7 @@ end
 --#region Keybinding
 ---------------------
 
+local default_spark_keybind = ns.Constants.SPARK_DEFAULT_KEYBIND
 local sparkKeybindHolder = CreateFrame("Frame")
 local function setSparkKeybind(key)
 	if key then
@@ -513,11 +547,26 @@ local function setSparkKeybind(key)
 			SpellCreatorMasterTable.Options.sparkKeybind = key
 			SetOverrideBindingClick(sparkKeybindHolder, true, key, "SCForgePhaseCastPopupButton", "keybind")
 		end
+	else
+		SpellCreatorMasterTable.Options.sparkKeybind = false
+		ClearOverrideBindings(sparkKeybindHolder)
 	end
 end
 
 local function getSparkKeybind()
 	return SpellCreatorMasterTable.Options.sparkKeybind
+end
+
+local function setSparkDefaultKeybind()
+	local fBinding = GetBindingAction(default_spark_keybind)
+	if (fBinding == "") or (fBinding == "ASSISTTARGET") then -- f was not bound or was default binding, we can override it.
+		setSparkKeybind("F")
+	else                                                  -- player uses F for something else, dumb. Fine, we won't override, but give them a warning.
+		ns.Logging.cprint(("Arcanum defaults to using the %s keybind for Spark activation. You currently have this bound to something other than default (Current Bound Action: '%s'). We recommend opening your Arcanum settings ( %s ) and setting this to something that works for you.")
+			:format(ns.Utils.Tooltip.genContrastText("'" .. default_spark_keybind .. "'"), ns.Utils.Tooltip.genContrastText(GetBindingAction("F")),
+				ns.Utils.Tooltip.genContrastText("'/sf options' -> Spark Settings")))
+		setSparkKeybind()
+	end
 end
 
 ---------------------
@@ -539,4 +588,5 @@ ns.UI.SparkPopups.SparkPopups = {
 
 	setSparkKeybind = setSparkKeybind,
 	getSparkKeybind = getSparkKeybind,
+	setSparkDefaultKeybind = setSparkDefaultKeybind,
 }

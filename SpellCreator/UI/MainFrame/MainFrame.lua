@@ -15,11 +15,12 @@ local size = {
 	["Ymax"] = math.min(1100, UIParent:GetHeight()),
 
 	columnWidths = {
-		delay = 100,
+		delay = 80,
 		action = 100,
 		self = 32,
 		inputEntry = 140 + 42,
 		revertDelay = 80,
+		conditional = 32
 	},
 
 	rowHeight = 60,
@@ -55,6 +56,7 @@ local function markTitleChanges(hasChanges)
 end
 
 ---@class SCForgeMainFrame : ButtonFrameTemplate, Frame
+---@field conditionsData ConditionDataTable
 SCForgeMainFrame = CreateFrame("Frame", "SCForgeMainFrame", UIParent, "ButtonFrameTemplate")
 SCForgeMainFrame:SetPoint("CENTER")
 SCForgeMainFrame:SetSize(size.x, size.y)

@@ -17,57 +17,6 @@ local cmd = ns.Cmd.cmd
 local round = DataUtils.roundToNthDecimal
 local orderedPairs = DataUtils.orderedPairs
 
-local function setTextureOffset(frameTexture, x, y)
-	frameTexture:SetVertexOffset(UPPER_LEFT_VERTEX, x, y)
-	frameTexture:SetVertexOffset(UPPER_RIGHT_VERTEX, x, y)
-	frameTexture:SetVertexOffset(LOWER_LEFT_VERTEX, x, y)
-	frameTexture:SetVertexOffset(LOWER_RIGHT_VERTEX, x, y)
-end
-
-local function setHighlightToOffsetWithPushed(frame, x, y)
-	if not x then x = 1 end
-	if not y then y = -1 end
-	local highlight = frame:GetHighlightTexture()
-	frame:HookScript("OnMouseDown", function(self) setTextureOffset(highlight, x, y) end)
-	frame:HookScript("OnMouseUp", function(self) setTextureOffset(highlight, 0, 0) end)
-end
-
----@param button table ace3gui button table
----@param path string
-local function setupCoherentAceIconButtonTextures(button, path)
-	local frame = button.frame
-
-	-- force hide the shitty AceGUI Highlight ... that they didn't name, or expose..
-	local regions = { frame:GetRegions() }
-	for i, child in ipairs(regions) do
-		if child.GetTexture then
-			if child:GetTexture() == 136580 then
-				child:Hide()
-			end
-		end
-	end
-
-	-- hide the AceGUI image, we're adding our own using the button's Set..Texture system
-	local image = button.image
-	image:Hide()
-
-	frame:SetNormalTexture(path)
-	frame:SetHighlightTexture(path, "ADD")
-	frame:SetPushedTexture(path)
-
-	frame.NormalTexture = frame:GetNormalTexture()
-	frame.NormalTexture:SetAllPoints(image)
-	frame.HighlightTexture = frame:GetHighlightTexture()
-	frame.HighlightTexture:SetAllPoints(image)
-	frame.PushedTexture = frame:GetPushedTexture()
-	frame.PushedTexture:SetAllPoints(image)
-
-	frame.HighlightTexture:SetAlpha(0.33)
-
-	setHighlightToOffsetWithPushed(frame)
-	setTextureOffset(frame.PushedTexture, 1, -1)
-end
-
 --------------------------------
 --- Ew, an AceGUI Powered UI
 --------------------------------
@@ -384,10 +333,11 @@ local function drawBookGroup(containerFrame, bookIndex, callback)
 		styleSection:SetRelativeWidth(0.33)
 
 		do
-			local styleSelectButton = AceGUI:Create("Icon")
+			local styleSelectButton = AceGUI:Create("MAW-Icon")
 			styleSelectButton:SetLabel("Change Style")
 			styleSelectButton:SetImage(bookStyleData.tex)
-			setupCoherentAceIconButtonTextures(styleSelectButton, bookStyleData.tex)
+			--setupCoherentAceIconButtonTextures(styleSelectButton, bookStyleData.tex)
+
 			styleSelectButton:SetCallback("OnClick", function()
 				local menuList = {}
 				for style in ipairs(Quickcast.Style.BOOK_STYLE_DATA) do

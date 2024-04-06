@@ -5,6 +5,7 @@ local Aura = ns.Utils.Aura
 local Cmd = ns.Cmd
 local Logging = ns.Logging
 local Vault = ns.Vault
+local libs = ns.Libs
 
 local Constants = ns.Constants
 local AceConsole = ns.Libs.AceConsole
@@ -14,6 +15,7 @@ local runMacroText = Cmd.runMacroText
 local cprint = Logging.cprint
 local eprint = Logging.eprint
 local isNotDefined = ns.Utils.Data.isNotDefined
+local parseStringToArgs = ns.Utils.Data.parseStringToArgs
 
 local next = next
 local tinsert = tinsert
@@ -147,6 +149,119 @@ end
 --#endregion
 --------------------
 
+--------------------
+--#region RunScript Priv
+--------------------
+
+---@param script string
+local function runScriptPriv(script)
+	if C_Epsilon and C_Epsilon.RunPrivileged then
+		C_Epsilon.RunPrivileged(script)
+	end
+end
+
+--------------------
+--#endregion
+--------------------
+
+--------------------
+--#region TRP3e
+--------------------
+
+local TRP3e = {}
+
+-- Sounds
+TRP3e.sound = {}
+function TRP3e.sound.playLocalSoundID(vars)
+	local soundID, channel, distance = unpack(parseStringToArgs(vars), 1, 3)
+	if not tonumber(soundID) then
+		soundID = TRP3_API.utils.music.convertPathToID(soundID)
+	end
+	TRP3_API.utils.music.playLocalSoundID(soundID, channel, distance)
+end
+
+function TRP3e.sound.stopLocalSoundID(vars)
+	local soundID, channel = unpack(parseStringToArgs(vars), 1, 2)
+	if not tonumber(soundID) then
+		soundID = TRP3_API.utils.music.convertPathToID(soundID)
+	end
+	TRP3_API.utils.music.stopLocalSoundID(soundID, channel)
+end
+
+function TRP3e.sound.playLocalMusic(vars)
+	local soundID, distance = unpack(parseStringToArgs(vars), 1, 2)
+	if not tonumber(soundID) then
+		soundID = TRP3_API.utils.music.convertPathToID(soundID)
+	end
+	TRP3_API.utils.music.playLocalMusic(soundID, distance)
+end
+
+function TRP3e.sound.stopLocalMusic(vars)
+	local soundID, distance = unpack(parseStringToArgs(vars), 1, 2)
+	if not tonumber(soundID) then
+		soundID = TRP3_API.utils.music.convertPathToID(soundID)
+	end
+	TRP3_API.utils.music.stopLocalMusic(soundID)
+end
+
+-- Item Import
+TRP3e.items = {}
+function TRP3e.items.importItem(code)
+	if not code then return end
+
+	TRP3_ToolFrame.list.container.import.content.scroll.text:SetText(code)
+	TRP3_ToolFrame.list.container.import.save:Click()
+end
+
+function TRP3e.items.addItem(id)
+	if not id then return end
+	if not TRP3_API.extended.classExists(id) then
+		eprint("TRP3e Add Item to Inventory Error: Given class ID (" .. id .. ") does not exist in your TRP3 Extended Database.")
+		return false
+	end
+	return TRP3_API.inventory.addItem(nil, id)
+end
+
+--------------------
+--#endregion
+--------------------
+--------------------
+--#region Mail
+--------------------
+
+local mail = {}
+
+function mail.openMailCallback(name, subject, body)
+	if not MailFrame:IsShown() then return end
+
+	C_Timer.After(0, function()
+		-- delayed so the frame is for sure shown and the click doesn't fail
+		if not SendMailFrame:IsShown() then MailFrameTab2:Click() end
+
+		SendMailNameEditBox:SetText(name or "")
+		SendMailSubjectEditBox:SetText(subject or "")
+		SendMailBodyEditBox:SetText(body or "")
+
+		C_Timer.After(0, function()
+			-- delayed so MailFrameTab2:Click finishes
+			if subject then
+				SendMailBodyEditBox:SetFocus()
+			elseif name then
+				SendMailSubjectEditBox:SetFocus()
+			end
+		end)
+	end)
+end
+
+function mail.sendMailCallback(name, subject, body)
+	SendMail(name, subject, body)
+	CloseMail();
+end
+
+--------------------
+--#endregion
+--------------------
+
 ARC._DEBUG.DATA_SCRIPTS = {
 	keybindings = keybindFrame.bindings
 }
@@ -156,4 +271,9 @@ ns.Actions.Data_Scripts = {
 	camera = camera,
 	keybind = keybindFrame,
 	ui = ui,
+	mail = mail,
+	TRP3e_sound = TRP3e.sound,
+	TRP3e_items = TRP3e.items,
+
+	runScriptPriv = runScriptPriv
 }

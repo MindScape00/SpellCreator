@@ -62,7 +62,7 @@ local function createMenu(profileNames)
 			Tooltip.genTooltipText("norevert", "Profiles added here will not show in menus until the spell is created/saved."),
 		placeholder = "New Profile Name",
 		get = function() end,
-		set = function(text)
+		set = function(self, text)
 			setSelectedProfile(text)
 		end,
 	}))

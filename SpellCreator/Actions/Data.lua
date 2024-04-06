@@ -13,25 +13,51 @@ local AceConsole = ns.Libs.AceConsole
 local cmd, cmdWithDotCheck = Cmd.cmd, Cmd.cmdWithDotCheck
 local runMacroText = Cmd.runMacroText
 local cprint = Logging.cprint
+local eprint = Logging.eprint
 local Tooltip = ns.Utils.Tooltip
+
+local commaDelimitedText = "Comma delimited, use \"quotes\" around any text that has a comma in it."
+local commonUnitIDs = "Common UnitIDs: 'player', 'target', 'cursor', 'mouseover', 'partyN' (where N = number 1,2,3,4 for which party member)"
 
 local toBoolean = Utils.Data.toBoolean
 local function onToBoolean(val)
 	if strtrim(string.lower(val)) == "on" then return true else return false end
 end
 
+local function strsplitTrim(delim, str, pieces)
+	local strings = { strsplit(delim, str, pieces) }
+	local finStrings = {}
+	for k, v in ipairs(strings) do
+		tinsert(finStrings, strtrim(v))
+	end
+	return unpack(finStrings)
+end
+
+local parseStringToArgs = ns.Utils.Data.parseStringToArgs
+local parseArgsWrapper = function(string)
+	local success, argTable, numArgs = pcall(parseStringToArgs, string)
+	if not success then
+		ns.Logging.eprint("Error Parsing String to Args (Are you missing a \" ?)")
+		ns.Logging.dprint(argTable)
+		return
+	end
+	return argTable, numArgs
+end
+
 local maxBackupsPerChar = 3
 
 local Scripts = ns.Actions.Data_Scripts
+local RunPrivileged = Scripts.runScriptPriv
 local revertHoldingVars = {}
 
 ---@enum ActionType
 local ACTION_TYPE = {
 	MacroText = "MacroText",
-	SecureMacro = "SecureMacro",
+	--SecureMacro = "SecureMacro",
 	Command = "Command",
 	ArcSpell = "ArcSpell",
 	ArcSpellPhase = "ArcSpellPhase",
+	ArcSpellCastImport = "ArcSpellCastImport",
 	ArcSaveFromPhase = "ArcSaveFromPhase",
 	ArcCastbar = "ArcCastbar",
 	ArcStopSpells = "ArcStopSpells",
@@ -65,6 +91,43 @@ local ACTION_TYPE = {
 	AddItem = "AddItem",
 	RemoveItem = "RemoveItem",
 	AddRandomItem = "AddRandomItem",
+
+	-- SECURE Actions
+	secCast = "secCast",                                  --Copy of /cast
+	secCastID = "secCastID",                              --CastSpellByID
+	secStopCasting = "secStopCasting",                    --StopSpellCasting
+
+	secUseItem = "secUseItem",                            --UseItemByName
+
+	secTarget = "secTarget",                              --TargetUnit
+	secAssist = "secAssist",                        --AssistUnit
+
+	secClearTarg = "secClearTarg",                          -- ClearTarget
+	secTargLEnemy = "secTargLEnemy",                  -- TargetLastEnemy
+	secTargLFriend = "secTargLFriend",                -- TargetLastFriend
+	secTargLTarg = "secTargLTarg",                -- TargetLastTarget
+	secTargNAny = "secTargNAny",                      -- TargetNearest
+	secTargNEnemy = "secTargNEnemy",            -- TargetNearestEnemy
+	secTargNEnPlayer = "secTargNEnPlayer", -- TargetNearestEnemyPlayer
+	secTargNFriend = "secTargNFriend",          -- TargetNearestFriend
+	secTargNFrPlayer = "secTargNFrPlayer", -- TargetNearestFriendPlayer
+	secTargNParty = "secTargNParty", -- TargetNearestPartyMember
+	secTargNRaid = "secTargNRaid",  -- TargetNearestRaidMember
+
+	secFocus = "secFocus",                              -- FocusUnit
+	secClearFocus = "secClearFocus",                      -- ClearFocus
+
+	FollowUnit = "FollowUnit",                            -- FollowUnit
+	StopFollow = "StopFollow",                            -- FollowUnit
+	ToggleRun = "ToggleRun",                              -- ToggleRun
+	ToggleAutoRun = "ToggleAutoRun",                      -- ToggleAutoRun
+	StartAutoRun = "StartAutoRun",                      -- StartAutoRun
+	StopAutoRun = "StopAutoRun",                      -- StopAutoRun
+
+	RunMacro = "RunMacro",                                -- RunMacro
+	RunMacroText = "RunMacroText",                        -- RunMacroText
+	StopMacro = "StopMacro",                              -- StopMacro
+
 
 	-- Camera Actions
 	RotateCameraLeftStart = "RotateCameraLeftStart",
@@ -105,6 +168,24 @@ local ACTION_TYPE = {
 	--StopLocalSound = "StopLocalSound",
 	PlayPhaseSound = "PlayPhaseSound",
 
+	TRP3e_Sound_playLocalSoundID = "TRP3e_Sound_playLocalSoundID", -- Broadcast to play a sound by ID to all nearby people // TRP3_API.utils.music.playLocalSoundID(soundID, channel, distance, source)
+	TRP3e_Sound_stopLocalSoundID = "TRP3e_Sound_stopLocalSoundID", -- Broadcast to stop playing a sound to all nearby people // TRP3_API.utils.music.stopLocalSoundID(soundID, channel)
+	TRP3e_Sound_playLocalMusic = "TRP3e_Sound_playLocalMusic",  -- Broadcast to play a sound by ID to all nearby people, using the Music Channel // TRP3_API.utils.music.playLocalMusic(soundID, distance, source)
+	TRP3e_Sound_stopLocalMusic = "TRP3e_Sound_stopLocalMusic",  -- Broadcast to stop playing a sound to all nearby people, using the Music Channel // TRP3_API.utils.music.stopLocalMusic(soundID)
+
+	--[[
+	TRP3e_Sound_stopSoundID = "TRP3e_Sound_stopSoundID",
+	TRP3e_Sound_playSoundFileID = "TRP3e_Sound_playSoundFileID",
+	TRP3e_Sound_stopMusic = "TRP3e_Sound_stopMusic",
+	TRP3e_Sound_playSoundID = "TRP3e_Sound_playSoundID",
+	TRP3e_Sound_playMusic = "TRP3e_Sound_playMusic",
+	TRP3e_Sound_stopSound = "TRP3e_Sound_stopSound",
+	--]]
+
+	TRP3e_Item_QuickImport = "TRP3e_Item_QuickImport",
+	TRP3e_Item_AddToInventory = "TRP3e_Item_AddToInventory",
+	TRP3e_Cast_showCastingBar = "TRP3e_Cast_showCastingBar", -- Show a TRP3e based Casting Bar - mimics more of the WoW style & can be interrupted. // TRP3_API.extended.showCastingBar(duration, interruptMode, class, soundID, castText)
+
 	CheatOn = "CheatOn",
 	CheatOff = "CheatOff",
 
@@ -115,6 +196,8 @@ local ACTION_TYPE = {
 	ARCPhaseSet = "ARCPhaseSet",
 	ARCPhaseTog = "ARCPhaseTog",
 
+	ArcImport = "ArcImport",
+
 	-- UI, Prompt & Message Actions
 	PrintMsg = "PrintMsg",
 	RaidMsg = "RaidMsg",
@@ -124,6 +207,8 @@ local ACTION_TYPE = {
 	BoxPromptScript = "BoxPromptScript",
 	BoxPromptScriptNoInput = "BoxPromptScriptNoInput",
 	BoxPromptCommandNoInput = "BoxPromptCommandNoInput",
+	OpenSendMail = "OpenSendMail",
+	SendMail = "SendMail",
 
 	HideMostUI = "HideMostUI",
 	UnhideMostUI = "UnhideMostUI",
@@ -144,6 +229,9 @@ local ACTION_TYPE = {
 	QCBookToggle = "QCBookToggle",
 	QCBookStyle = "QCBookStyle",
 	QCBookSwitchPage = "QCBookSwitchPage",
+	QCBookNewBook = "QCBookNewBook",
+	QCBookNewPage = "QCBookNewPage",
+	QCBookAddSpell = "QCBookAddSpell",
 
 	-- Kinesis Integration
 	Kinesis_FlyEnable = "Kinesis_FlyEnable",
@@ -209,13 +297,14 @@ end
 ---@type table<ActionType, FunctionActionTypeData | ServerActionTypeData>
 local actionTypeData = {
 	[ACTION_TYPE.SpellCast] = serverAction("Cast Spell", {
-		command = "cast @N@",                                                                                                                                            -- The chat command, or Lua function to process
-		description = "Cast a spell using a Spell ID, to selected target, or self if no target.",                                                                        -- Description for on-mouse-over
-		dataName = "Spell ID(s)",                                                                                                                                        -- Label for the ID Box, nil to disable the ID box
-		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.", -- Description of the input for GameTooltip
-		revert = "unaura @N@",                                                                                                                                           -- The command that reverts it, i.e, 'unaura' for 'aura'
+		command = "cast @N@",
+		description = "Cast a spell using a Spell ID, to selected target, or self if no target.",
+		dataName = "Spell ID(s)",
+		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
+		revert = "unaura @N@",
 		revertDesc = "unaura",
-		selfAble = true,                                                                                                                                                 -- True/False - if able to use the self-toggle checkbox
+		selfAble = true,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.SpellTrig] = serverAction("Cast Spell (Trig)", {
 		command = "cast @N@ trig",
@@ -225,6 +314,7 @@ local actionTypeData = {
 		revert = "unaura @N@",
 		revertDesc = "unaura",
 		selfAble = true,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.SpellAura] = serverAction("Apply Aura", {
 		command = "aura @N@",
@@ -234,6 +324,7 @@ local actionTypeData = {
 		revert = "unaura @N@",
 		revertDesc = "unaura",
 		selfAble = true,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.PhaseAura] = serverAction("Phase Aura", {
 		command = "phase aura @N@",
@@ -243,6 +334,7 @@ local actionTypeData = {
 		revert = "phase unaura @N@",
 		revertDesc = "phase unaura",
 		selfAble = false,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.PhaseUnaura] = serverAction("Phase Unaura", {
 		command = "phase unaura @N@",
@@ -252,6 +344,7 @@ local actionTypeData = {
 		revert = "phase aura @N@",
 		revertDesc = "phase aura",
 		selfAble = false,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.GroupAura] = serverAction("Group Aura", {
 		command = "group aura @N@",
@@ -261,6 +354,7 @@ local actionTypeData = {
 		revert = "group unaura @N@",
 		revertDesc = "group unaura",
 		selfAble = false,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.GroupUnaura] = serverAction("Group Unaura", {
 		command = "group unaura @N@",
@@ -270,10 +364,11 @@ local actionTypeData = {
 		revert = "group aura @N@",
 		revertDesc = "group aura",
 		selfAble = false,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.ToggleAura] = scriptAction("Toggle Aura", {
 		command = function(spellID)
-			if Aura.checkForAuraID(tonumber(spellID)) then
+			if Aura.checkPlayerAuraID(tonumber(spellID)) then
 				cmd("unaura " .. spellID)
 			else
 				cmd("aura "
@@ -284,7 +379,7 @@ local actionTypeData = {
 		dataName = "Spell ID",
 		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse " .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
 		revert = function(spellID)
-			if Aura.checkForAuraID(tonumber(spellID)) then
+			if Aura.checkPlayerAuraID(tonumber(spellID)) then
 				cmd("unaura " .. spellID)
 			else
 				cmd("aura "
@@ -292,10 +387,11 @@ local actionTypeData = {
 			end
 		end,
 		revertDesc = "Toggles the Aura again",
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.ToggleAuraSelf] = scriptAction("Toggle Aura (Self)", {
 		command = function(spellID)
-			if Aura.checkForAuraID(tonumber(spellID)) then
+			if Aura.checkPlayerAuraID(tonumber(spellID)) then
 				cmd("unaura " .. spellID .. " self")
 			else
 				cmd("aura "
@@ -305,8 +401,9 @@ local actionTypeData = {
 		description = "Toggles an Aura on / off.\n\rAlways applies on yourself.",
 		dataName = "Spell ID",
 		inputDescription = "Accepts multiple IDs, separated by commas, to cast multiple spells at once.\n\rUse" .. Tooltip.genContrastText('.look spell') .. " to find IDs.",
-		revert = function(spellID) if Aura.checkForAuraID(tonumber(spellID)) then cmd("unaura " .. spellID .. " self") else cmd("aura " .. spellID .. " self") end end,
+		revert = function(spellID) if Aura.checkPlayerAuraID(tonumber(spellID)) then cmd("unaura " .. spellID .. " self") else cmd("aura " .. spellID .. " self") end end,
 		revertDesc = "Toggles the Aura again",
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.Anim] = serverAction("Emote/Anim", {
 		command = "mod anim @N@",
@@ -317,6 +414,7 @@ local actionTypeData = {
 		revert = "mod stand 30",
 		revertDesc = "Reset to Standstate 30 (none)",
 		selfAble = false,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.ResetAnim] = serverAction("Reset Emote/Anim", {
 		command = "mod stand 30",
@@ -335,30 +433,33 @@ local actionTypeData = {
 	[ACTION_TYPE.Morph] = serverAction("Morph", {
 		command = "morph @N@",
 		description = "Morph into a Display ID.",
-		dataName = "Display ID",
+		dataName = "Display ID/Link",
 		inputDescription = "No, you can't put multiple to become a hybrid monster..\n\rUse " .. Tooltip.genContrastText('.look displayid') .. " to find IDs.",
 		revert = "demorph",
 		revertDesc = "demorph",
 		selfAble = false,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.Native] = serverAction("Native", {
 		command = "mod native @N@",
 		description = "Modifies your Native to specified Display ID.",
-		dataName = "Display ID",
+		dataName = "Display ID/Link",
 		inputDescription = "Use " .. Tooltip.genContrastText('.look displayid') .. " to find IDs.",
 		revert = "demorph",
 		revertDesc = "demorph",
 		selfAble = false,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.Standstate] = serverAction("Standstate", {
 		command = "mod standstate @N@",
 		description = "Change the emote of your character while standing to an Emote ID.",
-		dataName = "Standstate ID",
+		dataName = "Standstate ID/Link",
 		inputDescription = "Accepts multiple IDs, separated by commas, to set multiple standstates at once.. but you can't have two, so probably don't try it.\n\rUse " ..
 			Tooltip.genContrastText('.look emote') .. " to find IDs.",
 		revert = "mod stand 0",
 		revertDesc = "Set Standstate to 0 (none)",
 		selfAble = false,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.ToggleSheath] = scriptAction("Sheath/Unsheath Weapon", {
 		command = function() ToggleSheath() end,
@@ -368,7 +469,7 @@ local actionTypeData = {
 		command = function(vars) EquipItemByName(vars) end,
 		description = "Equip an Item by name or ID. Item must be in your inventory.\n\rName is a search in your inventory by keyword - using ID is recommended.",
 		dataName = "Item ID or Name(s)",
-		inputDescription = "Accepts multiple IDs/Names, separated by commas, to equip multiple items at once.\n\rUse " ..
+		inputDescription = "Accepts multiple IDs/Names/Links, separated by commas, to equip multiple items at once.\n\rUse " ..
 			Tooltip.genContrastText('.look item') .. ", or mouse-over an item in your inventory for IDs.",
 		example =
 		"You want to equip 'Violet Guardian's Helm', ID: 141357, but have 'Guardian's Leather Belt', ID: 35156 in your inventory also, using 'Guardian' as the text will equip the belt, so you'll want to use the full name, or better off just use the actual item ID.",
@@ -379,8 +480,8 @@ local actionTypeData = {
 	[ACTION_TYPE.AddItem] = serverAction("Add Item", {
 		command = "additem @N@",
 		description = "Add an item to your inventory.\n\rYou may specify multiple items separated by commas, and may specify item count & bonusID per item as well.",
-		dataName = "Item ID(s)",
-		inputDescription = "Accepts multiple IDs, separated by commas, to add multiple items at once.\n\rUse " ..
+		dataName = "Item ID/Links(s)",
+		inputDescription = "Accepts multiple IDs/Links, separated by commas, to add multiple items at once.\n\rUse " ..
 			Tooltip.genContrastText('.look item') .. ", or mouse-over an item in your inventory for IDs.",
 		example = Tooltip.genContrastText("125775 1 449, 125192 1 449") .. " will add 1 of each item with Heroic (449) tier",
 		revert = nil,
@@ -391,8 +492,8 @@ local actionTypeData = {
 		command = "additem @N@ -1",
 		description =
 		"Remove an item from your inventory.\n\rYou may specify multiple items separated by commas, and may optionally specify item count as a negative number to remove that many of the item.",
-		dataName = "Item ID(s)",
-		inputDescription = "Accepts multiple IDs, separated by commas, to remove multiple items at once.\n\rUse " ..
+		dataName = "Item ID/Links(s)",
+		inputDescription = "Accepts multiple IDs/Links, separated by commas, to remove multiple items at once.\n\rUse " ..
 			Tooltip.genContrastText('.look item') .. ", or mouse-over an item in your inventory for IDs.",
 		example = Tooltip.genContrastText("125775 -10") .. " to remove 10 of that item.",
 		revert = nil,
@@ -430,9 +531,14 @@ local actionTypeData = {
 		end,
 		description = "Add a random item to your inventory from the given list.\n\rItems may be weighted to modify their chance at being chosen.",
 		dataName = "Item Pool",
-		inputDescription = "Items should be separated by commas, and formatted as " ..
-			Tooltip.genContrastText("itemID amount bonusIDs+weight") ..
-			". Amount & BonusIDs are optional, but amount must be given is bonusIDs is given also. Weight is optional and defaults to 1 if not given.\n\rWeights are normalized, so if they're all the same value they have equal chance of being used. (Example: 1 + 1 = 2. Each is 1/2 (50%) chance. 1 + 2 + 1 = 4. Each is 1/4 (25%), 2/4 (50%), 1/4 (25%) chance.)",
+		inputDescription = "Items should be separated by commas, and formatted as:" ..
+			Tooltip.genContrastText("#FirstItemID [#Amount [#BonusIDs]], #SecondItemID [#Amount [#BonusIDs]], ..etc..") ..
+			".\n\rAmount & BonusIDs are optional, but amount must be given if bonusIDs is given also." ..
+			"\n\rBy default, each item has an equal chance (aka weight) of being chosen. To change this, you may specify a weight by adding a number with a + in front after each items data, like so:" ..
+			Tooltip.genContrastText("#ItemID #Amount #BonusIDs +#weight") .. ". Note, weights may only be whole numbers (integers)." ..
+			"\n\rWeight is optional and defaults to 1 if not given." ..
+			"\n\rWeights are normalized, so if they're all the same value they have equal chance of being used. For example: " ..
+			Tooltip.genContrastText("1234+1, 4567+2, 7891+1") .. ". There is a total of 4 chances, with 1234 having 1/4 (25%) chance, 4567 having 2/4 (50%) chance, and 7891 having 1/4 (25%) chance).",
 		example = Tooltip.genContrastText("125775 1 449+99, 125192 2+1") .. " will randomly choose between a 99% chance to add 1 copy of 125775 (Heroic), or 1% chance for 2 copies of 125192 (Normal)",
 		revert = nil,
 		revertAlternative = "a separate remove item action",
@@ -444,9 +550,10 @@ local actionTypeData = {
 		description = "Remove an Aura by Spell ID.",
 		dataName = "Spell ID(s)",
 		inputDescription = "Accepts multiple IDs, separated by commas, to remove multiple auras at once.",
-		revert = "aura",
+		revert = "aura @N@",
 		revertDesc = "Reapplies the same aura",
 		selfAble = true,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.RemoveAllAuras] = serverAction("Remove All Auras", {
 		command = "unaura all",
@@ -591,6 +698,11 @@ local actionTypeData = {
 		revertDesc = "Enable the cheat",
 		selfAble = false,
 	}),
+
+	-- -- -- -- -- -- -- -- --
+	--#region Sound
+	-- -- -- -- -- -- -- -- --
+
 	[ACTION_TYPE.PlayLocalSoundKit] = scriptAction("Local Sound (Kit)", {
 		command = function(vars) if tonumber(vars) then PlaySound(vars) else PlaySound(SOUNDKIT[vars]) end end,
 		description = "Play a sound locally (to yourself only), by SoundKit/Sound ID or SoundKit Constant.",
@@ -623,6 +735,66 @@ local actionTypeData = {
 		revert = nil,
 		selfAble = false,
 	}),
+
+	--TRP3e Nearby (Local..) Sound Actions
+	[ACTION_TYPE.TRP3e_Sound_playLocalSoundID] = scriptAction("Play Sound Nearby", {
+		command = Scripts.TRP3e_sound.playLocalSoundID,
+		description =
+		"Play a sound to all players within the radius given, by SoundKit ID, via the TRP3e Sound System. Requires them to have TRP3 Extended as well to hear it.\n\rAbuse of this action to spam sounds can and will be met with administrative action.",
+		dataName = "soundID, channel, distance",
+		inputDescription = "The Sound Kit ID, the channel to use, and the distance / radius from yourself for who can hear the sound." ..
+			("\n\rAvailable Channels: %s, %s, %s, %s"):format(Tooltip.genContrastText("Master"), Tooltip.genContrastText("SFX"), Tooltip.genContrastText("Ambience"), Tooltip.genContrastText("Dialog")),
+		example = Tooltip.genContrastText("124, SFX, 10") ..
+			" to play the Level-Up sound to everyone within 10 units, using the SFX Channel.\n\rUse " ..
+			Tooltip.genContrastText('wow.tools/dbc/?dbc=soundkitentry') .. " or similar to look for sound kit IDs.",
+		revert = Scripts.TRP3e_sound.stopLocalSoundID,
+		revertDesc = "Stops the sound to all nearby players, by the same ID.",
+		doNotDelimit = true,
+		dependency = "totalRP3_Extended"
+	}),
+	[ACTION_TYPE.TRP3e_Sound_playLocalMusic] = scriptAction("Play Music Nearby", {
+		command = Scripts.TRP3e_sound.playLocalMusic,
+		description =
+		"Play a sound to all players within the radius given, by SoundKit ID, via the Music channel & TRP3e Sound System. Requires them to have TRP3 Extended as well to hear it.\n\rAbuse of this action to spam music can and will be met with administrative action.",
+		dataName = "soundID, distance",
+		inputDescription = "The Sound Kit ID, and the distance / radius from yourself for who can hear the sound.",
+		example = Tooltip.genContrastText("7319, 25") ..
+			" to play Ironforge ambience music to everyone within 25 units.\n\rUse " ..
+			Tooltip.genContrastText('wow.tools/dbc/?dbc=soundkitentry') .. " or similar to look for sound kit IDs.",
+		revert = Scripts.TRP3e_sound.stopLocalMusic,
+		revertDesc = "Stops the sound to all nearby players, by the same ID.",
+		doNotDelimit = true,
+		dependency = "totalRP3_Extended"
+	}),
+
+	[ACTION_TYPE.TRP3e_Sound_stopLocalSoundID] = scriptAction("Stop Sound Nearby", {
+		command = Scripts.TRP3e_sound.stopLocalSoundID,
+		description =
+		"Stops a sound for all nearby players, by ID & channel, in the TRP3e Sound System.",
+		dataName = "soundID, channel",
+		inputDescription = "The Sound Kit ID, and the channel it's in to stop" ..
+			("\n\rAvailable Channels: %s, %s, %s, %s"):format(Tooltip.genContrastText("Master"), Tooltip.genContrastText("SFX"), Tooltip.genContrastText("Ambience"), Tooltip.genContrastText("Dialog")),
+		example = Tooltip.genContrastText("124, SFX") ..
+			" to stop the Level-Up sound, using the SFX Channel, for everyone that heard the sound originally from you.",
+		revertAlternative = "another TRP3-Play Sound Nearby action",
+		dependency = "totalRP3_Extended"
+	}),
+	[ACTION_TYPE.TRP3e_Sound_stopLocalMusic] = scriptAction("Stop Music Nearby", {
+		command = Scripts.TRP3e_sound.stopLocalMusic,
+		description =
+		"Stops a playing music for all nearby players, by ID & channel, in the TRP3e Sound System.",
+		dataName = "soundID",
+		inputDescription = "The Sound Kit ID",
+		example = Tooltip.genContrastText("7319") ..
+			" to stop the Ironforge ambience music, for everyone that heard the music originally from you.",
+		revertAlternative = "another TRP3-Play Music Nearby action",
+		dependency = "totalRP3_Extended"
+	}),
+
+	-- -- -- -- -- -- -- -- --
+	--#endregion Sound
+	-- -- -- -- -- -- -- -- --
+
 	[ACTION_TYPE.MacroText] = scriptAction("Macro Script", {
 		command = function(command) runMacroText(command); end,
 		description =
@@ -634,6 +806,7 @@ local actionTypeData = {
 			" to perform the emote.\n\r" .. Tooltip.genTooltipText("example", Tooltip.genContrastText("print(\"Example\")") .. " to print 'Example' in chat to yourself."),
 		revert = nil,
 		doNotDelimit = true,
+		doNotSanitizeNewLines = true,
 	}),
 	[ACTION_TYPE.Command] = scriptAction("Server .Command", {
 		command = cmdWithDotCheck,
@@ -643,6 +816,7 @@ local actionTypeData = {
 		example = "mod drunk 100",
 		revert = nil,
 		doNotDelimit = true,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.MogitEquip] = scriptAction("Equip Mogit Set", {
 		command = function(vars) SlashCmdList["MOGITE"](vars); end,
@@ -666,6 +840,21 @@ local actionTypeData = {
 			local spell = Vault.personal.findSpellByID(commID)
 			if not spell then
 				cprint("No spell with command '" .. commID .. "' found in your Personal Vault.")
+				return
+			end
+			ns.Actions.Execute.executeSpell(spell.actions, nil, spell.fullName, spell)
+		end,
+		description = "Cast another Arcanum Spell from your Personal Vault.",
+		dataName = "Spell Command",
+		inputDescription = "The command ID (commID) used to cast the ArcSpell",
+		example = "From " .. Tooltip.genContrastText('/sf MySpell') .. ", input just " .. Tooltip.genContrastText("MySpell") .. " as this input.",
+		revert = nil,
+	}),
+	[ACTION_TYPE.ArcSpellCastImport] = scriptAction("Cast ArcSpell (Import)", {
+		command = function(importString)
+			local spell = ns.UI.ImportExport.getDataFromImportString(importString)
+			if not spell then
+				cprint("Import Error: Invalid ArcSpell data. Try again.")
 				return
 			end
 			ns.Actions.Execute.executeSpell(spell.actions, nil, spell.fullName, spell)
@@ -702,6 +891,20 @@ local actionTypeData = {
 		dataName = "Spell Command, [send message (true/false)]",
 		inputDescription = "Syntax: The command ID (commID) used to cast the ArcSpell, [print a 'New Spell Learned' message (true/false)]",
 		example = "My Cool Spell, true",
+		revert = nil,
+		doNotDelimit = true,
+	}),
+	[ACTION_TYPE.ArcImport] = scriptAction("Import ArcSpell", {
+		command = function(data)
+			local importString, vocal = strsplit(",", data, 2)
+			if vocal and (vocal == "false" or vocal == "nil" or vocal == "0") then vocal = nil end
+			if vocal and vocal == "true" then vocal = true end
+			ns.UI.ImportExport.importSpell(importString, vocal)
+		end,
+		description = "Import an ArcSpell from an export, directly to your Personal Vault, with an optional message to let them know they learned a new ArcSpell!",
+		dataName = "ArcSpell Data, Learned Message",
+		inputDescription =
+		"ArcSpell Data = The exported string / import data for the ArcSpell. You can get this by right-clicking a spell in your vault and hitting 'Export'.\n\rLearned Message = true/false - If it should show a 'You learned the spell!' message.",
 		revert = nil,
 		doNotDelimit = true,
 	}),
@@ -840,12 +1043,19 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.ErrorMsg] = scriptAction("UI Message", {
 		command = function(msg)
-			local success, text, r, g, b, voiceID, soundKitID = pcall(function(val) return unpack(ns.Utils.Data.parseStringToArgs(val)) end, msg)
+			local args, numArgs = parseArgsWrapper(msg)
+			if not args then return end
+			local text, r, g, b, voiceID, soundKitID = unpack(args)
+
+			--[[
+			local success, text, r, g, b, voiceID, soundKitID = pcall(function(val) return unpack(parseStringToArgs(val)) end, msg)
 			if not success then
 				ns.Logging.eprint("UI Message Action Failed: Error Parsing String to Args (Are you missing a \" ?)")
 				ns.Logging.dprint(text)
 				return
 			end
+			--]]
+
 			ns.Logging.uiErrorMessage(text, r, g, b, voiceID, soundKitID)
 		end,
 		description = "Shows a custom UI 'Error' message, only to the person casting the spell.\n\rThis is the same style message as 'You cannot do that.' etc.",
@@ -903,22 +1113,26 @@ local actionTypeData = {
 		command = function(msg)
 			local description, okayText, cancText, command = strsplit(",", msg, 4)
 			if not cancText and not command then command = okayText end
-			if not okayText or okayText == "" then okayText = OKAY end
-			if not cancText or cancText == "" then cancText = CANCEL end
+			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
+			if not cancText or strtrim(cancText) == "" then cancText = CANCEL else cancText = strtrim(cancText) end
+			if cancText == "nil" then cancText = false end
 			command = strtrim(command)
 			ns.UI.Popups.showCustomGenericInputBox({
 				callback = function(input)
 					cmdWithDotCheck((command):gsub("@", input))
 				end,
 				text = description,
-				acceptText = strtrim(okayText),
-				cancelText = strtrim(cancText),
+				acceptText = okayText,
+				cancelText = cancText,
+				editBoxWidth = 260,
+				maxLetters = 200,
 			})
 		end,
 		description = "Prompts the user with an input box, then adds that input to the command given.",
 		dataName = "Text, OK, Cancel, Command",
 		inputDescription = "The text to show in the prompt message, Okay Button Text, Cancel Button Text, and the command to use; separated by commas.\nUse the " ..
-			Tooltip.genContrastText("@") .. " symbol as the placeholder to be replaced by the user input.\n\rOkay and Cancel can be left blank and will default as 'Okay' and 'Cancel'.",
+			Tooltip.genContrastText("@") ..
+			" symbol as the placeholder to be replaced by the user input.\n\rOkay and Cancel can be left blank and will default as 'Okay' and 'Cancel'.\nSet Cancel text as 'nil' to hide the Cancel button.",
 		example = 'What item do you want to add?,,, additem @',
 		revert = nil,
 		doNotDelimit = true,
@@ -927,8 +1141,9 @@ local actionTypeData = {
 		command = function(msg)
 			local description, okayText, cancText, scriptString = strsplit(",", msg, 4)
 			if not cancText and not scriptString then scriptString = okayText end
-			if not okayText or okayText == "" then okayText = OKAY end
-			if not cancText or cancText == "" then cancText = CANCEL end
+			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
+			if not cancText or strtrim(cancText) == "" then cancText = CANCEL else cancText = strtrim(cancText) end
+			if cancText == "nil" then cancText = false end
 			scriptString = strtrim(scriptString):gsub("@input", "userInput")
 			local scriptTest, errorMessageTest = loadstring(scriptString)
 			if scriptTest and not errorMessageTest then
@@ -947,8 +1162,10 @@ local actionTypeData = {
 						end
 					end,
 					text = description,
-					acceptText = strtrim(okayText),
-					cancelText = strtrim(cancText),
+					acceptText = okayText,
+					cancelText = cancText,
+					editBoxWidth = 260,
+					maxLetters = 9999,
 				})
 			else
 				ns.Logging.eprint("Error Loading Script in ArcSpell Action (Script Input Prompt), please check your script. Error:")
@@ -958,31 +1175,34 @@ local actionTypeData = {
 		description = "Prompts the user with an input box, then adds that input to the script given.",
 		dataName = "Text, OK, Cancel, Script",
 		inputDescription = "The text to show in the prompt message, Okay Button Text, Cancel Button Text, and the script to use; separated by a comma.\nUse the " ..
-			Tooltip.genContrastText("@input") .. " tag as the placeholder to be replaced by the user input.\n\rOkay and Cancel can be left blank and will default as 'Okay' and 'Cancel'.",
+			Tooltip.genContrastText("@input") ..
+			" tag as the placeholder to be replaced by the user input.\n\rOkay and Cancel can be left blank and will default as 'Okay' and 'Cancel'.\nSet Cancel text as 'nil' to hide the Cancel button.",
 		example = [[What's 2+2?,,, if @input == "4" then print("Correct!") else print("Nope!") end]],
 		revert = nil,
 		doNotDelimit = true,
+		doNotSanitizeNewLines = true,
 	}),
 	[ACTION_TYPE.BoxPromptCommandNoInput] = scriptAction("Command Run Prompt", {
 		command = function(msg)
 			local description, okayText, cancText, command = strsplit(",", msg, 4)
 			if not cancText and not command then command = okayText end
-			if not okayText or okayText == "" then okayText = OKAY end
-			if not cancText or cancText == "" then cancText = CANCEL end
+			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
+			if not cancText or strtrim(cancText) == "" then cancText = CANCEL else cancText = strtrim(cancText) end
+			if cancText == "nil" then cancText = false end
 			command = strtrim(command)
 			ns.UI.Popups.showCustomGenericConfirmation({
 				callback = function()
 					cmdWithDotCheck(command)
 				end,
 				text = description,
-				acceptText = strtrim(okayText),
-				cancelText = strtrim(cancText),
+				acceptText = okayText,
+				cancelText = cancText,
 			})
 		end,
 		description = "Prompts the user with a pop-up confirmation dialogue to run the given command.",
 		dataName = "Text, OK, Cancel, Command",
 		inputDescription =
-		"The text to show in the prompt message, Okay Button Text, Cancel Button Text, and the command to use; separated by commas.\n\rOkay and Cancel can be left blank and will default as 'Okay' and 'Cancel'.",
+		"The text to show in the prompt message, Okay Button Text, Cancel Button Text, and the command to use; separated by commas.\n\rOkay and Cancel can be left blank and will default as 'Okay' and 'Cancel'.\nSet Cancel text as 'nil' to hide the Cancel button.",
 		example = 'Do you wish to teleport?, Sure, No thanks!, phase tele CoolArea',
 		revert = nil,
 		doNotDelimit = true,
@@ -991,16 +1211,17 @@ local actionTypeData = {
 		command = function(msg)
 			local description, okayText, cancText, scriptString = strsplit(",", msg, 4)
 			if not cancText and not scriptString then scriptString = okayText end
-			if not okayText or okayText == "" then okayText = OKAY end
-			if not cancText or cancText == "" then cancText = CANCEL end
+			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
+			if not cancText or strtrim(cancText) == "" then cancText = CANCEL else cancText = strtrim(cancText) end
+			if cancText == "nil" then cancText = false end
 			scriptString = strtrim(scriptString)
 			local script, errorMessage = loadstring(scriptString)
 			if script and not errorMessage then
 				ns.UI.Popups.showCustomGenericConfirmation({
 					callback = script,
 					text = description,
-					acceptText = strtrim(okayText),
-					cancelText = strtrim(cancText),
+					acceptText = okayText,
+					cancelText = cancText,
 				})
 			else
 				ns.Logging.eprint("Error Loading Script in ArcSpell Action (Run Script Prompt), please check your script. Error:")
@@ -1010,10 +1231,126 @@ local actionTypeData = {
 		description = "Prompts the user with a pop-up confirmation dialog to run the script.",
 		dataName = "Text, OK, Cancel, Script",
 		inputDescription =
-		"The text to show in the prompt message, Okay Button Text, Cancel Button Text, and the script to use; separated by commas.\n\rOkay and Cancel can be left blank and will default as 'Okay' and 'Cancel'.",
+		"The text to show in the prompt message, Okay Button Text, Cancel Button Text, and the script to use; separated by commas.\n\rOkay and Cancel can be left blank and will default as 'Okay' and 'Cancel'.\nSet Cancel text as 'nil' to hide the Cancel button.",
 		example = [[Do you want to know the answer?, Yes, No, print("42! But what is the question..?")]],
 		revert = nil,
 		doNotDelimit = true,
+		doNotSanitizeNewLines = true,
+	}),
+	[ACTION_TYPE.OpenSendMail] = scriptAction("Open Mail", {
+		command = function(vars)
+			--local to, subject, body = unpack(parseStringToArgs(vars))
+			local args = parseArgsWrapper(vars)
+			if not args then return end
+			local to, subject, body = unpack(args, 1, 3)
+
+			--[[
+			local success, to, subject, body = pcall(function(val) return unpack(parseStringToArgs(val)) end, vars)
+
+			if not success then
+				eprint("Error in pcall Parsing Open Mail Args. Check your 'Open Mail' action input formatting."); return
+			end
+			--]]
+			local callback = function()
+				Scripts.mail.openMailCallback(to, subject, body)
+			end
+			if MailFrame:IsShown() then
+				callback()
+			else
+				ns.Utils.Hooks.HookFrameScriptOneShot(MailFrame, "OnShow", callback)
+				cmd("cheat mail")
+			end
+		end,
+		description = "Open's the mail UI, and optionally pre-fills a given To: name, Subject, and Body Text if given.",
+		dataName = "name, subject, text",
+		inputDescription = "the name of who to send the mail, the subject, and the body text.\n\r" .. commaDelimitedText,
+		example = [[Mindscape, "Arcanum Rocks, Woo!"]],
+		revert = nil,
+		doNotDelimit = true,
+	}),
+	[ACTION_TYPE.SendMail] = scriptAction("Send Mail", {
+		command = function(vars)
+			--local to, subject, body = unpack(parseStringToArgs(vars))
+			local args = parseArgsWrapper(vars)
+			if not args then return end
+			local to, subject, body = unpack(args, 1, 3)
+
+			--[[
+			local success, to, subject, body = pcall(function(val) return unpack(parseStringToArgs(val)) end, vars)
+
+			if not to and subject and body then return Logging.eprint("Error in Send Mail Action: Requires to, subject, and body...") end
+			--]]
+
+			local callback = function()
+				Scripts.mail.sendMailCallback(to, subject, body)
+			end
+			if MailFrame:IsShown() then
+				cmd("mod money 30") -- make sure we have the 30 copper to pay
+				callback()
+			else
+				ns.Utils.Hooks.HookFrameScriptOneShot(MailFrame, "OnShow", callback)
+				cmd("mod money 30") -- make sure we have the 30 copper to pay
+				cmd("cheat mail")
+			end
+		end,
+		description = "Send mail to another player directly, with a specified subject & body text.",
+		dataName = "name, subject, text",
+		inputDescription = "the name of who to send the mail, the subject, and the body text. All three are required.\n\r" .. commaDelimitedText,
+		example = [[Mindscape, "Arcanum Rocks, Woo!", "Dude, I can send you mail automatically now, nice."]],
+		revert = nil,
+		doNotDelimit = true,
+	}),
+	[ACTION_TYPE.TRP3e_Item_QuickImport] = scriptAction("TRP3e Import Item", {
+		command = function(code)
+			Scripts.TRP3e_items.importItem(code)
+		end,
+		description =
+		"Import a TRP3 Extended item to your TRP3 Extended database.",
+		dataName = "trp3e import code",
+		inputDescription =
+		"The Quick Export/import code for the TRP3 Extended object/item. You can get this code by right-clicking an item in your TRP3 Extended Database and hitting 'Quick export object'.",
+		revert = nil,
+		doNotDelimit = true,
+		dependency = "totalRP3_Extended"
+	}),
+	[ACTION_TYPE.TRP3e_Item_AddToInventory] = scriptAction("TRP3e Add Item", {
+		command = function(id)
+			Scripts.TRP3e_items.addItem(id)
+		end,
+		description =
+			"Add a TRP3 Extended item to your TRP3 Extended inventory.\n\rItems will be added to the first free inventory space in the main inventory, and must already exist in your TRP3 Extended Database.\n\rIf you need more control, you'll need to use the " ..
+			Tooltip.genContrastText("TRP3_API.inventory.addItem") .. " function in a Macro Script.",
+		dataName = "trp3e item ID(s)",
+		inputDescription =
+		"The Generated ID of an item. You can get this ID from your TRP3 Extended Database, by mousing over an item, or right clicking item and clicking 'Copy ID'. You may provide multiple ID's, separated by commas, to add multiple items.",
+		revert = nil,
+		dependency = "totalRP3_Extended"
+	}),
+	[ACTION_TYPE.TRP3e_Cast_showCastingBar] = scriptAction("TRP3e Castbar", {
+		command = function(vars)
+			--local duration, interruptMode, soundID, castText = unpack(parseStringToArgs(vars))
+			local args = parseArgsWrapper(vars)
+			if not args then return end
+			local duration, interruptMode, soundID, castText = unpack(args, 1, 4)
+
+			if not duration then return end
+			TRP3_API.extended.showCastingBar(tonumber(duration), tonumber(interruptMode), nil, tonumber(soundID), castText)
+		end,
+		description =
+		"Shows a TRP3 Extended Castbar. This is different than an Arcanum Castbar in that it works & looks similar to a default WoW Castbar. You can also make it interrupt on movement.",
+		dataName = "duration, interruptMode, soundID, castText",
+		inputDescription = Tooltip.genContrastText("duration") .. ": How long the castbar lasts\r" ..
+			Tooltip.genContrastText("interruptMode") .. ": 1 = not interruptable, 2 = interrupts on movement\r" ..
+			Tooltip.genContrastText("soundID") .. ": Sound ID to play when the cast bar starts\r" ..
+			Tooltip.genContrastText("castText") .. [[: The text; defaults to 'Casting' if not set. Wrap in "quotes" if it contains a comma.]],
+		revert = function()
+			local frame = TRP3_CastingBarFrame
+			frame.interruptMode = 2
+			frame:GetScript("OnEvent")() -- fires the OnEvent which is a wrapper to the interrupt function that's only local in TRP3's castbar system. Nice hack huh..
+		end,
+		doNotDelimit = true,
+		revertDesc = "Interrupts the castbar to cancel it, even if it was not interruptable.",
+		dependency = "totalRP3_Extended"
 	}),
 
 	-- Location Actions
@@ -1022,7 +1359,8 @@ local actionTypeData = {
 			ARC.LOCATIONS:SAVE(key)
 		end,
 		description =
-		"Saves the current location when cast to the ARC.LOCATIONS Storage. You can recall to these locations later by using a revert, the ARC.LOCATIONS API, or using a 'Recall to Location (ARC)' action.).\n\rLocations are NOT preserved thru reloads or relogs.",
+			("Saves the current location when cast to the ARC.LOCATIONS Storage. You can recall to these locations later by using a revert, the ARC.LOCATIONS API, or using a 'Recall to Location (ARC)' action.).\n\rLocations are preserved thru reloads and relogs, but are not Phase Specific. If using for a phase, consider naming it with your phase number included, i.e., %s instead of just %s.")
+			:format(Tooltip.genContrastText("169_Tavern"), Tooltip.genContrastText("Tavern")),
 		dataName = "Location Key",
 		inputDescription = "The Key (Name) you want to save it as. Keys are unique, so saving another with the same Key/Name will overwrite it.",
 		revert = function(key)
@@ -1052,6 +1390,7 @@ local actionTypeData = {
 		dataName = "Location Name",
 		inputDescription = "The location name you would like to tele to. Use " .. Tooltip.genContrastText(".lookup tele") .. " to find teleport location names.",
 		revert = nil,
+		convertLinks = true,
 	}),
 	[ACTION_TYPE.PhaseTeleCommand] = serverAction("Phase Tele", {
 		command = "phase tele @N@",
@@ -1059,6 +1398,7 @@ local actionTypeData = {
 		dataName = "Phase Location",
 		inputDescription = "The phase location name you would like to tele to. Use " .. Tooltip.genContrastText(".phase tele list") .. " to find phase tele location names.",
 		revert = nil,
+		convertLinks = true,
 	}),
 
 
@@ -1077,32 +1417,112 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.QCBookStyle] = scriptAction("Change Book Style", {
 		command = function(vars)
-			local bookName, pageNumber = AceConsole:GetArgs(vars, 2)
-			ns.UI.Quickcast.Book.changeBookStyle(bookName, pageNumber)
+			local args = parseArgsWrapper(vars)
+			if not args then return end
+			local bookName, styleName = unpack(args, 1, 2)
+			ns.UI.Quickcast.Book.changeBookStyle(strtrim(bookName), strtrim(styleName))
 		end,
-		description = "Toggle a Quickcast Book from being displayed on this character.",
-		dataName = "Book Name",
-		inputDescription = "The name of the Quickcast Book & style name. If either have spaces, enclose them in quotations.",
+		description = "Change a Quickcast Book's Style to another style, either by using the style name or ID.",
+		dataName = "Book Name, Style Name/ID",
+		inputDescription = "The name of the Quickcast Book & style name or ID.\n\r" .. commaDelimitedText,
 		example = '"Quickcast Book 1" Arcfox',
 		revert = nil,
-		revertAlternative = "another Change Style action"
+		revertAlternative = "another Change Style action",
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.QCBookSwitchPage] = scriptAction("Switch Page", {
 		command = function(vars)
-			local bookName, pageNumber = AceConsole:GetArgs(vars, 2)
-			ns.UI.Quickcast.Book.setPageInBook(bookName, pageNumber)
+			local args = parseArgsWrapper(vars)
+			if not args then return end
+			local bookName, pageNumber = unpack(args, 1, 2)
+
+			ns.UI.Quickcast.Book.setPageInBook(strtrim(bookName), strtrim(pageNumber))
 		end,
-		description = "Toggle a Quickcast Book from being displayed on this character.",
-		dataName = "BookName PageNumber",
-		inputDescription = "The name of the Quickcast Book & the page number. If your book name has spaces, enclose it in quotations.",
-		example = '"Quickcast Book 1" 2',
+		description = "Switch a Quickcast Book to a specific page number.",
+		dataName = "Book Name, Page Number",
+		inputDescription = "The name of the Quickcast Book & the page number.\n\r" .. commaDelimitedText,
+		example = '"Quickcast Book 1", 2',
 		revert = nil,
-		revertAlternative = "another Switch Page action"
+		revertAlternative = "another Switch Page action",
+		doNotDelimit = true,
+	}),
+	[ACTION_TYPE.QCBookNewBook] = scriptAction("New Book", {
+		command = function(vars)
+			local args = parseArgsWrapper(vars)
+			if not args then return end
+			local bookName, styleName = unpack(args, 1, 2)
+			ns.UI.Quickcast.Quickcast.API.NewBook(strtrim(bookName), strtrim(styleName))
+		end,
+		description = "Create a new Quickcast Book, with an optional default style set.",
+		dataName = "Book Name, Style Name/ID",
+		inputDescription = "The name for the Quickcast Book & style name/ID to use (optional).\n\r" .. commaDelimitedText,
+		example = '"Quickcast Book 1", Red',
+		revert = nil,
+		doNotDelimit = true,
+	}),
+	[ACTION_TYPE.QCBookNewPage] = scriptAction("Add Page to Book", {
+		command = function(vars)
+			local args, numArgs = parseArgsWrapper(vars)
+			if not args then return end
+			local spells
+			local success, spellTable = nil, {}
+			local bookName, profile = unpack(args, 1, 2)
+			if numArgs >= 3 then
+				for i = 3, numArgs do
+					tinsert(spellTable, args[i])
+				end
+			end
+			if type(profile) == "string" then
+				profile = strtrim(profile)
+				if profile == "nil" then
+					profile = nil
+				end
+			end
+
+			ns.UI.Quickcast.Quickcast.API.NewPage(strtrim(bookName), spellTable, profile)
+		end,
+		description = "Add a new page to a Quickcast Book, with optional default spells or dynamic profile assignment.",
+		dataName = "Book, Profile|nil, Spell(s)",
+		inputDescription =
+		"The name of the Quickcast Book; Profile Name to use for dymanic profile, or nil to not use a profile; and a list of commID's to add as the default spells on the page (ignored if using a profile). If your book name, profile name, or any commID has spaces, enclose it in quotations.",
+		example = '"Quickcast Book 1", nil, MySpell1, "My Cool Spell 2"',
+		revert = nil,
+		doNotDelimit = true,
+	}),
+	[ACTION_TYPE.QCBookAddSpell] = scriptAction("Add Spell to Book/Page", {
+		command = function(vars)
+			--local bookName, pageNumber, commID = AceConsole:GetArgs(vars, 3)
+			local args, numArgs = parseArgsWrapper(vars)
+			if not args then return end
+			local spells
+			local success, spellTable = nil, {}
+			local bookName, pageNumber = unpack(args, 1, 2)
+			if numArgs >= 3 then
+				for i = 3, numArgs do
+					tinsert(spellTable, args[i])
+				end
+			end
+			if not next(spellTable) then return end
+			for _, commID in ipairs(spellTable) do
+				ns.UI.Quickcast.Quickcast.API.AddSpell(bookName, tonumber(pageNumber), commID)
+			end
+		end,
+		description = "Add a spell by CommID to a specific page in a Quickcast Book.",
+		dataName = "Book, Page, Spell(s)",
+		inputDescription = "The name of the Quickcast Book & the page number, followed by a list of spells to add.\n\r" .. commaDelimitedText,
+		example = '"Quickcast Book 1", 2, SpellCommID1, SpellCommID2',
+		revert = nil,
+		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.RotateCameraLeftStart] = scriptAction("Rotate Cam Left", {
 		command = function(speed)
 			SaveView(5)
-			MoveViewLeftStart(speed / tonumber(GetCVar("cameraYawMoveSpeed")))
+			local realSpeed = (speed / tonumber(GetCVar("cameraYawMoveSpeed")))
+			MoveViewLeftStart(realSpeed)
+
+			-- Bugfix for Rotation triggered on delay calculates as if it was rotating the entire time. We offset by applying an inverse rotation for the delay time, which gets stopped on the next frame (which is actually the frame rotation starts on)
+			MoveViewRightStart(realSpeed)
+			C_Timer.After(0, MoveViewRightStop)
 		end,
 		description = "Rotate the camera left, in degrees per second. " .. Tooltip.genTooltipText("warning", "Must be reverted to properly stop rotation!"),
 		dataName = "Degrees per Second",
@@ -1118,7 +1538,12 @@ local actionTypeData = {
 	[ACTION_TYPE.RotateCameraRightStart] = scriptAction("Rotate Cam Right", {
 		command = function(speed)
 			SaveView(5)
-			MoveViewRightStart(speed / tonumber(GetCVar("cameraYawMoveSpeed")))
+			local realSpeed = (speed / tonumber(GetCVar("cameraYawMoveSpeed")))
+			MoveViewRightStart(realSpeed)
+
+			-- Bugfix for Rotation triggered on delay calculates as if it was rotating the entire time. We offset by applying an inverse rotation for the delay time, which gets stopped on the next frame (which is actually the frame rotation starts on)
+			MoveViewLeftStart(realSpeed)
+			C_Timer.After(0, MoveViewLeftStop)
 		end,
 		description = "Rotate the camera right, in degrees per second. " .. Tooltip.genTooltipText("warning", "Must be reverted to properly stop rotation!"),
 		dataName = "Degrees per Second",
@@ -1280,7 +1705,7 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.ArcTrigCooldown] = scriptAction("Trigger ArcSpell Cooldown", {
 		command = function(vars)
-			local commID, cooldownTime, isPhase = AceConsole:GetArgs(vars, 3)
+			local commID, cooldownTime, isPhase = AceConsole:GetArgs(vars, 3) -- TODO: GET RID OF THIS I HATE IT
 			if isPhase then isPhase = toBoolean(isPhase) end
 			ns.Actions.Cooldowns.addSpellCooldown(commID, cooldownTime, (isPhase and C_Epsilon.GetPhaseId() or nil))
 		end,
@@ -1703,10 +2128,461 @@ local actionTypeData = {
 		doNotDelimit = true,
 	}),
 
+	-- SECURE Actions
+	-- secCast = "secCast",							-- Copy of /cast
+	[ACTION_TYPE.secCast] = scriptAction("Cast Spell (/cast)", {
+		command = function(vars)
+			local script = [[/cast ]] .. vars
+			RunPrivileged("RunMacroText('" .. script .. "')")
+		end,
+		description = "Casts a Spell using the same parsing as /cast.\nSpell must be known in order to be able to cast it.",
+		dataName = "[options] spell name",
+		inputDescription = "Anything you would normally include in a macro using /cast (but not including '/cast' itself). Reminder: /cast only accepts spells by name.",
+		example =
+		"[@cursor] Jump Jets",
+		revert = nil,
+		revertAlternative = "a separate unaura or stop spell action.",
+		doNotDelimit = true,
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- secCastID = "secCastID",                        --CastSpellByID(spellID [, target]) #protected
+	[ACTION_TYPE.secCastID] = scriptAction("Cast Spell by ID (Blizz-like)", {
+		command = function(vars)
+			RunPrivileged("CastSpellByID(" .. vars .. ")")
+		end,
+		description =
+		"Casts a spell by ID. This is 'Blizz-like' and casts the real spell from your spell book, not using server commands.\nThis means spells like ground-targeted spells still give you the option to click where to cast it.\nMust also have the spell known/learned.",
+		dataName = "SpellID [, \"unitID\"]",
+		inputDescription =
+		"Any Spell ID, and optionally a UnitID to set who it will target. If unitID is not given, default is whatever the default of that spell is (i.e., target, or cursor, or self).\n\rCommon UnitIDs: 'player', 'target', 'cursor', 'mouseover', 'partyN' (where N = number 1,2,3,4 for which party member).\nUnitIDs must be wrapped in \"quotes\".",
+		example =
+		"<4336> to cast 'Jump Jets', and still gives you the option to select where to cast it at.",
+		revert = function()
+			RunPrivileged("SpellStopCasting()")
+		end,
+		doNotDelimit = true,
+		revertDesc = "Stops any currently casting spells (yes, any, even if it's not the one cast by this action).",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- secStopCasting = "secStopCasting",                --SpellStopCasting() #protected - Stops the current spellcast.
+	[ACTION_TYPE.secStopCasting] = scriptAction("Stop Casting", {
+		command = function(vars)
+			RunPrivileged("SpellStopCasting()")
+		end,
+		description =
+		"Stops the current spellcast.",
+		revertAlternative = "another cast spell action",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- secUseItem = "secUseItem",                      --UseItemByName(itemName, unit) #protected - Uses the specified item.
+	[ACTION_TYPE.secUseItem] = scriptAction("Use Item", {
+		command = function(vars)
+			RunPrivileged("UseItemByName(" .. vars .. ")")
+		end,
+		description =
+		"Use an item by name.",
+		dataName = "\"Item Name\" [, \"unitID\"]",
+		inputDescription =
+		"Any Item Name, and optionally a UnitID to set who it will target. If unitID is not given, default is whatever the default of that item is (i.e., target, or cursor, or self).\n\rCommon UnitIDs: 'player', 'target', 'cursor', 'mouseover', 'partyN' (where N = number 1,2,3,4 for which party member).\nUnitIDs must be wrapped in \"quotes\".\n\rMust have the item in your inventory in order to use it.",
+		example =
+		"<Cheap Beer> to use the item 'Cheap Beer' (19222).",
+		revert = function()
+			RunPrivileged("SpellStopCasting()")
+		end,
+		doNotDelimit = true,
+		revertDesc = "Stops any currently casting spells (because most item uses are just casting spells - and yes, stops any casting spell, even if it's not the one cast by this item).",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+
+	-- secTarget = "secTarget",                        --TargetUnit([name, exactMatch]) #protected - Targets the specified unit.
+	[ACTION_TYPE.secTarget] = scriptAction("Target (/target)", {
+		command = function(vars)
+			RunPrivileged("TargetUnit(" .. vars .. ")")
+		end,
+		description =
+		"Targets the specified unit.",
+		dataName = "[\"name\" [, exactMatch]]",
+		inputDescription =
+		"Any Name, and optionally if it should only search for an exact match (true/false).\nName must be wrapped in \"quotes\".",
+		example =
+		"<\"Bear\", true> to target the first found unit with the name <Bear> exactly. Since it is flagged for exact match, it will NOT target anything else with Bear in the name, like 'Brown Bear'.",
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		doNotDelimit = true,
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- SecureAssist = "SecureAssist",                        --AssistUnit([name, exactMatch]) #protected - Assists the unit by targeting the same target.
+	[ACTION_TYPE.secAssist] = scriptAction("Assist Target (/assist)", {
+		command = function(vars)
+			RunPrivileged("AssistUnit(" .. vars .. ")")
+		end,
+		description =
+		"Assists the specified unit.",
+		dataName = "[\"name\" [, exactMatch]]",
+		inputDescription =
+		"Any Name, or UnitID, maybe? And optionally if it should only search for an exact match (true/false).\nName must be wrapped in \"quotes\". If no input is given, assists your current target, if able.",
+		example =
+		"<\"Mindscape\", true> to target the same thing character 'Mindscape' is targeting, if they're around you.",
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		doNotDelimit = true,
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- ClearTarget = "ClearTarget",                          -- ClearTarget() : willMakeChange #protected - Clears the selected target
+	[ACTION_TYPE.secClearTarg] = scriptAction("Clear Target", {
+		command = function(vars)
+			RunPrivileged("ClearTarget()")
+		end,
+		description =
+		"Clears the selected target.",
+		dataName = nil,
+		revert = nil,
+		revertAlternative = "another Target action",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+
+	-- secTargLEnemy = "secTargLEnemy",                  -- TargetLastEnemy() #protected - Targets the previously targeted enemy.
+	[ACTION_TYPE.secTargLEnemy] = scriptAction("Target Last (Enemy)", {
+		command = function(vars)
+			RunPrivileged("TargetLastEnemy()")
+		end,
+		description =
+		"Targets the last previously targeted enemy.",
+		dataName = nil,
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- secTargLFriend = "secTargLFriend",                -- TargetLastFriend
+	[ACTION_TYPE.secTargLFriend] = scriptAction("Target Last (Friend)", {
+		command = function(vars)
+			RunPrivileged("TargetLastFriend()")
+		end,
+		description =
+		"Targets the last previously targeted friend.",
+		dataName = nil,
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- secTargLTarg = "secTargLTarg",                -- TargetLastTarget() #protected - Selects the last target as the current target.
+	[ACTION_TYPE.secTargLTarg] = scriptAction("Target Last (Any)", {
+		command = function(vars)
+			RunPrivileged("TargetLastTarget()")
+		end,
+		description =
+		"Selects the last target as the current target.",
+		dataName = nil,
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- secTargNAny = "secTargNAny",                      -- TargetNearest([reverse]) #protected
+	[ACTION_TYPE.secTargNAny] = scriptAction("Target Nearest (Any)", {
+		command = function(vars)
+			RunPrivileged("TargetNearest("..vars..")")
+		end,
+		description =
+		"Targets the nearest thing to you.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
+		dataName = "[reverse]",
+		inputDescription = "Reverse targetting order (true | false). Default if left blank is false (nearest).",
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- secTargNEnemy = "secTargNEnemy",            -- TargetNearestEnemy([reverse]) #protected - Selects the nearest enemy as the current target.
+	[ACTION_TYPE.secTargNEnemy] = scriptAction("Target Nearest (Enemy)", {
+		command = function(vars)
+			RunPrivileged("TargetNearestEnemy("..vars..")")
+		end,
+		description =
+		"Selects the nearest enemy as the current target.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
+		dataName = "[reverse]",
+		inputDescription = "Reverse targetting order (true | false). Default if left blank is false (nearest).",
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- TargetNearestEnemyPlayer = "TargetNearestEnemyPlayer", -- TargetNearestEnemyPlayer([reverse]) #protected - Selects the nearest enemy player as the current target.
+	[ACTION_TYPE.secTargNEnPlayer] = scriptAction("Target Nearest (Enemy Player)", {
+		command = function(vars)
+			RunPrivileged("TargetNearestEnemyPlayer("..vars..")")
+		end,
+		description =
+		"Selects the nearest enemy player as the current target.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
+		dataName = "[reverse]",
+		inputDescription = "Reverse targetting order (true | false). Default if left blank is false (nearest).",
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- TargetNearestFriend = "TargetNearestFriend",          -- TargetNearestFriend([reverse]) #protected - Targets the nearest friendly unit.
+	[ACTION_TYPE.secTargNFriend] = scriptAction("Target Nearest (Friend)", {
+		command = function(vars)
+			RunPrivileged("TargetNearestFriend("..vars..")")
+		end,
+		description =
+		"Targets the nearest friendly unit.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
+		dataName = "[reverse]",
+		inputDescription = "Reverse targetting order (true | false). Default if left blank is false (nearest).",
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- TargetNearestFriendPlayer = "TargetNearestFriendPlayer", -- TargetNearestFriendPlayer([reverse]) #protected - Selects the nearest friendly player as the current target.
+	[ACTION_TYPE.secTargNFrPlayer] = scriptAction("Target Nearest (Friendly Player)", {
+		command = function(vars)
+			RunPrivileged("TargetNearestFriendPlayer("..vars..")")
+		end,
+		description =
+		"Selects the nearest friendly player as the current target.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
+		dataName = "[reverse]",
+		inputDescription = "Reverse targetting order (true | false). Default if left blank is false (nearest).",
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- TargetNearestPartyMember = "TargetNearestPartyMember", -- TargetNearestPartyMember([reverse]) #protected - Selects the nearest Party member as the current target.
+	[ACTION_TYPE.secTargNParty] = scriptAction("Target Nearest (Party)", {
+		command = function(vars)
+			RunPrivileged("TargetNearestPartyMember("..vars..")")
+		end,
+		description =
+		"Selects the nearest Party member as the current target.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
+		dataName = "[reverse]",
+		inputDescription = "Reverse targetting order (true | false). Default if left blank is false (nearest).",
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- TargetNearestRaidMember = "TargetNearestRaidMember",  -- TargetNearestRaidMember([reverse]) #protected - Selects the nearest Raid member as the current target.
+	[ACTION_TYPE.secTargNRaid] = scriptAction("Target Nearest (Raid)", {
+		command = function(vars)
+			RunPrivileged("TargetNearestRaidMember("..vars..")")
+		end,
+		description =
+		"Selects the nearest Raid member as the current target.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
+		dataName = "[reverse]",
+		inputDescription = "Reverse targetting order (true | false). Default if left blank is false (nearest).",
+		revert = function()
+			RunPrivileged("ClearTarget()")
+		end,
+		revertDesc = "Clears your current target.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+
+	-- FocusUnit = "FocusUnit",                              -- FocusUnit([name]) #protected - Sets the focus target.
+	[ACTION_TYPE.secFocus] = scriptAction("Set Focus", {
+		command = function(vars)
+			RunPrivileged("FocusUnit('"..vars.."')")
+		end,
+		description =
+		"Sets the focus target.",
+		dataName = "name",
+		inputDescription = "Name of the unit to set as the focus target, or optionally a UnitID instead.\n\rCommon UnitIDs: 'player', 'target', 'cursor', 'mouseover', 'partyN' (where N = number 1,2,3,4 for which party member)",
+		revert = function()
+			RunPrivileged("ClearFocus()")
+		end,
+		revertDesc = "Clears your current focus.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+
+	-- secClearFocus = "secClearFocus",                      -- ClearFocus() #protected - Clears the focus target.
+	[ACTION_TYPE.secClearFocus] = scriptAction("Clear Focus", {
+		command = function(vars)
+			RunPrivileged("ClearFocus()")
+		end,
+		description =
+		"Clears the focus target.",
+		dataName = nil,
+		revertAlternative = "another Set Focus action",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+
+	-- FollowUnit = "FollowUnit",                            -- FollowUnit(unit) #hwevent - Follows a friendly player unit.
+	[ACTION_TYPE.FollowUnit] = scriptAction("Follow Unit", {
+		command = function(vars)
+			if not vars then vars = "target" end
+			RunPrivileged("FollowUnit('"..vars.."')")
+		end,
+		description =
+		"Follows the given unit. Potentially only works on a friendly player unit.\n\r"..commonUnitIDs,
+		dataName = nil,
+		revert = function() RunPrivileged("MoveForwardStart(0); MoveForwardStop(0)") end,
+		revertDesc = "Stops following the unit.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	[ACTION_TYPE.StopFollow] = scriptAction("Stop Following", {
+		command = function(vars)
+			RunPrivileged("MoveForwardStart(0); MoveForwardStop(0)")
+		end,
+		description =
+		"Stops Following anything, if you are.",
+		dataName = nil,
+		revertAlternative = "another Follow Unit action",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- ToggleRun = "ToggleRun",                              -- ToggleRun() #protected - Toggle between running and walking.
+	[ACTION_TYPE.ToggleRun] = scriptAction("Toggle Run/Walk", {
+		command = function(vars)
+			RunPrivileged("ToggleRun()")
+		end,
+		description =
+		"Toggle between running and walking.",
+		dataName = nil,
+		revert = function() RunPrivileged("ToggleRun()") end,
+		revertDesc = "Toggles between running & walking again.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- ToggleAutoRun = "ToggleAutoRun",                      -- ToggleAutoRun() #protected - Turns auto-run on or off.
+	[ACTION_TYPE.ToggleAutoRun] = scriptAction("Toggle Auto Run", {
+		command = function(vars)
+			RunPrivileged("ToggleAutoRun()")
+		end,
+		description =
+		"Toggle Auto Run On or Off (Depending if it's already on or not).",
+		dataName = nil,
+		revert = function() RunPrivileged("ToggleAutoRun()") end,
+		revertDesc = "Toggles Auto Run again.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- StartAutoRun = "StartAutoRun" 			-- StartAutoRun() #protected
+	[ACTION_TYPE.StartAutoRun] = scriptAction("Start Auto Run", {
+		command = function(vars)
+			RunPrivileged("StartAutoRun()")
+		end,
+		description =
+		"Starts Auto Running.",
+		dataName = nil,
+		revert = function() RunPrivileged("StopAutoRun()") end,
+		revertDesc = "Stops Auto Running.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+	-- StopAutoRun = "StopAutoRun" 				-- StopAutoRun() #protected
+	[ACTION_TYPE.StopAutoRun] = scriptAction("Stop Auto Run", {
+		command = function(vars)
+			RunPrivileged("StopAutoRun()")
+		end,
+		description =
+		"Stops Auto Running.",
+		dataName = nil,
+		revert = function() RunPrivileged("StartAutoRun()") end,
+		revertDesc = "Starts Auto Running.",
+		selfAble = false,
+		requirement = "C_Epsilon.RunPrivileged",
+		disabledWarning = "\nAction Unavailable (EPSI_RSP_MISSING)"
+	}),
+
+	-- TBD if we want to use these..
+	-- RunMacro = "RunMacro",                                -- RunMacro(id or name) #protected - Executes a macro.
+	-- RunMacroText = "RunMacroText",                        -- RunMacroText(macro) #protected - Executes a string as if it was a macro.
+	-- StopMacro = "StopMacro",                              -- StopMacro() #protected - Stops the currently executing macro.
+
 }
+
+
+
+---End Point for Registering a New Action; Other AddOns can use this to add their own actions to the database. // We should convert the above to use this instead in another data library file for easier organization..
+---@param key string
+---@param type "server"|string|any
+---@param name string
+---@param category string
+---@param actionData FunctionActionTypeData|ServerActionTypeData
+---@return boolean|nil
+local function registerActionData(key, type, name, category, actionData)
+	if not key or not type or not name or not actionData then return false end
+	if ACTION_TYPE[key] then return false, error(key .. " is already a defined ACTION_TYPE - Cannot Overwrite.") end
+
+	local typeFunction
+	if type == "server" then
+		typeFunction = serverAction
+	else
+		typeFunction = scriptAction
+	end
+
+	ACTION_TYPE[key] = key
+
+	actionTypeData[key] = typeFunction(name, actionData)
+
+	-- The main ARC.RegisterAction() func will handle both this & adding to the dropdowns.
+
+	return true
+end
 
 ---@class Actions_Data
 ns.Actions.Data = {
 	ACTION_TYPE = ACTION_TYPE,
 	actionTypeData = actionTypeData,
+
+	registerActionData = registerActionData
 }

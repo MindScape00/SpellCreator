@@ -104,7 +104,6 @@ local function setupSpellTooltip(spellName, spellDesc, spellComm, numActions, ch
 			ItemRefTooltip:SetPadding(16, 0)
 		end
 	end)
-
 end
 
 local function showSpellTooltip(commID, spellName, charOrPhase, linkData, manualSpellData)
@@ -139,7 +138,6 @@ function ChatFrame_OnHyperlinkShow(...)
 		local spellComm, charOrPhase, numActions, spellIcon = strsplit(":", linkData)
 
 		showSpellTooltip(spellComm, spellName, charOrPhase, linkData)
-
 	end
 end
 
@@ -147,23 +145,58 @@ local function chatMessageSendLinkHook(msg, chatType, languageID, target)
 	if msg:find("|HarcSpell:") then
 		local linkData, displayText = string.match(msg, [[|HarcSpell:([^|]*)|h(.*)|h]]);
 		local spellComm, charOrPhase, numActions, spellIcon = strsplit(":", linkData)
-		if not spellComm or not charOrPhase then eprint("Erorr in Link: No Valid SpellComm or charOrPhase.") return end
+		if not spellComm or not charOrPhase then
+			eprint("Erorr in Link: No Valid SpellComm or charOrPhase.")
+			return
+		end
 
-		if msg:find("^%.") then chatType = "EPSI_ANNOUNCE"; dprint("Arc SCM Hook: Sent as command, sending global cache") end
+		if msg:find("^%.") then
+			chatType = "EPSI_ANNOUNCE"; dprint("Arc SCM Hook: Sent as command, sending global cache")
+		end
 		if charOrPhase == UnitName("player") or (tonumber(charOrPhase) == tonumber(C_Epsilon.GetPhaseId()) and ns.Vault.phase.isLoaded == true) then -- make sure we are sending our own spell or our current phases vault, and not sending another person's link..
 			Comms.sendSpellForCache(spellComm, charOrPhase, chatType, target)
 		else
 			dprint(nil, "Spell Link caught, but not ours or not the phase we are in, or phase vault not loaded. (" .. spellComm .. " from " .. charOrPhase .. "'s vault)")
 		end
-
 	end
 end
 
 hooksecurefunc("SendChatMessage", chatMessageSendLinkHook)
+
+--#region ChatLink EditBox Linking
+
+local hookedEditBoxes = {}
+
+---@param editBox EditBox
+local function registerEditBoxForChatLinks(editBox)
+	tinsert(hookedEditBoxes, editBox)
+	editBox.registeredForHyperlinks = true
+	editBox:SetHyperlinksEnabled(1)
+end
+
+local function unregisterEditBoxForChatLinks(editBox)
+	editBox.registeredForHyperlinks = false
+	tDeleteItem(hookedEditBoxes, editBox)
+end
+
+hooksecurefunc("ChatEdit_InsertLink", function(link)
+	if (not link) then return false end
+	for k, editBox in ipairs(hookedEditBoxes) do
+		if editBox:IsVisible() and editBox:HasFocus() then
+			editBox:SetText(editBox:GetText() .. link)
+			return true;
+		end
+	end
+end)
+
+--#endregion
 
 ---@class UI_ChatLink
 ns.UI.ChatLink = {
 	linkSpell = linkSpell,
 	showSpellTooltip = showSpellTooltip,
 	generateSpellLink = generateSpellLink,
+
+	registerEditBox = registerEditBoxForChatLinks,
+	unregisterEditBox = unregisterEditBoxForChatLinks,
 }

@@ -63,25 +63,31 @@ local function createSaveButton(mainFrame, saveSpell)
 		end,
 		function(self)
 			local spellInfo = Attic.getInfo()
+			local strs = { "\n" }
 
 			if self:IsEnabled() then
 				local castHelp = "\rYou can cast it using '/sf " .. (spellInfo.commID or "commID") .. "' for quick use!"
 
 				if isSaving() then
-					return {
-						"Finish editing your spell and save your changes.",
-						castHelp,
-					}
+					tinsert(strs, "Finish editing your spell and save your changes.")
+					tinsert(strs, castHelp)
 				else
-					return {
-						"Finish your spell & save it to your Personal Vault.",
-						castHelp,
-						"\rRight-click to over-write a previous spell with the same Command ID without confirmation.",
-					}
+					tinsert(strs, "Finish your spell & save it to your Personal Vault.")
+					tinsert(strs, castHelp)
+					tinsert(strs, "\rRight-click to over-write a previous spell with the same Command ID without confirmation.")
+				end
+			else
+				local saveOrCreateText = isSaving() and "Save" or "Create"
+				tinsert(strs, ("Cannot %s Spell:"):format(saveOrCreateText))
+				if not Attic.isInfoValid() then
+					tinsert(strs, "- You must specify a valid Spell Name & Spell Command")
+				end
+				if not ns.UI.SpellRow.isAnyActionRowValid() then
+					tinsert(strs, "- You do not have any valid Actions (are they missing a delay?)")
 				end
 			end
 
-			return "\nYou must specify a Spell Name & Spell Command to Create / Save your spell."
+			return strs
 		end
 	)
 

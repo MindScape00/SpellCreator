@@ -18,20 +18,22 @@ local currentMenu = {}
 ---| "submenu"
 
 ---@class DropdownItemCreationOptions
----@field disabled DynamicBoolean?
----@field tooltipTitle DynamicText?
----@field tooltipText DynamicText?
----@field hidden DynamicBoolean?
----@field keepShownOnClick DynamicBoolean? overwrite options that default to not stay shown on click
----@field options table? the rest of the default UIDropDownMenu options since they are not special-handlers here
+---@field disabled? DynamicBoolean
+---@field disabledWarning? string
+---@field tooltipTitle? DynamicText
+---@field tooltipText? DynamicText
+---@field hidden? DynamicBoolean
+---@field keepShownOnClick? DynamicBoolean overwrite options that default to not stay shown on click
+---@field options? table the rest of the default UIDropDownMenu Info Table options since they are not special-handlers here
 
 ---@class DropdownInputCreationOptions: DropdownItemCreationOptions
 ---@field placeholder string
----@field set fun(text: string): nil
+---@field set fun(self: Frame, text: string): nil
+---@field hyperlinkEnabled? boolean
 
 ---@class DropdownToggleCreationOptions: DropdownItemCreationOptions
----@field get boolean | fun(): boolean
----@field set fun(value: boolean): nil
+---@field get boolean | fun(self: Frame): boolean
+---@field set fun(self: Frame, value: boolean): nil
 
 ---@class DropdownItem
 ---@field menuItem MenuItem
@@ -40,9 +42,24 @@ local currentMenu = {}
 ---@field tooltipTitle DynamicText?
 ---@field tooltipText DynamicText?
 ---@field disabled DynamicBoolean?
+---@field disabledWarning? string
 ---@field keepShownOnClick DynamicBoolean? overwrite options that default to not stay shown on click
 ---@field hidden DynamicBoolean?
 ---@field options table
+
+--#region Pools
+
+local function inputPoolResetter(pool, frame)
+	frame:ClearFocus()
+	frame:SetText("")
+	frame:Hide()
+end
+local inputPool = CreateFramePool("EditBox", UIParent, "InputBoxInstructionsTemplate", inputPoolResetter)
+DropDownList1:HookScript("OnHide", function()
+	inputPool:ReleaseAll()
+end)
+
+--#endregion
 
 ---@generic V
 ---@param value (V | fun(): V)
@@ -71,6 +88,11 @@ local function getMenuItem(dropdownItem)
 	end
 	if dropdownItem.keepShownOnClick then
 		menuItem.keepShownOnClick = evaluate(dropdownItem.keepShownOnClick) --[[@as boolean]]
+	end
+
+	if menuItem.disabled and dropdownItem.disabledWarning then
+		menuItem.tooltipWhileDisabled = true
+		menuItem.tooltipWarning = dropdownItem.disabledWarning
 	end
 
 	if dropdownItem.options then
@@ -150,7 +172,6 @@ local function open(menuList, frame, anchor, x, y, displayMode, autoHideDelay)
 		currentMenu.x = cX / uiScale
 		currentMenu.y = cY / uiScale
 	end
-
 end
 
 local function close()
@@ -191,6 +212,7 @@ local function item(type, text, options)
 
 	if options then
 		dropdownItem.disabled = options.disabled
+		dropdownItem.disabledWarning = options.disabledWarning
 		dropdownItem.tooltipTitle = options.tooltipTitle
 		dropdownItem.tooltipText = options.tooltipText
 		dropdownItem.hidden = options.hidden
@@ -199,6 +221,21 @@ local function item(type, text, options)
 	end
 
 	return dropdownItem
+end
+
+local checkSubChecksFunc = function(self)
+	for _, childItem in ipairs(self.menuList) do
+		local checked = childItem.menuItem.checked
+		if type(checked) == "function" then
+			checked = checked(self)
+		end
+
+		if checked then
+			return true
+		end
+	end
+
+	return false
 end
 
 ---@param text DynamicText
@@ -212,24 +249,22 @@ local function selectmenu(text, dropdownItems, options)
 	dropdownItem.menuItem.keepShownOnClick = true
 	dropdownItem.menuItem.value = nil
 	dropdownItem.menuItem.menuList = dropdownItems
-
-	dropdownItem.menuItem.checked = function(self)
-		for _, childItem in ipairs(self.menuList) do
-			local checked = childItem.menuItem.checked
-			if type(checked) == "function" then
-				checked = checked()
-			end
-
-			if checked then
-				return true
-			end
+	dropdownItem.menuItem.checked = checkSubChecksFunc
+	dropdownItem.menuItem.func = function(self, arg1, arg2, checked)
+		local checkMark = _G[self:GetName() .. "Check"]
+		local unCheckMark = _G[self:GetName() .. "UnCheck"]
+		if checkSubChecksFunc(self) then
+			checkMark:Show()
+			unCheckMark:Hide()
+		else
+			checkMark:Hide()
+			unCheckMark:Show()
 		end
-
-		return false
 	end
 
 	return dropdownItem
 end
+
 
 ---@param text DynamicText
 ---@param dropdownItems DropdownItem[]
@@ -248,14 +283,14 @@ local function submenu(text, dropdownItems, options)
 end
 
 ---@param text DynamicText
----@param func fun(): nil
+---@param func fun(self): nil
 ---@param options DropdownItemCreationOptions?
 ---@return DropdownItem
 local function execute(text, func, options)
 	local dropdownItem = item("button", text, options)
 
-	dropdownItem.menuItem.func = function()
-		func()
+	dropdownItem.menuItem.func = function(self)
+		func(self)
 		if options and evaluate(options.keepShownOnClick) then refresh() else close() end
 	end
 	dropdownItem.menuItem.notCheckable = true
@@ -273,7 +308,7 @@ local function checkbox(text, options)
 	dropdownItem.menuItem.isNotRadio = true
 	dropdownItem.menuItem.keepShownOnClick = true
 	dropdownItem.menuItem.func = function(self, arg1, arg2, checked)
-		options.set(checked)
+		options.set(self, checked)
 		refresh()
 	end
 
@@ -288,7 +323,7 @@ local function radio(text, options)
 
 	dropdownItem.menuItem.checked = options.get
 	dropdownItem.menuItem.func = function(self, arg1, arg2, checked)
-		options.set(checked)
+		options.set(self, checked)
 		close()
 	end
 
@@ -304,7 +339,7 @@ function CustomDropDownEditBoxMixin:OnEnterPressed()
 	text = strtrim(text)
 
 	if #text > 0 then
-		self.set(text)
+		self.set(self, text)
 		close()
 	end
 end
@@ -313,27 +348,90 @@ function CustomDropDownEditBoxMixin:OnEscapePressed()
 	close()
 end
 
+-- -- -- -- -- -- -- -- -- -- -- --
+--#region Input Dropdown Registry
+-- This system just hooks the HandleGlobalMouseEvent to NOT close the Dropdown menu if it's a chatlink, so we can shift-click items into dropdown inputs
+-- -- -- -- -- -- -- -- -- -- -- --
+
+local hookedEditBoxes = {}
+---@param editBox EditBox
+local function registerInputForChatLinks(editBox)
+	tinsert(hookedEditBoxes, editBox)
+end
+
+local function unregisterInputForChatLinks(editBox)
+	tDeleteItem(hookedEditBoxes, editBox)
+end
+
+local _UIDropDownMenu_HandleGlobalMouseEvent = UIDropDownMenu_HandleGlobalMouseEvent
+UIDropDownMenu_HandleGlobalMouseEvent = function(button, event)
+	if IsModifiedClick("CHATLINK") then
+		for k, editBox in ipairs(hookedEditBoxes) do
+			if editBox:IsVisible() and editBox:HasFocus() then
+				return
+			end
+		end
+	end
+	_UIDropDownMenu_HandleGlobalMouseEvent(button, event)
+end
+
+-- -- -- -- -- -- -- -- -- -- -- --
+--#endregion
+-- -- -- -- -- -- -- -- -- -- -- --
+
 ---@param text DynamicText
 ---@param options DropdownInputCreationOptions
 ---@return DropdownItem
 local function input(text, options)
 	local dropdownItem = item("input", text, options)
 
-	local editBox = CreateFrame("EditBox", nil, UIParent, "InputBoxInstructionsTemplate")
+	--local editBox = CreateFrame("EditBox", nil, UIParent, "InputBoxInstructionsTemplate")
+
+	local editBox, isNew = inputPool:Acquire()
+	---@cast editBox EditBox|InputBoxInstructionsTemplate
+
 	editBox.Instructions:SetText(options.placeholder)
-	editBox:SetAutoFocus(false)
 
-	Mixin(editBox, CustomDropDownEditBoxMixin)
+	if isNew then
+		editBox:SetAutoFocus(false)
 
-	---@cast editBox +CustomDropDownEditBox
+		-- need to raise the textures to avoid draw conflicts that occasionally happen with the dropdown menu background
+		editBox.Left:SetDrawLayer("BORDER")
+		editBox.Middle:SetDrawLayer("BORDER")
+		editBox.Right:SetDrawLayer("BORDER")
+
+		Mixin(editBox, CustomDropDownEditBoxMixin)
+		---@cast editBox +CustomDropDownEditBox
+	end
+
 
 	editBox.set = options.set
 	editBox:SetScript("OnEnterPressed", editBox.OnEnterPressed)
 	editBox:SetScript("OnEscapePressed", editBox.OnEscapePressed)
 
+	editBox:SetScript("OnShow", function()
+		if options.hyperlinkEnabled then
+			ns.UI.ChatLink.registerEditBox(editBox)
+			registerInputForChatLinks(editBox)
+		end
+		editBox:SetFocus()
+	end)
+
+	editBox:SetScript("OnHide", function(self)
+		if self.registeredForHyperlinks then
+			ns.UI.ChatLink.unregisterEditBox(editBox)
+			unregisterInputForChatLinks(editBox)
+		end
+		self:ClearFocus()
+	end)
+	if options.hyperlinkEnabled then
+		editBox:SetHyperlinksEnabled()
+	end
+
 	function editBox:OnSetOwningButton()
 		editBox:SetWidth(130)
 		editBox:SetHeight(editBox.owningButton:GetHeight())
+		editBox:Raise()
 	end
 
 	---@cast editBox -EditBox, -InputBoxInstructionsTemplate

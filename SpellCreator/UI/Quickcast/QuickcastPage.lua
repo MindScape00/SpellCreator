@@ -206,6 +206,24 @@ local function Page_GetSpells(self)
 	return spells
 end
 
+---@param self QuickcastPage
+---@param commID CommID
+local function Page_AddSpell(self, commID)
+	if not self.spells then
+		self.spells = {}
+	end
+	tinsert(self.spells, commID)
+	self:UpdateButtons()
+end
+
+---@param self QuickcastPage
+---@param commID CommID
+local function Page_RemoveSpell(self, commID)
+	if not self.spells then return end
+	tDeleteItem(self.spells, commID)
+	self:UpdateButtons()
+end
+
 local function Page_ReorderSpell(self, curIndex, newIndex)
 	if not self.spells then return end
 	local theSpell = self.spells[curIndex]
@@ -262,7 +280,18 @@ local function Page_GetNumSpells(self)
 	return #self:GetSpells()
 end
 
----@param book QuickcastBook
+---@param self QuickcastPage
+local function Page_SetProfile(self, text)
+	self.profileName = text
+	self:UpdateButtons()
+end
+
+---@param self QuickcastPage
+local function Page_GetProfile(self)
+	return self.profileName
+end
+
+---@param book QuickcastBook This is just used for defining the parent from the start
 ---@param spells? CommID[]
 ---@param profileName? string
 ---@return QuickcastPage
@@ -291,6 +320,10 @@ local function createPage(book, spells, profileName)
 	page.GetNumSpells = Page_GetNumSpells
 	page.GetSpells = Page_GetSpells
 	page.ReorderSpell = Page_ReorderSpell
+	page.AddSpell = Page_AddSpell
+	page.RemoveSpell = Page_RemoveSpell
+	page.SetProfile = Page_SetProfile
+	page.GetProfile = Page_GetProfile
 
 	return page
 end

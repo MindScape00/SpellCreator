@@ -50,6 +50,9 @@ local function eprint(text, rest)
 end
 
 local function raidWarning(text, r, g, b)
+	if not r then r = 1 end
+	if not g then g = 0 end
+	if not b then b = 0 end
 	RaidNotice_AddMessage(RaidWarningFrame, CreateColor(r, g, b, 1):WrapTextInColorCode(text), ChatTypeInfo["RAID_WARNING"])
 end
 
@@ -62,10 +65,21 @@ local function uiErrorMessage(text, r, g, b, voiceID, soundKitID)
 	end
 end
 
+local function arcWarning(text)
+	local finalMessage = ("ARCANUM WARNING:\n\r%s"):format(text)
+	local warningColor = ns.Constants.ADDON_COLORS.TOOLTIP_WARNINGRED
+	finalMessage = finalMessage:gsub("|r", "|r" .. warningColor:GenerateHexColorMarkup()) -- always add red back
+	finalMessage = warningColor:WrapTextInColorCode(finalMessage)
+
+	local data = { text = finalMessage, cancelText = false, acceptText = OKAY, showAlert = true };
+	ns.UI.Popups.showCustomGenericConfirmation(data)
+end
+
 ns.Logging = {
 	cprint = cprint,
 	dprint = dprint,
 	eprint = eprint,
 	raidWarning = raidWarning,
 	uiErrorMessage = uiErrorMessage,
+	arcWarning = arcWarning
 }

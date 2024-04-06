@@ -178,8 +178,7 @@ end
 ---@param showShield boolean
 local function showCastBar(length, text, spellData, channeled, showIcon, showShield)
 	length = tonumber(length) -- somehow we got a string one time and it was weird.. might've been a me being dumb but..
-	if length < 0.25 then return end
-	;                      -- hard limit for no cast bars under 0.25 cuz it looks terrible
+	if length < 0.25 then return end  -- hard limit for no cast bars under 0.25 cuz it looks terrible
 
 	local self = getFreeCastBar()
 	local notInterruptible = false
@@ -194,6 +193,8 @@ local function showCastBar(length, text, spellData, channeled, showIcon, showShi
 
 	if spellData then
 		if not ns.Utils.Data.isNotDefined(spellData.icon) then castIcon = ns.UI.Icons.getFinalIcon(spellData.icon) end
+
+		self.arcCommID = spellData.commID
 	end
 
 	startColor = CastingBarFrame_GetEffectiveStartColor(self, channeled, notInterruptible);
@@ -253,7 +254,6 @@ local function showCastBar(length, text, spellData, channeled, showIcon, showShi
 			self.Icon:SetPoint("RIGHT", self, "LEFT", -5, 3)
 		end
 	end
-	self.arcCommID = spellData.commID
 	self:Show();
 end
 

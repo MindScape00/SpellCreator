@@ -5,6 +5,7 @@ local ActionsData = ns.Actions.Data
 local Constants = ns.Constants
 local DataUtils = ns.Utils.Data
 local Debug = ns.Utils.Debug
+local Popups = ns.UI.Popups
 local UIHelpers = ns.Utils.UIHelpers
 local Tooltip = ns.Utils.Tooltip
 local ADDON_COLORS = ns.Constants.ADDON_COLORS
@@ -40,6 +41,16 @@ local function updateSpellRowOptions(row, selectedAction)
 	local theSpellRow = SCForgeMainFrame.spellRows[row]
 	if selectedAction then -- if we call it with no action, reset
 		local selectedActionData = actionTypeData[selectedAction]
+		if not selectedActionData then
+			theSpellRow.SelectedAction = selectedAction -- still set it so we can use it in error handling later
+			theSpellRow.SelfCheckbox:Disable()
+			theSpellRow.InputEntryBox:Disable()
+			theSpellRow.RevertDelayBox:Disable()
+			theSpellRow.ConditionalButton:Disable()
+			local errorMessage = ("Action Error (Row %s): Action Type does not exist. This Action may require another AddOn.\n\rAction ID: %s"):format(row, Tooltip.genContrastText(selectedAction))
+			ns.Logging.arcWarning(errorMessage)
+			return
+		end
 
 		theSpellRow.SelectedAction = selectedAction
 		if selectedActionData.selfAble then theSpellRow.SelfCheckbox:Enable() else theSpellRow.SelfCheckbox:Disable() end
@@ -56,12 +67,16 @@ local function updateSpellRowOptions(row, selectedAction)
 		else
 			theSpellRow.RevertDelayBox:Disable();
 		end
+
+		theSpellRow.ConditionalButton:Enable()
+		theSpellRow.ConditionalButton:update()
 	else
 		theSpellRow.SelectedAction = nil
 		theSpellRow.SelfCheckbox:Disable()
 		theSpellRow.InputEntryBox.Instructions:SetText("select an action...")
 		theSpellRow.InputEntryBox:Disable()
 		theSpellRow.RevertDelayBox:Disable()
+		theSpellRow.ConditionalButton:Disable()
 	end
 end
 
@@ -102,20 +117,55 @@ local function createDropdown(row)
 	return Dropdown.create(row, name):WithAppearance(actionColumnWidth):SetText("Action")
 end
 
+---comment
+---@param rowFrom SpellRowFrame
+---@param rowTo SpellRowFrame
+local function copyRowDataDirect(rowFrom, rowTo)
+	if not rowFrom and not rowTo then return end
+
+	rowTo.actionSelectButton:SetText(rowFrom.actionSelectButton:GetText())
+	rowTo.SelectedAction = rowFrom.SelectedAction
+	rowTo.conditionsData = rowFrom.conditionsData
+
+	updateSpellRowOptions(rowTo.rowNum, rowFrom.SelectedAction)
+
+	rowTo.mainDelayBox:SetText(rowFrom.mainDelayBox:GetText())
+	rowTo.SelfCheckbox:SetChecked(rowFrom.SelfCheckbox:GetChecked())
+	rowTo.InputEntryBox:SetText(rowFrom.InputEntryBox:GetText())
+	rowTo.RevertDelayBox:SetText(rowFrom.RevertDelayBox:GetText())
+end
+
+---comment
+---@param from integer
+---@param to integer
+local function copyRowByIDs(from, to)
+	local theRowToGrab = SCForgeMainFrame.spellRows[from]
+	local theRowToSet = SCForgeMainFrame.spellRows[to]
+	copyRowDataDirect(theRowToGrab, theRowToSet)
+end
+
+---comment
+---@param row SpellRowFrame
+local function cleanRow(row)
+	row.mainDelayBox:SetText("")
+
+	row.actionSelectButton:SetText("Action")
+	updateSpellRowOptions(row.rowNum, nil)
+
+	row.SelfCheckbox:SetChecked(false)
+	row.InputEntryBox:SetText("")
+	row.RevertDelayBox:SetText("")
+
+	row.conditionsData = nil
+end
+
 ---@param rowToRemove number?
 local function removeRow(rowToRemove)
 	Attic.markEditorUnsaved()
 
 	if numActiveRows <= 1 then
 		local theSpellRow = SCForgeMainFrame.spellRows[numActiveRows]
-		theSpellRow.mainDelayBox:SetText("")
-
-		theSpellRow.actionSelectButton:SetText("Action")
-		updateSpellRowOptions(numActiveRows, nil)
-
-		theSpellRow.SelfCheckbox:SetChecked(false)
-		theSpellRow.InputEntryBox:SetText("")
-		theSpellRow.RevertDelayBox:SetText("")
+		cleanRow(theSpellRow)
 		return;
 	end
 
@@ -124,14 +174,7 @@ local function removeRow(rowToRemove)
 			local theRowToSet = SCForgeMainFrame.spellRows[i]
 			local theRowToGrab = SCForgeMainFrame.spellRows[i + 1]
 
-			theRowToSet.actionSelectButton:SetText(theRowToGrab.actionSelectButton:GetText())
-			theRowToSet.SelectedAction = theRowToGrab.SelectedAction
-			updateSpellRowOptions(i, theRowToGrab.SelectedAction)
-
-			theRowToSet.mainDelayBox:SetText(theRowToGrab.mainDelayBox:GetText())
-			theRowToSet.SelfCheckbox:SetChecked(theRowToGrab.SelfCheckbox:GetChecked())
-			theRowToSet.InputEntryBox:SetText(theRowToGrab.InputEntryBox:GetText())
-			theRowToSet.RevertDelayBox:SetText(theRowToGrab.RevertDelayBox:GetText())
+			copyRowDataDirect(theRowToGrab, theRowToSet)
 		end
 	end
 
@@ -140,15 +183,7 @@ local function removeRow(rowToRemove)
 	theSpellRow:Hide()
 
 	--	if SpellCreatorMasterTable.Options["clearRowOnRemove"] then
-	theSpellRow.mainDelayBox:SetText("")
-
-	-- theSpellRow.actionSelectButton.Dropdown
-	theSpellRow.actionSelectButton.Text:SetText("Action")
-	updateSpellRowOptions(numActiveRows, nil)
-
-	theSpellRow.SelfCheckbox:SetChecked(false)
-	theSpellRow.InputEntryBox:SetText("")
-	theSpellRow.RevertDelayBox:SetText("")
+	cleanRow(theSpellRow) -- and clean up that row data
 	--	end
 
 	numActiveRows = numActiveRows - 1
@@ -174,13 +209,29 @@ local function getRowActionTypeData(rowNum)
 	end
 end
 
+local copiedFXFinFunc = function(self)
+	self:GetRegionParent():Hide()
+end
+local copiedFXPlayFunc = function(self, action)
+	if action == "copy" then
+		self.copyFX:SetAtlas("GarrMission_CounterHalfCheck")
+	elseif action == "paste" then
+		self.copyFX:SetAtlas("GarrMission_CounterCheck")
+	else
+		self.copyFX:SetAtlas("groupfinder-icon-redx")
+	end
+	self.copyFX:Show()
+	self.copyFX.anims:Play()
+end
+
 ---@param rowToAdd number?
-local function addRow(rowToAdd)
+local function addRow(rowToAdd, copy)
 	if numActiveRows >= maxNumberOfRows then SCForgeMainFrame.AddRowRow.AddRowButton:Disable() end -- hard cap the add button
-	numActiveRows = numActiveRows + 1 -- The number of spell rows that this row will be.
+	numActiveRows = numActiveRows + 1                                                           -- The number of spell rows that this row will be.
 
 	---@class SpellRowFrame: Frame
 	---@field SelectedAction ActionType
+	---@field conditionsData ConditionDataTable
 	local newRow
 	if SCForgeMainFrame.spellRows[numActiveRows] then
 		newRow = SCForgeMainFrame.spellRows[numActiveRows]
@@ -209,7 +260,7 @@ local function addRow(rowToAdd)
 		newRow.mainDelayBox.Instructions:SetTextColor(0.5, 0.5, 0.5)
 		newRow.mainDelayBox:SetAutoFocus(false)
 		newRow.mainDelayBox:SetSize(delayColumnWidth, 23)
-		newRow.mainDelayBox:SetPoint("LEFT", 40, 0)
+		newRow.mainDelayBox:SetPoint("LEFT", 25, 0)
 		newRow.mainDelayBox:SetMaxLetters(10)
 		newRow.mainDelayBox:HookScript("OnTextChanged", function(self, userInput)
 			if self:GetText() == self:GetText():match("%d+") or self:GetText() == self:GetText():match("%d+%.%d+") or self:GetText() == self:GetText():match("%.%d+") then
@@ -221,13 +272,23 @@ local function addRow(rowToAdd)
 			else
 				self:SetTextColor(1, 0, 0, 1)
 			end
-			if userInput then Attic.markEditorUnsaved(); SCForgeMainFrame.SaveSpellButton:UpdateIfValid(); end
+			if userInput then
+				Attic.markEditorUnsaved(); SCForgeMainFrame.SaveSpellButton:UpdateIfValid();
+			end
 		end)
-		Tooltip.set(newRow.mainDelayBox, "Main Action Delay", "How long after 'casting' the ArcSpell this action triggers.\rCan be '0' for instant.")
+		Tooltip.set(newRow.mainDelayBox, "Main Action Delay", "How long after 'casting' the ArcSpell this action triggers.\rCan be '0' for instant, but cannot be left blank or else it will be skipped.")
 
 		newRow.actionSelectButton = createDropdown(newRow)
 		newRow.actionSelectButton:SetPoint("LEFT", newRow.mainDelayBox, "RIGHT", 0, -2)
 		SpellRowAction.initialize(newRow)
+		local originalMouseDown = newRow.actionSelectButton.Button.OnMouseDown
+		newRow.actionSelectButton.Button:SetScript("OnMouseDown", function(...)
+			ns.UI.SpellRowAction.rowHelperTable.currentRow = newRow
+			ns.Logging.dprint(false, "Action Current Row:", newRow, "row:", newRow.rowNum)
+			originalMouseDown(...)
+		end)
+		Tooltip.set(newRow.actionSelectButton, "Select an Action", "Choose what Action to perform when this row activates.")
+
 
 		-- Self Checkbox
 		newRow.SelfCheckbox = CreateFrame("CHECKBUTTON", nil, newRow, "UICheckButtonTemplate")
@@ -269,6 +330,48 @@ local function addRow(rowToAdd)
 		newRow.InputEntryBox:HookScript("OnTextChanged", function(self, userInput)
 			if userInput then Attic.markEditorUnsaved() end
 		end)
+
+		newRow.PopupInputEditorButton = CreateFrame("Button", nil, newRow)
+		newRow.PopupInputEditorButton:SetSize(16, 16)
+		if newRow.InputEntryScrollFrame then
+			newRow.PopupInputEditorButton:SetPoint("LEFT", newRow.InputEntryScrollFrame, "RIGHT", 0, 0)
+		else
+			newRow.PopupInputEditorButton:SetPoint("LEFT", newRow.InputEntryBox, "RIGHT", 0, 0)
+		end
+		--newRow.PopupInputEditorButton:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+		UIHelpers.setupCoherentButtonTextures(newRow.PopupInputEditorButton, "Interface\\ChatFrame\\ChatFrameExpandArrow")
+		Tooltip.set(newRow.PopupInputEditorButton, "Open Input/Script Editor", "Opens this actions current text in a larger editor, with optional Lua syntax highlighting for editing Macro Scripts.")
+		newRow.PopupInputEditorButton:SetScript("OnClick", function(self, button)
+			if button == "LeftButton" then
+				Popups.showScriptInputBox(newRow.InputEntryBox:GetText(), newRow.InputEntryBox, newRow.SelectedAction == "MacroText")
+			end
+		end)
+		newRow.PopupInputEditorButton:Disable()
+		newRow.InputEntryBox:HookScript("OnEnable", function()
+			newRow.PopupInputEditorButton:Enable()
+		end)
+		newRow.InputEntryBox:HookScript("OnDisable", function()
+			newRow.PopupInputEditorButton:Disable()
+		end)
+
+		ns.UI.ChatLink.registerEditBox(inputEntryBox)
+		inputEntryBox:SetHyperlinksEnabled(true)
+		local widgetScripts = {
+			OnHyperlinkEnter = function(self, link, text, region, boundsLeft, boundsBottom, boundsWidth, boundsHeight)
+				GameTooltip:SetOwner(self, "ANCHOR_PRESERVE");
+				GameTooltip:ClearAllPoints();
+				local cursorClearance = 30;
+				GameTooltip:SetPoint("TOPLEFT", region, "BOTTOMLEFT", boundsLeft, boundsBottom - cursorClearance);
+				GameTooltip:SetHyperlink(link);
+			end,
+			OnHyperlinkLeave = function(self)
+				GameTooltip:Hide();
+			end,
+			OnHyperlinkClick = function(self, link, text, button)
+				GameTooltip:Hide();
+			end,
+		}
+		for k, v in pairs(widgetScripts) do inputEntryBox:SetScript(k, v) end
 
 		Tooltip.set(newRow.InputEntryBox,
 			function(self) -- title
@@ -345,7 +448,8 @@ local function addRow(rowToAdd)
 				end
 
 				tinsert(strings, "Note: This is RELATIVE to this lines main action delay\n")
-				tinsert(strings, Tooltip.genTooltipText("example", "Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting.."))
+				tinsert(strings,
+					Tooltip.genTooltipText("example", "Aura action with delay 2, and revert delay 3, means the revert is 3 seconds after the aura action itself, NOT 3 seconds after casting.."))
 				return strings
 			end
 		)
@@ -356,6 +460,91 @@ local function addRow(rowToAdd)
 		newRow.RevertDelayBox:HookScript("OnEnable", function(self)
 			self.Instructions:SetText("Revert Delay")
 		end)
+
+
+		newRow.ConditionalButton = CreateFrame("BUTTON", nil, newRow)
+		newRow.conditionsData = nil -- Save conditions data in this field.
+
+		newRow.ConditionalButton.rowNum = numActiveRows
+		local conditionsButton = newRow.ConditionalButton
+		conditionsButton:SetPoint("LEFT", newRow.RevertDelayBox, "RIGHT", 5, 0)
+		conditionsButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+		conditionsButton:SetSize(24, 24)
+		conditionsButton:SetMotionScriptsWhileDisabled(true)
+		conditionsButton:Disable()
+
+		conditionsButton.copyFX = conditionsButton:CreateTexture(nil, "OVERLAY")
+		conditionsButton.copyFX:SetAllPoints()
+		conditionsButton.copyFX:Hide()
+		conditionsButton.copyFX:SetAtlas("GarrMission_CounterHalfCheck")
+
+		conditionsButton.copyFX.anims = conditionsButton.copyFX:CreateAnimationGroup()
+		conditionsButton.copyFX.anims.iconFlash = conditionsButton.copyFX.anims:CreateAnimation("Alpha")
+		conditionsButton.copyFX.anims.iconFlash:SetFromAlpha(1)
+		conditionsButton.copyFX.anims.iconFlash:SetToAlpha(0)
+		conditionsButton.copyFX.anims.iconFlash:SetDuration(0.25)
+		conditionsButton.copyFX.anims.iconFlash:SetScript("OnFinished", copiedFXFinFunc)
+		conditionsButton.copyFX.anims.iconFlash:SetSmoothing("IN")
+		conditionsButton.copied = copiedFXPlayFunc
+
+		UIHelpers.setupCoherentButtonTextures(conditionsButton, ASSETS_PATH .. "/ConditionsButtonGreyed")
+		Tooltip.set(conditionsButton,
+			"Add Conditions to this Action",
+			function(self)
+				local lines = {
+					"This allows you to set it so the action only runs IF the conditions are met.",
+					"For example, you could set a condition for this action to only run if you currently have a specific item in your inventory.",
+					" "
+				}
+				if not self:IsEnabled() then
+					tinsert(lines, "No Action selected. Select an Action first before adding conditions.")
+					return lines
+				end
+				if newRow.conditionsData then
+					tinsert(lines, "Current Conditions:")
+					for gi, groupData in ipairs(newRow.conditionsData) do
+						local groupString = (gi == 1 and "If") or "..Or"
+						for ri, rowData in ipairs(groupData) do
+							local continueStatement = (ri ~= 1 and "and ") or ""
+							local condName = ns.Actions.ConditionsData.getByKey(rowData.Type).name
+							groupString = string.join(" ", groupString, continueStatement .. condName)
+						end
+						tinsert(lines, groupString)
+					end
+					tinsert(lines, Tooltip.genTooltipText("norevert", "Ctrl+Left Click to Copy\nCtrl+Right Click to Paste"))
+				else
+					tinsert(lines, "This Action has no current Conditions")
+					tinsert(lines, Tooltip.genTooltipText("norevert", "Ctrl+Right Click to Paste"))
+				end
+				return lines
+			end
+		)
+		conditionsButton:SetScript("OnClick", function(self, button)
+			local isCtrlDown = IsControlKeyDown()
+			if button == "RightButton" then
+				if not isCtrlDown then return end
+				-- paste
+				newRow.conditionsData = ns.Actions.ConditionsData.copyGet()
+				conditionsButton:copied("paste")
+				conditionsButton:update()
+				return
+			elseif button == "LeftButton" and isCtrlDown then
+				-- copy
+				ns.Actions.ConditionsData.copySave(newRow.conditionsData)
+				conditionsButton:copied("copy")
+				return
+			end
+			ns.UI.ConditionsEditor.open(newRow, newRow.rowNum, newRow.conditionsData)
+		end)
+		conditionsButton.update = function(self)
+			local theSpellRow = self:GetParent()
+			if theSpellRow.conditionsData and #theSpellRow.conditionsData > 0 then
+				self:SetNormalTexture(ASSETS_PATH .. "/ConditionsButton")
+			else
+				self:SetNormalTexture(ASSETS_PATH .. "/ConditionsButtonGreyed")
+			end
+		end
+
 
 		newRow.AddSpellRowButton = CreateFrame("BUTTON", nil, newRow)
 		newRow.AddSpellRowButton.rowNum = numActiveRows
@@ -382,10 +571,10 @@ local function addRow(rowToAdd)
 
 		newRow.AddSpellRowButton:SetMotionScriptsWhileDisabled(true)
 
-		Tooltip.set(newRow.AddSpellRowButton, "Add a new, blank row above this one")
+		Tooltip.set(newRow.AddSpellRowButton, "Add a new, blank row above this one.\n\rShift-Click to copy this row instead of making a blank row.")
 
 		newRow.AddSpellRowButton:SetScript("OnClick", function(self)
-			addRow(self.rowNum)
+			addRow(self.rowNum, IsShiftKeyDown())
 			SCForgeMainFrame.SaveSpellButton:UpdateIfValid()
 		end)
 		newRow.AddSpellRowButton:SetScript("OnShow", function(self)
@@ -437,22 +626,21 @@ local function addRow(rowToAdd)
 			self.RemoveSpellRowButton:Show()
 		end)
 		newRow.RemoveSpellRowButton:Hide()
-
 	end
 	-- Make Tab work to switch edit boxes
 
-	newRow.mainDelayBox.nextEditBox = newRow.InputEntryBox -- Main Delay -> Input
+	newRow.mainDelayBox.nextEditBox = newRow.InputEntryBox    -- Main Delay -> Input
 	newRow.mainDelayBox.previousEditBox = newRow.mainDelayBox -- Main Delay <- Main Delay (Can't reverse past itself, updated later)
-	newRow.InputEntryBox.nextEditBox = newRow.RevertDelayBox -- Input -> Revert
+	newRow.InputEntryBox.nextEditBox = newRow.RevertDelayBox  -- Input -> Revert
 	newRow.InputEntryBox.previousEditBox = newRow.mainDelayBox -- Input <- Main Delay
-	newRow.RevertDelayBox.nextEditBox = newRow.mainDelayBox -- Revert -> Main Delay (we change it later if needed)
+	newRow.RevertDelayBox.nextEditBox = newRow.mainDelayBox   -- Revert -> Main Delay (we change it later if needed)
 	newRow.RevertDelayBox.previousEditBox = newRow.InputEntryBox -- Revert <- Input
 
 	if numActiveRows > 1 then
 		local prevRow = SCForgeMainFrame.spellRows[numActiveRows - 1]
-		newRow.mainDelayBox.previousEditBox = prevRow.RevertDelayBox -- Main Delay <- LAST Revert
+		newRow.mainDelayBox.previousEditBox = prevRow.RevertDelayBox             -- Main Delay <- LAST Revert
 		newRow.RevertDelayBox.nextEditBox = SCForgeMainFrame.spellRows[1].mainDelayBox -- Revert -> Spell Row 1 Main Delay
-		prevRow.RevertDelayBox.nextEditBox = newRow.mainDelayBox -- LAST Revert -> THIS Main Delay
+		prevRow.RevertDelayBox.nextEditBox = newRow.mainDelayBox                 -- LAST Revert -> THIS Main Delay
 
 		newRow.mainDelayBox:SetText(prevRow.mainDelayBox:GetText())
 	end
@@ -468,29 +656,23 @@ local function addRow(rowToAdd)
 			local theRowToSet = SCForgeMainFrame.spellRows[i]
 			local theRowToGrab = SCForgeMainFrame.spellRows[i - 1]
 
-			theRowToSet.actionSelectButton:SetText(theRowToGrab.actionSelectButton:GetText())
-			theRowToSet.SelectedAction = theRowToGrab.SelectedAction
-			updateSpellRowOptions(i, theRowToGrab.SelectedAction)
-
-			theRowToSet.mainDelayBox:SetText(theRowToGrab.mainDelayBox:GetText())
-			theRowToSet.SelfCheckbox:SetChecked(theRowToGrab.SelfCheckbox:GetChecked())
-			theRowToSet.InputEntryBox:SetText(theRowToGrab.InputEntryBox:GetText())
-			theRowToSet.RevertDelayBox:SetText(theRowToGrab.RevertDelayBox:GetText())
+			copyRowDataDirect(theRowToGrab, theRowToSet)
 		end
-		local theRowToSet = SCForgeMainFrame.spellRows[rowToAdd]
-		local prevRow = SCForgeMainFrame.spellRows[rowToAdd - 1]
-		theRowToSet.actionSelectButton.Text:SetText("Action")
-		updateSpellRowOptions(rowToAdd)
 
-		if prevRow then
-			theRowToSet.mainDelayBox:SetText(prevRow.mainDelayBox:GetText())
-		else
-			theRowToSet.mainDelayBox:SetText("")
+		if not copy then
+			local theRowToSet = SCForgeMainFrame.spellRows[rowToAdd]
+			local prevRow = SCForgeMainFrame.spellRows[rowToAdd - 1]
+
+			cleanRow(theRowToSet)
+
+			if prevRow then
+				theRowToSet.mainDelayBox:SetText(prevRow.mainDelayBox:GetText())
+			else
+				theRowToSet.mainDelayBox:SetText("")
+			end
 		end
-		theRowToSet.SelfCheckbox:SetChecked(false)
-		theRowToSet.InputEntryBox:SetText("")
-		theRowToSet.RevertDelayBox:SetText("")
 	end
+	newRow.ConditionalButton:update()
 end
 
 local function addAddRowRow()
@@ -578,6 +760,7 @@ local function getRowAction(rowNum)
 	actionData.revertDelay = tonumber(row.RevertDelayBox:GetText())
 	actionData.selfOnly = row.SelfCheckbox:GetChecked()
 	actionData.vars = row.InputEntryBox:GetText()
+	actionData.conditions = row.conditionsData
 
 	Debug.ddump(actionData)
 
@@ -592,18 +775,23 @@ local function setRowAction(rowNum, actionData)
 		_spellRow.actionSelectButton:SetText("Action")
 		updateSpellRowOptions(rowNum)
 	else
-		_spellRow.actionSelectButton:SetText(actionTypeData[actionData.actionType].name)
+		local name = actionTypeData[actionData.actionType] and actionTypeData[actionData.actionType].name or
+			Constants.ADDON_COLORS.TOOLTIP_WARNINGRED:WrapTextInColorCode("!? " .. actionData.actionType)
+		_spellRow.actionSelectButton:SetText(name)
 		updateSpellRowOptions(rowNum, actionData.actionType)
 	end
 
-	_spellRow.mainDelayBox:SetText(tonumber(actionData.delay) or "") --delay
+	_spellRow.mainDelayBox:SetText(tonumber(actionData.delay) or "")                                                   --delay
 	if actionData.selfOnly then _spellRow.SelfCheckbox:SetChecked(true) else _spellRow.SelfCheckbox:SetChecked(false) end --SelfOnly
 	if actionData.vars then _spellRow.InputEntryBox:SetText(actionData.vars) else _spellRow.InputEntryBox:SetText("") end --Input Entrybox
 	if actionData.revertDelay then
-		_spellRow.RevertDelayBox:SetText(actionData.revertDelay) --revertDelay
+		_spellRow.RevertDelayBox:SetText(actionData.revertDelay)                                                       --revertDelay
 	else
-		_spellRow.RevertDelayBox:SetText("") --revertDelay
+		_spellRow.RevertDelayBox:SetText("")                                                                           --revertDelay
 	end
+
+	_spellRow.conditionsData = actionData.conditions
+	_spellRow.ConditionalButton:update()
 end
 
 local function isRowValid(rowNum)

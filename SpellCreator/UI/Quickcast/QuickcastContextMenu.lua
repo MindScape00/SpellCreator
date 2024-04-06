@@ -11,6 +11,8 @@ local Popups = ns.UI.Popups
 local Quickcast = ns.UI.Quickcast
 local QuickcastStyle = ns.UI.Quickcast.Style
 
+local CategoryOrder = QuickcastStyle.categoryOrder
+
 local UIHelpers = ns.Utils.UIHelpers
 local Tooltip = ns.Utils.Tooltip
 
@@ -114,7 +116,7 @@ local function formatName(style)
 		texMarkup = "•    "
 	end
 
-	return texMarkup .. data.name
+	return texMarkup .. data.name .. "(ID: " .. style .. ")"
 end
 
 ---@param style BookStyle
@@ -161,9 +163,48 @@ end
 ---@return DropdownItem
 local function genStyleMenu(book)
 	local menuArgs = {}
+	local menuCategories = {}
+	local doneCategories = {}
 
-	for style in ipairs(BOOK_STYLE_DATA) do
-		menuArgs[style] = genStyleItem(book, style)
+	-- first loop to generate categories
+	for style, styleData in ipairs(BOOK_STYLE_DATA) do
+		if styleData.category then
+			if not menuCategories[styleData.category] then menuCategories[styleData.category] = {} end
+			tinsert(menuCategories[styleData.category], genStyleItem(book, style))
+		else
+			tinsert(menuArgs, genStyleItem(book, style))
+		end
+	end
+
+	--[[
+	-- second loop, now that categories are generated
+	for style, styleData in ipairs(BOOK_STYLE_DATA) do
+		local category = styleData.category
+		if category then
+			if not doneCategories[category] then
+				tinsert(menuArgs, Dropdown.selectmenu(category, menuCategories[category]))
+				doneCategories[category] = true
+			end
+		else
+			tinsert(menuArgs, genStyleItem(book, style))
+		end
+	end
+	--]]
+
+	-- loop our known categories to add them in order, assuming it exists. Then loop all others left after, and alert that we should've added it to the categoryOrder.
+	for k, category in ipairs(CategoryOrder) do
+		if menuCategories[category] and not doneCategories[category] then
+			tinsert(menuArgs, Dropdown.selectmenu(category, menuCategories[category]))
+			doneCategories[category] = true
+		end
+	end
+
+	for category, categoryData in pairs(menuCategories) do
+		if not doneCategories[category] then
+			ns.Logging.eprint("QC Style - Unknown Category: " .. category, "Please report this to MindScape. Thx!")
+			tinsert(menuArgs, Dropdown.selectmenu(category, categoryData))
+			doneCategories[category] = true
+		end
 	end
 
 	return Dropdown.submenu("Change Style", menuArgs)
@@ -256,7 +297,7 @@ local function genShowBookItem(book, menuOwnerBook)
 			get = function()
 				return book:IsShown()
 			end,
-			set = function(value)
+			set = function(self, value)
 				local lastShown = isLastBookShown(book, menuOwnerBook)
 				book:ToggleVisible(value)
 				if book == menuOwnerBook then
@@ -393,7 +434,7 @@ local function createMenu(book)
 			tooltipTitle = "Rename " .. book.savedData.name,
 			get = function()
 			end,
-			set = function(text)
+			set = function(self, text)
 				ns.UI.Quickcast.Book.renameBookInCharMemory(book.savedData.name, text)
 				book:SetName(text)
 			end,
