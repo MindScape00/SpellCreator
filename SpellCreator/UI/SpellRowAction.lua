@@ -291,6 +291,8 @@ local baseMenuList = {
 		action(ACTION.OpenSendMail),
 		action(ACTION.SendMail),
 		spacer(),
+		action(ACTION.TalkingHead),
+		spacer(),
 		action(ACTION.TRP3e_Cast_showCastingBar)
 	}),
 	action(ACTION.Command),

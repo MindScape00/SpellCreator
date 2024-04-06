@@ -133,6 +133,9 @@
 	<Include file="UI/SpellBookUI.xml"/>
 	<Script file="UI/SpellBookUI.lua"/>
 
+	<Script file="UI/TalkingHead/TalkingHead.lua"/>
+	<Include file="UI/TalkingHead/TalkingHead.xml"/>
+
 	<Script file="SpellCreator.lua"/>
 	<Script file="API.lua"/>
 	<Script file="Slash.lua"/>

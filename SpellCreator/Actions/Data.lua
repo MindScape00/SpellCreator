@@ -209,6 +209,7 @@ local ACTION_TYPE = {
 	BoxPromptCommandNoInput = "BoxPromptCommandNoInput",
 	OpenSendMail = "OpenSendMail",
 	SendMail = "SendMail",
+	TalkingHead = "TalkingHead",
 
 	HideMostUI = "HideMostUI",
 	UnhideMostUI = "UnhideMostUI",
@@ -1297,6 +1298,29 @@ local actionTypeData = {
 		dataName = "name, subject, text",
 		inputDescription = "the name of who to send the mail, the subject, and the body text. All three are required.\n\r" .. commaDelimitedText,
 		example = [[Mindscape, "Arcanum Rocks, Woo!", "Dude, I can send you mail automatically now, nice."]],
+		revert = nil,
+		doNotDelimit = true,
+	}),
+	-- TalkingHead = "TalkingHead"
+	[ACTION_TYPE.TalkingHead] = scriptAction("Send Talking Head", {
+		command = function(vars)
+			local args, numArgs = parseArgsWrapper(vars)
+			if not args then return end
+			local message, name, displayID, sound, textureKit, chatType, timeout = unpack(args)
+			if not message and name and displayID then return end
+			message = tostring(message);
+			name = tostring(name) or "Unknown";
+			displayID = tonumber(displayID) or 0;
+			sound = tonumber(sound) or nil;
+			timeout = tonumber(timeout) or nil;
+
+			SCForgeTalkingHeadFrame_SetUnit(displayID, name, textureKit, message, sound, chatType, timeout);
+		end,
+		description =
+		"Displays a Talking Head frame with customisable options.",
+		dataName = "message, title, displayID [, soundKitID, textureKit, chatType]",
+		inputDescription = "Syntax: message, title, displayID [, soundKitID, textureKit (Normal|Neutral|Epsilon|Horde|Alliance), chatType (SAY|WHISPER|YELL|EMOTE|NONE), timeout]; separated by commas. Only message, title, and displayID are required.",
+		example = [["Message text goes here.", John Doe, 21, 0, Normal, SAY, 10]],
 		revert = nil,
 		doNotDelimit = true,
 	}),
