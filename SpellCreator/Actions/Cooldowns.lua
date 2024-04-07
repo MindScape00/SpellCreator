@@ -110,7 +110,7 @@ end
 --#region Sparks
 -- -- -- -- -- -- --
 
----Add a spell to the Cooldowns tracker
+---Add a spark to the Cooldowns tracker
 ---@param commID CommID
 ---@param cooldownTime number
 ---@param origCommID CommID
@@ -135,14 +135,14 @@ local function addSparkCooldown(commID, cooldownTime, origCommID, phaseOverride)
 	end
 end
 
----manually removes a spell's cooldown timer - not needed normally. Maybe call this when we re-save a spell?
+---manually removes a spark's cooldown timer - not needed normally.
 ---@param commID CommID
 local function removeSparkCooldown(commID)
 	local phase = C_Epsilon.GetPhaseId()
 	if spellCooldowns.sparks[phase] then spellCooldowns.sparks[phase][commID] = nil end
 end
 
----Check if a spell is on cooldown. Returns false if not on cooldown, or the time remaining & original length of cooldown if it's on cooldown
+---Check if a spark is on cooldown. Returns false if not on cooldown, or the time remaining & original length of cooldown if it's on cooldown
 ---@param commID CommID
 ---@return false | number, nil | number
 local function isSparkOnCooldown(commID)
@@ -156,6 +156,20 @@ local function isSparkOnCooldown(commID)
 		end
 	end
 	return false
+end
+
+local function getCurrentSparkCDName()
+	local spellData = SCForgePhaseCastPopup.button.spell
+	local cdData = SCForgePhaseCastPopup.button.cdData
+	if not spellData or not cdData then return end
+	local sparkCDNameOverride = ns.UI.SparkPopups.SparkPopups.genSparkCDNameOverride(spellData.commID, cdData.loc[1], cdData.loc[2], cdData.loc[3])
+	return sparkCDNameOverride
+end
+
+local function isCurrentSparkOnCD()
+	local cdName = getCurrentSparkCDName()
+	if not cdName then return end
+	return isSparkOnCooldown(cdName)
 end
 
 -- -- -- -- -- -- --
@@ -229,4 +243,6 @@ ns.Actions.Cooldowns = {
 	addSparkCooldown = addSparkCooldown,
 	removeSparkCooldown = removeSparkCooldown,
 	isSparkOnCooldown = isSparkOnCooldown,
+	isCurrentSparkOnCooldown = isCurrentSparkOnCD,
+	getCurrentSparkCDName = getCurrentSparkCDName,
 }

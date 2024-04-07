@@ -589,4 +589,6 @@ ns.UI.SparkPopups.SparkPopups = {
 	setSparkKeybind = setSparkKeybind,
 	getSparkKeybind = getSparkKeybind,
 	setSparkDefaultKeybind = setSparkDefaultKeybind,
+
+	genSparkCDNameOverride = genSparkCDNameOverride,
 }

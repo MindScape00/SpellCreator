@@ -138,7 +138,6 @@ local function CAST(commID, ...)
 		cprint("No spell found with commID '" .. commID .. "' in your Personal Vault.")
 		return false
 	end
-
 end
 ARC.CAST = wrapToEvalFinalVal(CAST)
 
@@ -162,7 +161,6 @@ local function CAST_IMPORT(importString, ...)
 		cprint("ARC:API - Cast_Import Error: Invalid ArcSpell data.")
 		return false
 	end
-
 end
 ARC.CASTIMPORT = wrapToEvalFinalVal(CAST_IMPORT)
 
@@ -587,6 +585,11 @@ ARC.LOCATIONS.GetPosition = C_Epsilon.GetPosition
 
 ARC.XAPI = {}
 
+local sparkCDFuncs = {} -- these are loaded into both Sparks & Cooldowns tables
+sparkCDFuncs.isSparkOnCooldown = wrapToEvalFinalVal(ns.Actions.Cooldowns.isSparkOnCooldown, sparkCDFuncs)
+sparkCDFuncs.isCurrentSparkOnCooldown = wrapToEvalFinalVal(ns.Actions.Cooldowns.isCurrentSparkOnCooldown, sparkCDFuncs)
+sparkCDFuncs.getCurrentSparkCDName = wrapToEvalFinalVal(ns.Actions.Cooldowns.getCurrentSparkCDName, sparkCDFuncs)
+
 ARC.XAPI.sparks = {}
 ARC.XAPI.Sparks = ARC.XAPI.sparks -- alternative access for continuity but also keeping the old one for backwards compatibility
 do
@@ -604,6 +607,9 @@ do
 
 	-- function triggerSparkCooldownVisual(commID: string, cooldownTime: number)
 	ARC.XAPI.sparks.triggerSparkCooldownVisual = wrapToEvalFinalVal(ns.UI.SparkPopups.SparkPopups.triggerSparkCooldownVisual, ARC.XAPI.sparks)
+
+	-- Spark Cooldowns Sub Category (Shared Functions with Sparks API Table)
+	ARC.XAPI.sparks.Cooldowns = sparkCDFuncs
 end
 
 ARC.XAPI.UI = {}
@@ -645,6 +651,9 @@ do
 
 	-- function clearOldCooldowns(forceReset: any)
 	ARC.XAPI.Cooldowns.clearOldCooldowns = wrapToEvalFinalVal(ns.Actions.Cooldowns.clearOldCooldowns, ARC.XAPI.Cooldowns)
+
+	-- Spark Cooldowns Sub Category (Shared Functions with Sparks API Table)
+	ARC.XAPI.Cooldowns.Sparks = sparkCDFuncs
 end
 
 ARC.XAPI.Phase = {

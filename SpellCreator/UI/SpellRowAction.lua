@@ -292,6 +292,7 @@ local baseMenuList = {
 		action(ACTION.SendMail),
 		spacer(),
 		action(ACTION.TalkingHead),
+		action(ACTION.UnitPowerBar),
 		spacer(),
 		action(ACTION.TRP3e_Cast_showCastingBar)
 	}),

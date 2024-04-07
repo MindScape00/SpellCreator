@@ -136,6 +136,9 @@
 	<Script file="UI/TalkingHead/TalkingHead.lua"/>
 	<Include file="UI/TalkingHead/TalkingHead.xml"/>
 
+	<Script file="UI/UnitPowerBar/UnitPowerBar.lua"/>
+	<Include file="UI/UnitPowerBar/UnitPowerBar.xml"/>
+
 	<Script file="SpellCreator.lua"/>
 	<Script file="API.lua"/>
 	<Script file="Slash.lua"/>

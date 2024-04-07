@@ -93,40 +93,40 @@ local ACTION_TYPE = {
 	AddRandomItem = "AddRandomItem",
 
 	-- SECURE Actions
-	secCast = "secCast",                                  --Copy of /cast
-	secCastID = "secCastID",                              --CastSpellByID
-	secStopCasting = "secStopCasting",                    --StopSpellCasting
+	secCast = "secCast",                --Copy of /cast
+	secCastID = "secCastID",            --CastSpellByID
+	secStopCasting = "secStopCasting",  --StopSpellCasting
 
-	secUseItem = "secUseItem",                            --UseItemByName
+	secUseItem = "secUseItem",          --UseItemByName
 
-	secTarget = "secTarget",                              --TargetUnit
-	secAssist = "secAssist",                        --AssistUnit
+	secTarget = "secTarget",            --TargetUnit
+	secAssist = "secAssist",            --AssistUnit
 
-	secClearTarg = "secClearTarg",                          -- ClearTarget
-	secTargLEnemy = "secTargLEnemy",                  -- TargetLastEnemy
-	secTargLFriend = "secTargLFriend",                -- TargetLastFriend
-	secTargLTarg = "secTargLTarg",                -- TargetLastTarget
-	secTargNAny = "secTargNAny",                      -- TargetNearest
-	secTargNEnemy = "secTargNEnemy",            -- TargetNearestEnemy
+	secClearTarg = "secClearTarg",      -- ClearTarget
+	secTargLEnemy = "secTargLEnemy",    -- TargetLastEnemy
+	secTargLFriend = "secTargLFriend",  -- TargetLastFriend
+	secTargLTarg = "secTargLTarg",      -- TargetLastTarget
+	secTargNAny = "secTargNAny",        -- TargetNearest
+	secTargNEnemy = "secTargNEnemy",    -- TargetNearestEnemy
 	secTargNEnPlayer = "secTargNEnPlayer", -- TargetNearestEnemyPlayer
-	secTargNFriend = "secTargNFriend",          -- TargetNearestFriend
+	secTargNFriend = "secTargNFriend",  -- TargetNearestFriend
 	secTargNFrPlayer = "secTargNFrPlayer", -- TargetNearestFriendPlayer
-	secTargNParty = "secTargNParty", -- TargetNearestPartyMember
-	secTargNRaid = "secTargNRaid",  -- TargetNearestRaidMember
+	secTargNParty = "secTargNParty",    -- TargetNearestPartyMember
+	secTargNRaid = "secTargNRaid",      -- TargetNearestRaidMember
 
-	secFocus = "secFocus",                              -- FocusUnit
-	secClearFocus = "secClearFocus",                      -- ClearFocus
+	secFocus = "secFocus",              -- FocusUnit
+	secClearFocus = "secClearFocus",    -- ClearFocus
 
-	FollowUnit = "FollowUnit",                            -- FollowUnit
-	StopFollow = "StopFollow",                            -- FollowUnit
-	ToggleRun = "ToggleRun",                              -- ToggleRun
-	ToggleAutoRun = "ToggleAutoRun",                      -- ToggleAutoRun
-	StartAutoRun = "StartAutoRun",                      -- StartAutoRun
-	StopAutoRun = "StopAutoRun",                      -- StopAutoRun
+	FollowUnit = "FollowUnit",          -- FollowUnit
+	StopFollow = "StopFollow",          -- FollowUnit
+	ToggleRun = "ToggleRun",            -- ToggleRun
+	ToggleAutoRun = "ToggleAutoRun",    -- ToggleAutoRun
+	StartAutoRun = "StartAutoRun",      -- StartAutoRun
+	StopAutoRun = "StopAutoRun",        -- StopAutoRun
 
-	RunMacro = "RunMacro",                                -- RunMacro
-	RunMacroText = "RunMacroText",                        -- RunMacroText
-	StopMacro = "StopMacro",                              -- StopMacro
+	RunMacro = "RunMacro",              -- RunMacro
+	RunMacroText = "RunMacroText",      -- RunMacroText
+	StopMacro = "StopMacro",            -- StopMacro
 
 
 	-- Camera Actions
@@ -210,6 +210,7 @@ local ACTION_TYPE = {
 	OpenSendMail = "OpenSendMail",
 	SendMail = "SendMail",
 	TalkingHead = "TalkingHead",
+	UnitPowerBar = "UnitPowerBar",
 
 	HideMostUI = "HideMostUI",
 	UnhideMostUI = "UnhideMostUI",
@@ -503,21 +504,6 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.AddRandomItem] = scriptAction("Add Random Item", {
 		command = function(vars)
-			--[[
-			-- Item Format Method (space delimit): itemID:bonusIDs+amount,weight
-			local itemsTable = { strsplit(" ", vars) }
-			local finalItems = {}
-			for i = 1, #itemsTable do
-				local v = itemsTable[i]
-				local item = {}
-				local weight
-				item.entry, item.bonus, item.amount, weight = v:match("(%d*)%:?(%d*)%+?(%d*)%,?(%d*)")
-				if not weight or weight == "" then weight = 1 end
-				table.insert(finalItems, { tonumber(weight), item })
-			end
-			local randomItem = ns.Utils.Data.getRandomWeightedArg(finalItems)
-			cmd(("additem %s %s %s"):format(randomItem.entry, randomItem.amount and randomItem.amount or "1", randomItem.bonus and randomItem.bonus or ""))
-			--]]
 			-- Item Format Method (comma delimit): itemID amount bonusIDs+weight
 			local itemsTable = { strsplit(",", vars) }
 			local finalItems = {}
@@ -883,7 +869,11 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.ArcSaveFromPhase] = scriptAction("Save ArcSpell (Phase)", {
 		command = function(data)
-			local commID, vocal = strsplit(",", data, 2)
+			--local commID, vocal = strsplit(",", data, 2)
+			local args, numArgs = parseArgsWrapper(data)
+			if not args then return end
+			local commID, vocal = unpack(args)
+
 			if vocal and (vocal == "false" or vocal == "nil" or vocal == "0") then vocal = nil end
 			if vocal and vocal == "true" then vocal = true end
 			ARC.PHASE:SAVE(commID, vocal)
@@ -898,6 +888,7 @@ local actionTypeData = {
 	[ACTION_TYPE.ArcImport] = scriptAction("Import ArcSpell", {
 		command = function(data)
 			local importString, vocal = strsplit(",", data, 2)
+			vocal = strtrim(vocal)
 			if vocal and (vocal == "false" or vocal == "nil" or vocal == "0") then vocal = nil end
 			if vocal and vocal == "true" then vocal = true end
 			ns.UI.ImportExport.importSpell(importString, vocal)
@@ -911,8 +902,14 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.ArcCastbar] = scriptAction("Show Castbar", {
 		command = function(data)
-			local length, text, iconPath, channeled, showIcon, showShield = strsplit(",", data, 6)
-			if length then length = strtrim(length) end
+			--local length, text, iconPath, channeled, showIcon, showShield = strsplit(",", data, 6)
+
+			local args, numArgs = parseArgsWrapper(data)
+			if not args then return end
+			local length, text, iconPath, channeled, showIcon, showShield = unpack(args)
+
+			if length then length = tonumber(strtrim(length)) end
+			if not length then return error("Arcanum Action Usage (Show Castbar): Requires valid length number.") end
 			if text then text = strtrim(text) end
 			if iconPath then iconPath = { ["icon"] = strtrim(iconPath) } end
 			if channeled then channeled = toBoolean(strtrim(channeled)) end
@@ -923,7 +920,8 @@ local actionTypeData = {
 		description =
 		"Show a custom Arcanum Castbar with your own settings & duration.\n\rSyntax: duration, [title, [iconPath/FileID, [channeled (true/false), [showIcon (true/false), [showShield (true/false)]]]]]\n\rDuration is the only required input.",
 		dataName = "Castbar Settings",
-		inputDescription = "Syntax: duration, [title, [iconPath/FileID, [channeled (true/false), [showIcon (true/false), [showShield (true/false)]]]]]\n\rDuration is the only required input.",
+		inputDescription = "Syntax: duration, [title, [iconPath/FileID, [channeled (true/false), [showIcon (true/false), [showShield (true/false)]]]]]\n\rDuration is the only required input. " ..
+			commaDelimitedText,
 		example = Tooltip.genContrastText("5, Cool Spell!, 1, true, true, false") ..
 			" will show a Castbar for 5 seconds, named 'Cool Spell!', with a gem icon, but no shield frame.\n\r" ..
 			Tooltip.genTooltipText("lpurple", "Icon ID's " .. Tooltip.genContrastText("1 - " .. ns.UI.Icons.getNumCustomIcons()) .. " can be used for Arcanum's custom Icons."),
@@ -1112,11 +1110,18 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.BoxPromptCommand] = scriptAction("Command Input Prompt", {
 		command = function(msg)
-			local description, okayText, cancText, command = strsplit(",", msg, 4)
+			--local description, okayText, cancText, command = strsplit(",", msg, 4)
+			msg = msg:gsub("nil", "false") -- convert nil to false for backwards compatibility, since parseArgsWrapper makes nil a true nil, and we don't want that
+
+			local args, numArgs = parseArgsWrapper(msg)
+			if not args then return end
+			local description, okayText, cancText, command = unpack(args)
+
 			if not cancText and not command then command = okayText end
 			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
 			if not cancText or strtrim(cancText) == "" then cancText = CANCEL else cancText = strtrim(cancText) end
-			if cancText == "nil" then cancText = false end
+			if cancText == "false" then cancText = false end
+			--if cancText == "nil" then cancText = false end
 			command = strtrim(command)
 			ns.UI.Popups.showCustomGenericInputBox({
 				callback = function(input)
@@ -1140,11 +1145,19 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.BoxPromptScript] = scriptAction("Script Input Prompt", {
 		command = function(msg)
-			local description, okayText, cancText, scriptString = strsplit(",", msg, 4)
+			--local description, okayText, cancText, scriptString = strsplit(",", msg, 4)
+
+			msg = msg:gsub("nil", "false") -- convert nil to false for backwards compatibility, since parseArgsWrapper makes nil a true nil, and we don't want that
+
+			local args, numArgs = parseArgsWrapper(msg)
+			if not args then return end
+			local description, okayText, cancText, scriptString = unpack(args)
+
 			if not cancText and not scriptString then scriptString = okayText end
 			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
 			if not cancText or strtrim(cancText) == "" then cancText = CANCEL else cancText = strtrim(cancText) end
-			if cancText == "nil" then cancText = false end
+			if cancText == "false" then cancText = false end
+			--if cancText == "nil" then cancText = false end
 			scriptString = strtrim(scriptString):gsub("@input", "userInput")
 			local scriptTest, errorMessageTest = loadstring(scriptString)
 			if scriptTest and not errorMessageTest then
@@ -1185,11 +1198,20 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.BoxPromptCommandNoInput] = scriptAction("Command Run Prompt", {
 		command = function(msg)
-			local description, okayText, cancText, command = strsplit(",", msg, 4)
+			--local description, okayText, cancText, command = strsplit(",", msg, 4)
+
+			msg = msg:gsub("nil", "false") -- convert nil to false for backwards compatibility, since parseArgsWrapper makes nil a true nil, and we don't want that
+
+			local args, numArgs = parseArgsWrapper(msg)
+			if not args then return end
+			local description, okayText, cancText, command = unpack(args)
+
 			if not cancText and not command then command = okayText end
 			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
 			if not cancText or strtrim(cancText) == "" then cancText = CANCEL else cancText = strtrim(cancText) end
-			if cancText == "nil" then cancText = false end
+			if cancText == "false" then cancText = false end
+			--if cancText == "nil" then cancText = false end
+
 			command = strtrim(command)
 			ns.UI.Popups.showCustomGenericConfirmation({
 				callback = function()
@@ -1210,11 +1232,20 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.BoxPromptScriptNoInput] = scriptAction("Script Run Prompt", {
 		command = function(msg)
-			local description, okayText, cancText, scriptString = strsplit(",", msg, 4)
+			--local description, okayText, cancText, scriptString = strsplit(",", msg, 4)
+
+			msg = msg:gsub("nil", "false") -- convert nil to false for backwards compatibility, since parseArgsWrapper makes nil a true nil, and we don't want that
+
+			local args, numArgs = parseArgsWrapper(msg)
+			if not args then return end
+			local description, okayText, cancText, scriptString = unpack(args)
+
 			if not cancText and not scriptString then scriptString = okayText end
 			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
 			if not cancText or strtrim(cancText) == "" then cancText = CANCEL else cancText = strtrim(cancText) end
-			if cancText == "nil" then cancText = false end
+			if cancText == "false" then cancText = false end
+			--if cancText == "nil" then cancText = false end
+
 			scriptString = strtrim(scriptString)
 			local script, errorMessage = loadstring(scriptString)
 			if script and not errorMessage then
@@ -1319,9 +1350,43 @@ local actionTypeData = {
 		description =
 		"Displays a Talking Head frame with customisable options.",
 		dataName = "message, title, displayID [, soundKitID, textureKit, chatType]",
-		inputDescription = "Syntax: message, title, displayID [, soundKitID, textureKit (Normal|Neutral|Epsilon|Horde|Alliance), chatType (SAY|WHISPER|YELL|EMOTE|NONE), timeout]; separated by commas. Only message, title, and displayID are required.",
+		inputDescription =
+		"Syntax: message, title, displayID [, soundKitID, textureKit (Normal|Neutral|Epsilon|Horde|Alliance), chatType (SAY|WHISPER|YELL|EMOTE|NONE), timeout]; separated by commas. Only message, title, and displayID are required.",
 		example = [["Message text goes here.", John Doe, 21, 0, Normal, SAY, 10]],
 		revert = nil,
+		doNotDelimit = true,
+	}),
+	-- UnitPowerBar = "UnitPowerBar"
+	[ACTION_TYPE.UnitPowerBar] = scriptAction("Show UnitPowerBar", {
+		command = function(vars)
+			local args, numArgs = parseArgsWrapper(vars)
+			if not args then return end
+			local powerValue, minPower, maxPower, textureKit, powerName, powerTooltip, barColour, onFinished, isPercentage, flashEnabled = unpack(args)
+			if not powerValue and minPower and maxPower then return end
+			powerValue = tonumber(powerValue);
+			minPower = tonumber(minPower) 0;
+			maxPower = tonumber(maxPower) or 100;
+			textureKit = tostring(textureKit) or "WoWUI";
+			powerName = tostring(powerName) or "";
+			powerTooltip = tostring(powerTooltip) or nil;
+			local colour;
+			if type(barColour) == "table" and #barColour == 3 then
+				-- We have to be very selective of barColour...
+				colour = barColour;
+			end
+
+			SCForge_UnitPowerBar:ApplyTextures(textureKit, powerName, powerTooltip, powerValue, colour, onFinished, isPercentage, flashEnabled);
+			SCForge_UnitPowerBar:SetMinMaxPower(minPower, maxPower);
+			SCForge_UnitPowerBar:Show();
+		end,
+		description =
+		"Displays a UnitPowerBar frame with customisable options.",
+		dataName = "powerValue, minPower, maxPower, [textureKit, powerName, powerTooltip, barColour, onFinished, flashEnabled]",
+		inputDescription =
+		"Syntax: powerValue, minPower, maxPower, [textureKit, powerName, powerTooltip, barColour, onFinished, isPercentage, flashEnabled]; separated by commas. Only powerValue, minPower, and maxPower are required.",
+		example = [[10, 0, 100, Azerite, Borrowed Power, "Don't worry - you'll get it back eventually!", {1, 1, 1},  nil, false, false]],
+		revertDesc = "Hides the UnitPowerBar frame.",
+		revert = function() SCForge_UnitPowerBar:Hide(); end,
 		doNotDelimit = true,
 	}),
 	[ACTION_TYPE.TRP3e_Item_QuickImport] = scriptAction("TRP3e Import Item", {
@@ -2001,7 +2066,12 @@ local actionTypeData = {
 	[ACTION_TYPE.Kinesis_SprintEmoteAll] = scriptAction("Enable Sprint Emote", {
 		command = function(vars)
 			if not Kinesis then return end
-			local movetype, val = strsplit(",", vars)
+			--local movetype, val = strsplit(",", vars)
+
+			local args = parseArgsWrapper(vars)
+			if not args then return end
+			local movetype, val = unpack(args)
+
 			movetype = strtrim(string.lower(movetype))
 			if movetype == "walk" or movetype == "ground" then
 				Kinesis.Sprint.Emotes.SetEmoteTriggerWalk(onToBoolean(val))
@@ -2049,7 +2119,12 @@ local actionTypeData = {
 	[ACTION_TYPE.Kinesis_SprintSpellAll] = scriptAction("Enable Sprint Spell", {
 		command = function(vars)
 			if not Kinesis then return end
-			local movetype, val = strsplit(",", vars)
+			--local movetype, val = strsplit(",", vars)
+
+			local args = parseArgsWrapper(vars)
+			if not args then return end
+			local movetype, val = unpack(args)
+
 			movetype = strtrim(string.lower(movetype))
 			if movetype == "walk" or movetype == "ground" then
 				Kinesis.Sprint.Spells.SetSpellTriggerWalk(onToBoolean(val))
@@ -2334,7 +2409,7 @@ local actionTypeData = {
 	-- secTargNAny = "secTargNAny",                      -- TargetNearest([reverse]) #protected
 	[ACTION_TYPE.secTargNAny] = scriptAction("Target Nearest (Any)", {
 		command = function(vars)
-			RunPrivileged("TargetNearest("..vars..")")
+			RunPrivileged("TargetNearest(" .. vars .. ")")
 		end,
 		description =
 		"Targets the nearest thing to you.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
@@ -2351,7 +2426,7 @@ local actionTypeData = {
 	-- secTargNEnemy = "secTargNEnemy",            -- TargetNearestEnemy([reverse]) #protected - Selects the nearest enemy as the current target.
 	[ACTION_TYPE.secTargNEnemy] = scriptAction("Target Nearest (Enemy)", {
 		command = function(vars)
-			RunPrivileged("TargetNearestEnemy("..vars..")")
+			RunPrivileged("TargetNearestEnemy(" .. vars .. ")")
 		end,
 		description =
 		"Selects the nearest enemy as the current target.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
@@ -2368,7 +2443,7 @@ local actionTypeData = {
 	-- TargetNearestEnemyPlayer = "TargetNearestEnemyPlayer", -- TargetNearestEnemyPlayer([reverse]) #protected - Selects the nearest enemy player as the current target.
 	[ACTION_TYPE.secTargNEnPlayer] = scriptAction("Target Nearest (Enemy Player)", {
 		command = function(vars)
-			RunPrivileged("TargetNearestEnemyPlayer("..vars..")")
+			RunPrivileged("TargetNearestEnemyPlayer(" .. vars .. ")")
 		end,
 		description =
 		"Selects the nearest enemy player as the current target.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
@@ -2385,7 +2460,7 @@ local actionTypeData = {
 	-- TargetNearestFriend = "TargetNearestFriend",          -- TargetNearestFriend([reverse]) #protected - Targets the nearest friendly unit.
 	[ACTION_TYPE.secTargNFriend] = scriptAction("Target Nearest (Friend)", {
 		command = function(vars)
-			RunPrivileged("TargetNearestFriend("..vars..")")
+			RunPrivileged("TargetNearestFriend(" .. vars .. ")")
 		end,
 		description =
 		"Targets the nearest friendly unit.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
@@ -2402,7 +2477,7 @@ local actionTypeData = {
 	-- TargetNearestFriendPlayer = "TargetNearestFriendPlayer", -- TargetNearestFriendPlayer([reverse]) #protected - Selects the nearest friendly player as the current target.
 	[ACTION_TYPE.secTargNFrPlayer] = scriptAction("Target Nearest (Friendly Player)", {
 		command = function(vars)
-			RunPrivileged("TargetNearestFriendPlayer("..vars..")")
+			RunPrivileged("TargetNearestFriendPlayer(" .. vars .. ")")
 		end,
 		description =
 		"Selects the nearest friendly player as the current target.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
@@ -2419,7 +2494,7 @@ local actionTypeData = {
 	-- TargetNearestPartyMember = "TargetNearestPartyMember", -- TargetNearestPartyMember([reverse]) #protected - Selects the nearest Party member as the current target.
 	[ACTION_TYPE.secTargNParty] = scriptAction("Target Nearest (Party)", {
 		command = function(vars)
-			RunPrivileged("TargetNearestPartyMember("..vars..")")
+			RunPrivileged("TargetNearestPartyMember(" .. vars .. ")")
 		end,
 		description =
 		"Selects the nearest Party member as the current target.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
@@ -2436,7 +2511,7 @@ local actionTypeData = {
 	-- TargetNearestRaidMember = "TargetNearestRaidMember",  -- TargetNearestRaidMember([reverse]) #protected - Selects the nearest Raid member as the current target.
 	[ACTION_TYPE.secTargNRaid] = scriptAction("Target Nearest (Raid)", {
 		command = function(vars)
-			RunPrivileged("TargetNearestRaidMember("..vars..")")
+			RunPrivileged("TargetNearestRaidMember(" .. vars .. ")")
 		end,
 		description =
 		"Selects the nearest Raid member as the current target.\nOptional flag to reverse the targetting order (selecting furthest instead of nearest).",
@@ -2454,12 +2529,13 @@ local actionTypeData = {
 	-- FocusUnit = "FocusUnit",                              -- FocusUnit([name]) #protected - Sets the focus target.
 	[ACTION_TYPE.secFocus] = scriptAction("Set Focus", {
 		command = function(vars)
-			RunPrivileged("FocusUnit('"..vars.."')")
+			RunPrivileged("FocusUnit('" .. vars .. "')")
 		end,
 		description =
 		"Sets the focus target.",
 		dataName = "name",
-		inputDescription = "Name of the unit to set as the focus target, or optionally a UnitID instead.\n\rCommon UnitIDs: 'player', 'target', 'cursor', 'mouseover', 'partyN' (where N = number 1,2,3,4 for which party member)",
+		inputDescription =
+		"Name of the unit to set as the focus target, or optionally a UnitID instead.\n\rCommon UnitIDs: 'player', 'target', 'cursor', 'mouseover', 'partyN' (where N = number 1,2,3,4 for which party member)",
 		revert = function()
 			RunPrivileged("ClearFocus()")
 		end,
@@ -2487,10 +2563,10 @@ local actionTypeData = {
 	[ACTION_TYPE.FollowUnit] = scriptAction("Follow Unit", {
 		command = function(vars)
 			if not vars then vars = "target" end
-			RunPrivileged("FollowUnit('"..vars.."')")
+			RunPrivileged("FollowUnit('" .. vars .. "')")
 		end,
 		description =
-		"Follows the given unit. Potentially only works on a friendly player unit.\n\r"..commonUnitIDs,
+			"Follows the given unit. Potentially only works on a friendly player unit.\n\r" .. commonUnitIDs,
 		dataName = nil,
 		revert = function() RunPrivileged("MoveForwardStart(0); MoveForwardStop(0)") end,
 		revertDesc = "Stops following the unit.",
