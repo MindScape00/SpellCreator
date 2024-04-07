@@ -1,6 +1,6 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\..\FrameXML\UI.xsd">
 
-  <Script file="TalkingHead.lua"/>
+  <!--<Script file="TalkingHead.lua"/>-->
 
   <ContainedAlertFrame name="SCForgeTalkingHeadFrame" toplevel="true" parent="UIParent" hidden="true" frameStrata="HIGH" frameLevel="1">
 		<Size x="570" y="155"/>
@@ -140,7 +140,7 @@
 							<OnAnimFinished>
 							if not self.sequence then self.sequence = 1 end
 							self.sequence = self.sequence + 1
-							
+
 							if not SCForgeTalkingHeadFrame.animations[self.sequence] then self.sequence = 1 end self:SetAnimation(SCForgeTalkingHeadFrame.animations[self.sequence])
 							</OnAnimFinished>
 						</Scripts>

@@ -16,7 +16,7 @@ local cprint = Logging.cprint
 local eprint = Logging.eprint
 local Tooltip = ns.Utils.Tooltip
 
-local commaDelimitedText = "Comma delimited, use \"quotes\" around any text that has a comma in it."
+local commaDelimitedText = "Comma delimited, use \"quotes\" around any text that has a comma."
 local commonUnitIDs = "Common UnitIDs: 'player', 'target', 'cursor', 'mouseover', 'partyN' (where N = number 1,2,3,4 for which party member)"
 
 local toBoolean = Utils.Data.toBoolean
@@ -42,6 +42,12 @@ local parseArgsWrapper = function(string)
 		return
 	end
 	return argTable, numArgs
+end
+
+local function getArgs(string)
+	local argsTable, numArgs = parseArgsWrapper(string)
+	if not argsTable then error("Error Parsing String to Args (Are you missing a \" ?)") end
+	return unpack(argsTable, 1, numArgs)
 end
 
 local maxBackupsPerChar = 3
@@ -870,9 +876,10 @@ local actionTypeData = {
 	[ACTION_TYPE.ArcSaveFromPhase] = scriptAction("Save ArcSpell (Phase)", {
 		command = function(data)
 			--local commID, vocal = strsplit(",", data, 2)
-			local args, numArgs = parseArgsWrapper(data)
-			if not args then return end
-			local commID, vocal = unpack(args)
+			--local args, numArgs = parseArgsWrapper(data)
+			--if not args then return end
+			local success, commID, vocal = pcall(getArgs, data)
+			if not success then return end
 
 			if vocal and (vocal == "false" or vocal == "nil" or vocal == "0") then vocal = nil end
 			if vocal and vocal == "true" then vocal = true end
@@ -904,9 +911,13 @@ local actionTypeData = {
 		command = function(data)
 			--local length, text, iconPath, channeled, showIcon, showShield = strsplit(",", data, 6)
 
-			local args, numArgs = parseArgsWrapper(data)
+			--[[
+			--local args, numArgs = parseArgsWrapper(data)
 			if not args then return end
 			local length, text, iconPath, channeled, showIcon, showShield = unpack(args)
+			--]]
+			local success, length, text, iconPath, channeled, showIcon, showShield = pcall(getArgs, data)
+			if not success then return end
 
 			if length then length = tonumber(strtrim(length)) end
 			if not length then return error("Arcanum Action Usage (Show Castbar): Requires valid length number.") end
@@ -1042,18 +1053,14 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.ErrorMsg] = scriptAction("UI Message", {
 		command = function(msg)
-			local args, numArgs = parseArgsWrapper(msg)
+			--[[
+			--local args, numArgs = parseArgsWrapper(msg)
 			if not args then return end
 			local text, r, g, b, voiceID, soundKitID = unpack(args)
-
-			--[[
-			local success, text, r, g, b, voiceID, soundKitID = pcall(function(val) return unpack(parseStringToArgs(val)) end, msg)
-			if not success then
-				ns.Logging.eprint("UI Message Action Failed: Error Parsing String to Args (Are you missing a \" ?)")
-				ns.Logging.dprint(text)
-				return
-			end
 			--]]
+
+			local success, text, r, g, b, voiceID, soundKitID = pcall(getArgs, msg)
+			if not success then return end
 
 			ns.Logging.uiErrorMessage(text, r, g, b, voiceID, soundKitID)
 		end,
@@ -1113,9 +1120,13 @@ local actionTypeData = {
 			--local description, okayText, cancText, command = strsplit(",", msg, 4)
 			msg = msg:gsub("nil", "false") -- convert nil to false for backwards compatibility, since parseArgsWrapper makes nil a true nil, and we don't want that
 
-			local args, numArgs = parseArgsWrapper(msg)
+			--[[
+			--local args, numArgs = parseArgsWrapper(msg)
 			if not args then return end
 			local description, okayText, cancText, command = unpack(args)
+			--]]
+			local success, description, okayText, cancText, command = pcall(getArgs, msg)
+			if not success then return end
 
 			if not cancText and not command then command = okayText end
 			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
@@ -1149,9 +1160,13 @@ local actionTypeData = {
 
 			msg = msg:gsub("nil", "false") -- convert nil to false for backwards compatibility, since parseArgsWrapper makes nil a true nil, and we don't want that
 
-			local args, numArgs = parseArgsWrapper(msg)
+			--[[
+			--local args, numArgs = parseArgsWrapper(msg)
 			if not args then return end
 			local description, okayText, cancText, scriptString = unpack(args)
+			--]]
+			local success, description, okayText, cancText, scriptString = pcall(getArgs, msg)
+			if not success then return end
 
 			if not cancText and not scriptString then scriptString = okayText end
 			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
@@ -1202,9 +1217,13 @@ local actionTypeData = {
 
 			msg = msg:gsub("nil", "false") -- convert nil to false for backwards compatibility, since parseArgsWrapper makes nil a true nil, and we don't want that
 
-			local args, numArgs = parseArgsWrapper(msg)
+			--[[
+			--local args, numArgs = parseArgsWrapper(msg)
 			if not args then return end
 			local description, okayText, cancText, command = unpack(args)
+			--]]
+			local success, description, okayText, cancText, command = pcall(getArgs, msg)
+			if not success then return end
 
 			if not cancText and not command then command = okayText end
 			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
@@ -1236,9 +1255,14 @@ local actionTypeData = {
 
 			msg = msg:gsub("nil", "false") -- convert nil to false for backwards compatibility, since parseArgsWrapper makes nil a true nil, and we don't want that
 
-			local args, numArgs = parseArgsWrapper(msg)
+			--[[
+			--local args, numArgs = parseArgsWrapper(msg)
 			if not args then return end
 			local description, okayText, cancText, scriptString = unpack(args)
+			--]]
+
+			local success, description, okayText, cancText, scriptString = pcall(getArgs, msg)
+			if not success then return end
 
 			if not cancText and not scriptString then scriptString = okayText end
 			if not okayText or strtrim(okayText) == "" then okayText = OKAY else okayText = strtrim(okayText) end
@@ -1272,17 +1296,14 @@ local actionTypeData = {
 	[ACTION_TYPE.OpenSendMail] = scriptAction("Open Mail", {
 		command = function(vars)
 			--local to, subject, body = unpack(parseStringToArgs(vars))
-			local args = parseArgsWrapper(vars)
+			--[[
+			--local args = parseArgsWrapper(vars)
 			if not args then return end
 			local to, subject, body = unpack(args, 1, 3)
-
-			--[[
-			local success, to, subject, body = pcall(function(val) return unpack(parseStringToArgs(val)) end, vars)
-
-			if not success then
-				eprint("Error in pcall Parsing Open Mail Args. Check your 'Open Mail' action input formatting."); return
-			end
 			--]]
+			local success, to, subject, body = pcall(getArgs, vars)
+			if not success then return end
+
 			local callback = function()
 				Scripts.mail.openMailCallback(to, subject, body)
 			end
@@ -1303,15 +1324,14 @@ local actionTypeData = {
 	[ACTION_TYPE.SendMail] = scriptAction("Send Mail", {
 		command = function(vars)
 			--local to, subject, body = unpack(parseStringToArgs(vars))
-			local args = parseArgsWrapper(vars)
+			--[[
+			--local args = parseArgsWrapper(vars)
 			if not args then return end
 			local to, subject, body = unpack(args, 1, 3)
-
-			--[[
-			local success, to, subject, body = pcall(function(val) return unpack(parseStringToArgs(val)) end, vars)
-
-			if not to and subject and body then return Logging.eprint("Error in Send Mail Action: Requires to, subject, and body...") end
 			--]]
+
+			local success, to, subject, body = pcall(getArgs, vars)
+			if not success then return end
 
 			local callback = function()
 				Scripts.mail.sendMailCallback(to, subject, body)
@@ -1335,9 +1355,12 @@ local actionTypeData = {
 	-- TalkingHead = "TalkingHead"
 	[ACTION_TYPE.TalkingHead] = scriptAction("Send Talking Head", {
 		command = function(vars)
-			local args, numArgs = parseArgsWrapper(vars)
-			if not args then return end
-			local message, name, displayID, sound, textureKit, chatType, timeout = unpack(args)
+			--local args, numArgs = parseArgsWrapper(vars)
+			--if not args then return end
+			--local message, name, displayID, sound, textureKit, chatType, timeout = unpack(args, 1, numArgs)
+			local success, message, name, displayID, sound, textureKit, chatType, timeout = pcall(getArgs, vars)
+			if not success then return end
+
 			if not message and name and displayID then return end
 			message = tostring(message);
 			name = tostring(name) or "Unknown";
@@ -1348,31 +1371,40 @@ local actionTypeData = {
 			SCForgeTalkingHeadFrame_SetUnit(displayID, name, textureKit, message, sound, chatType, timeout);
 		end,
 		description =
-		"Displays a Talking Head frame with customisable options.",
+		"Displays a Talking Head frame with customizable options.",
 		dataName = "message, title, displayID [, soundKitID, textureKit, chatType]",
 		inputDescription =
-		"Syntax: message, title, displayID [, soundKitID, textureKit (Normal|Neutral|Epsilon|Horde|Alliance), chatType (SAY|WHISPER|YELL|EMOTE|NONE), timeout]; separated by commas. Only message, title, and displayID are required.",
-		example = [["Message text goes here.", John Doe, 21, 0, Normal, SAY, 10]],
+			"Syntax: message, title, displayID [, soundKitID, textureKit, chatType, timeout]\n\r" ..
+			commaDelimitedText .. "Only message, title, and displayID are required; leave an option blank to skip it.\n\r" ..
+			"Available Texture Kits:" ..
+			Constants.ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() ..
+			table.concat({ "Normal", "Neutral", "Epsilon", "Horde", "Alliance" }, "|r, " .. Constants.ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()) .. "|r\n\r" ..
+			"Available Chat Types:" ..
+			Constants.ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() ..
+			table.concat({ "SAY", "WHISPER", "YELL", "EMOTE", "NONE" }, "|r, " .. Constants.ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()) .. "|r\n\r",
+		example = [["Message text goes here.", John Doe, 21, , Normal, SAY, 10]],
 		revert = nil,
 		doNotDelimit = true,
 	}),
 	-- UnitPowerBar = "UnitPowerBar"
 	[ACTION_TYPE.UnitPowerBar] = scriptAction("Show UnitPowerBar", {
 		command = function(vars)
-			local args, numArgs = parseArgsWrapper(vars)
-			if not args then return end
-			local powerValue, minPower, maxPower, textureKit, powerName, powerTooltip, barColour, onFinished, isPercentage, flashEnabled = unpack(args)
-			if not powerValue and minPower and maxPower then return end
+			local success, powerValue, minPower, maxPower, textureKit, powerName, powerTooltip, r, g, b, onFinished, isPercentage, flashEnabled = pcall(getArgs, vars)
+			if not success then return end
+
+			if not powerValue and minPower and maxPower then
+				SCForge_UnitPowerBar:Hide()
+				return
+			end
 			powerValue = tonumber(powerValue);
-			minPower = tonumber(minPower) 0;
+			minPower = tonumber(minPower) or 0;
 			maxPower = tonumber(maxPower) or 100;
-			textureKit = tostring(textureKit) or "WoWUI";
-			powerName = tostring(powerName) or "";
-			powerTooltip = tostring(powerTooltip) or nil;
+			textureKit = textureKit or "WoWUI"; -- no tostrings, need to allow nil so we can default if nil (instead of giving string 'nil')
+			powerName = powerName or "";
+			powerTooltip = powerTooltip or nil;
 			local colour;
-			if type(barColour) == "table" and #barColour == 3 then
-				-- We have to be very selective of barColour...
-				colour = barColour;
+			if tonumber(r) and tonumber(g) and tonumber(b) then
+				colour = { r, g, b };
 			end
 
 			SCForge_UnitPowerBar:ApplyTextures(textureKit, powerName, powerTooltip, powerValue, colour, onFinished, isPercentage, flashEnabled);
@@ -1380,11 +1412,14 @@ local actionTypeData = {
 			SCForge_UnitPowerBar:Show();
 		end,
 		description =
-		"Displays a UnitPowerBar frame with customisable options.",
-		dataName = "powerValue, minPower, maxPower, [textureKit, powerName, powerTooltip, barColour, onFinished, flashEnabled]",
+		"Displays a UnitPowerBar frame with customizable options (see input syntax for help).",
+		dataName = "powerValue, minPower, maxPower, [textureKit, powerName, powerTooltip, r, g, b, onFinished, isPercentage, flashEnabled]",
 		inputDescription =
-		"Syntax: powerValue, minPower, maxPower, [textureKit, powerName, powerTooltip, barColour, onFinished, isPercentage, flashEnabled]; separated by commas. Only powerValue, minPower, and maxPower are required.",
-		example = [[10, 0, 100, Azerite, Borrowed Power, "Don't worry - you'll get it back eventually!", {1, 1, 1},  nil, false, false]],
+			"Syntax: powerValue, minPower, maxPower, [textureKit, powerName, powerTooltip, r, g, b, onFinished, isPercentage, flashEnabled].\n\r" ..
+			commaDelimitedText .. "\nOnly powerValue, minPower, and maxPower are required.\n\rAvailable Texture Kits: " ..
+			Constants.ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup() ..
+			table.concat(ns.UI.TalkingHead.TalkingHead.availablePowerBars, "|r, " .. Constants.ADDON_COLORS.TOOLTIP_CONTRAST:GenerateHexColorMarkup()) .. "|r\n\rTexture Kit names are case sensitive.",
+		example = [[10, 0, 100, Azerite, Borrowed Power, "Don't worry - you'll get it back eventually!", 1, 1, 1, nil, false, false]],
 		revertDesc = "Hides the UnitPowerBar frame.",
 		revert = function() SCForge_UnitPowerBar:Hide(); end,
 		doNotDelimit = true,
@@ -1418,9 +1453,13 @@ local actionTypeData = {
 	[ACTION_TYPE.TRP3e_Cast_showCastingBar] = scriptAction("TRP3e Castbar", {
 		command = function(vars)
 			--local duration, interruptMode, soundID, castText = unpack(parseStringToArgs(vars))
-			local args = parseArgsWrapper(vars)
+			--[[
+			--local args = parseArgsWrapper(vars)
 			if not args then return end
 			local duration, interruptMode, soundID, castText = unpack(args, 1, 4)
+			--]]
+			local success, duration, interruptMode, soundID, castText = pcall(getArgs, vars)
+			if not success then return end
 
 			if not duration then return end
 			TRP3_API.extended.showCastingBar(tonumber(duration), tonumber(interruptMode), nil, tonumber(soundID), castText)
@@ -1506,9 +1545,14 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.QCBookStyle] = scriptAction("Change Book Style", {
 		command = function(vars)
-			local args = parseArgsWrapper(vars)
+			--[[
+			--local args = parseArgsWrapper(vars)
 			if not args then return end
 			local bookName, styleName = unpack(args, 1, 2)
+			--]]
+			local success, bookName, styleName = pcall(getArgs, vars)
+			if not success then return end
+
 			ns.UI.Quickcast.Book.changeBookStyle(strtrim(bookName), strtrim(styleName))
 		end,
 		description = "Change a Quickcast Book's Style to another style, either by using the style name or ID.",
@@ -1521,9 +1565,13 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.QCBookSwitchPage] = scriptAction("Switch Page", {
 		command = function(vars)
-			local args = parseArgsWrapper(vars)
+			--[[
+			--local args = parseArgsWrapper(vars)
 			if not args then return end
 			local bookName, pageNumber = unpack(args, 1, 2)
+			--]]
+			local success, bookName, pageNumber = pcall(getArgs, vars)
+			if not success then return end
 
 			ns.UI.Quickcast.Book.setPageInBook(strtrim(bookName), strtrim(pageNumber))
 		end,
@@ -1537,9 +1585,14 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.QCBookNewBook] = scriptAction("New Book", {
 		command = function(vars)
-			local args = parseArgsWrapper(vars)
+			--[[
+			--local args = parseArgsWrapper(vars)
 			if not args then return end
 			local bookName, styleName = unpack(args, 1, 2)
+			--]]
+			local success, bookName, styleName = pcall(getArgs, vars)
+			if not success then return end
+
 			ns.UI.Quickcast.Quickcast.API.NewBook(strtrim(bookName), strtrim(styleName))
 		end,
 		description = "Create a new Quickcast Book, with an optional default style set.",
@@ -1551,7 +1604,7 @@ local actionTypeData = {
 	}),
 	[ACTION_TYPE.QCBookNewPage] = scriptAction("Add Page to Book", {
 		command = function(vars)
-			local args, numArgs = parseArgsWrapper(vars)
+			local args, numArgs = parseArgsWrapper(vars) -- need to keep using the parseArgsWrapper here because we want the table
 			if not args then return end
 			local spells
 			local success, spellTable = nil, {}
@@ -1581,7 +1634,7 @@ local actionTypeData = {
 	[ACTION_TYPE.QCBookAddSpell] = scriptAction("Add Spell to Book/Page", {
 		command = function(vars)
 			--local bookName, pageNumber, commID = AceConsole:GetArgs(vars, 3)
-			local args, numArgs = parseArgsWrapper(vars)
+			local args, numArgs = parseArgsWrapper(vars) -- need to keep using the parseArgsWrapper here because we want the table
 			if not args then return end
 			local spells
 			local success, spellTable = nil, {}
@@ -2068,9 +2121,13 @@ local actionTypeData = {
 			if not Kinesis then return end
 			--local movetype, val = strsplit(",", vars)
 
-			local args = parseArgsWrapper(vars)
+			--[[
+			--local args = parseArgsWrapper(vars)
 			if not args then return end
 			local movetype, val = unpack(args)
+			--]]
+			local success, movetype, val = pcall(getArgs, vars)
+			if not success then return end
 
 			movetype = strtrim(string.lower(movetype))
 			if movetype == "walk" or movetype == "ground" then
@@ -2121,9 +2178,13 @@ local actionTypeData = {
 			if not Kinesis then return end
 			--local movetype, val = strsplit(",", vars)
 
-			local args = parseArgsWrapper(vars)
+			--[[
+			--local args = parseArgsWrapper(vars)
 			if not args then return end
 			local movetype, val = unpack(args)
+			--]]
+			local success, movetype, val = pcall(getArgs, vars)
+			if not success then return end
 
 			movetype = strtrim(string.lower(movetype))
 			if movetype == "walk" or movetype == "ground" then
