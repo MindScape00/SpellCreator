@@ -85,3 +85,8 @@ ns.Constants = {
 
 	eventUnlockDates = eventUnlockDates,
 }
+
+-- just moving this here because I don't want another file
+---@class SC_AceEvent: AceEvent-3.0
+ns.AceEvent = {}
+LibStub("AceEvent-3.0"):Embed(ns.AceEvent)

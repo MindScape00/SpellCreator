@@ -149,6 +149,82 @@ end
 --#endregion
 --------------------
 
+------------------------
+--#region Nametag Scripts
+------------------------
+
+local nameCVars = {
+	"UnitNameOwn",
+	"UnitNameNPC",
+	"UnitNamePlayerGuild",
+	"UnitNamePlayerPVPTitle",
+	"UnitNameFriendlyPlayerName",
+	"UnitNameFriendlyPetName",
+	"UnitNameFriendlyGuardianName",
+	"UnitNameFriendlyTotemName",
+	"UnitNameEnemyPlayerName",
+	"UnitNameEnemyPetName",
+	"UnitNameEnemyGuardianName",
+	"UnitNameEnemyTotemName",
+	"UnitNameNonCombatCreatureName",
+	"UnitNameGuildTitle",
+}
+local savedNameCVars = {}
+local areNamesShown = true
+local namesAreToggled = false
+
+local nametags = {}
+function nametags.Enable()
+	areNamesShown = true
+	namesAreToggled = true
+	for k, v in pairs(nameCVars) do
+		SetCVar(v, 1)
+	end
+end
+
+function nametags.Disable()
+	areNamesShown = false
+	namesAreToggled = true
+	for k, v in pairs(nameCVars) do
+		SetCVar(v, 0)
+	end
+end
+
+function nametags.Restore()
+	namesAreToggled = false
+	areNamesShown = true -- might not be true but for toggle purposes let's assume they are
+	for k, v in pairs(nameCVars) do
+		SetCVar(v, savedNameCVars[v] or "0")
+	end
+end
+
+function nametags.Toggle()
+	--[[
+	if namesAreToggled then -- Ignore what the current settings are, we are currently overriding, so toggle should just restore
+		nametags.Restore()
+		return
+	end
+	--]]
+	if areNamesShown then
+		nametags.Disable()
+	else
+		nametags.Enable()
+	end
+end
+
+local function updateSavedNametagCVars()
+	for k, v in pairs(nameCVars) do
+		savedNameCVars[v] = GetCVar(v) or "0"
+	end
+end
+-- Fix that annoying issue with using the interface menu.
+InterfaceOptionsFrameOkay:HookScript("OnClick", updateSavedNametagCVars)
+ns.AceEvent:RegisterEvent("VARIABLES_LOADED", updateSavedNametagCVars)
+
+--------------------
+--#endregion
+--------------------
+
 --------------------
 --#region RunScript Priv
 --------------------
@@ -269,6 +345,7 @@ ARC._DEBUG.DATA_SCRIPTS = {
 ---@class Actions_Data_Scripts
 ns.Actions.Data_Scripts = {
 	camera = camera,
+	nametags = nametags,
 	keybind = keybindFrame,
 	ui = ui,
 	mail = mail,

@@ -1295,8 +1295,8 @@ local function addonLoadedHandler()
 	end
 end
 
-local function addonLoadedHandler_Delayed()
-	SavedVariables.delayed_init()
+local function addonLoadedHandler_Delayed(...)
+	SavedVariables.delayed_init(...)
 end
 
 ------------------------------------
@@ -1357,7 +1357,7 @@ local scEventHandlers = {
 	end,
 	VARIABLES_LOADED = function()
 		dprint("VARIABLES_LOADED, initializing delayed addonLoadedHandler")
-		C_Timer.After(0.5, addonLoadedHandler_Delayed)  -- Must delay to next frame, but we do 0.5 to be safe & ensure Blizzard's shit is actually loaded.
+		C_Timer.After(0.5, function() addonLoadedHandler_Delayed() end) -- Must delay to next frame, but we do 0.5 to be safe & ensure Blizzard's shit is actually loaded.
 	end,
 	--[[ -- Unused for now. Note, this may only be reliable if the phase has any hotfix data it needs to pull when you enter it?
 	INITIAL_HOTFIXES_APPLIED = function()
@@ -1373,6 +1373,27 @@ end
 SC_Event_Listener:SetScript("OnEvent", function(self, event, var1, ...)
 	if scEventHandlers[event] then scEventHandlers[event](var1, ...) end
 end);
+
+local function RegisterEventCallback(event, callback)
+	if event == "VARIABLES_LOADED" then -- custom handling to move it to the delayed handler
+		local _addonLoadedHandler_Delayed = addonLoadedHandler_Delayed
+		addonLoadedHandler_Delayed = function(...)
+			_addonLoadedHandler_Delayed(...)
+			callback(...)
+		end
+	else
+		if scEventHandlers[event] then
+			local _originalFunc = scEventHandlers[event]
+			scEventHandlers[event] = function(...)
+				_originalFunc(...)
+				callback(...)
+			end
+		else
+			scEventHandlers[event] = callback
+			SC_Event_Listener:RegisterEvent(event)
+		end
+	end
+end
 
 
 -------------------------------------------------------------------------------
@@ -1569,4 +1590,6 @@ ns.MainFuncs = {
 
 	resetEditorUI = resetEditorUI,
 	scforge_showhide = scforge_showhide,
+
+	RegisterEventCallback = RegisterEventCallback,
 }

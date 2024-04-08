@@ -193,24 +193,24 @@ local baseMenuList = {
 
 	header("Commands / Other"),
 	selectmenu("Target", {
-		action(ACTION.secTarget),								-- TargetUnit([name, exactMatch]) #protected - Targets the specified unit.
-		action(ACTION.secAssist),								-- AssistUnit([name, exactMatch]) #protected - Assists the unit by targeting the same target.
-		action(ACTION.secClearTarg),							-- ClearTarget() : willMakeChange #protected - Clears the selected target
+		action(ACTION.secTarget),  -- TargetUnit([name, exactMatch]) #protected - Targets the specified unit.
+		action(ACTION.secAssist),  -- AssistUnit([name, exactMatch]) #protected - Assists the unit by targeting the same target.
+		action(ACTION.secClearTarg), -- ClearTarget() : willMakeChange #protected - Clears the selected target
 		spacer(),
-		action(ACTION.secTargLTarg),							-- TargetLastTarget() #protected - Selects the last target as the current target.
-		action(ACTION.secTargLEnemy),							-- TargetLastEnemy() #protected - Targets the previously targeted enemy.
-		action(ACTION.secTargLFriend),							-- TargetLastFriend
+		action(ACTION.secTargLTarg), -- TargetLastTarget() #protected - Selects the last target as the current target.
+		action(ACTION.secTargLEnemy), -- TargetLastEnemy() #protected - Targets the previously targeted enemy.
+		action(ACTION.secTargLFriend), -- TargetLastFriend
 		spacer(),
-		action(ACTION.secTargNAny),								-- TargetNearest([reverse]) #protected
-		action(ACTION.secTargNEnemy),							-- TargetNearestEnemy([reverse]) #protected - Selects the nearest enemy as the current target.
-		action(ACTION.secTargNEnPlayer),						-- TargetNearestEnemyPlayer([reverse]) #protected - Selects the nearest enemy player as the current target.
-		action(ACTION.secTargNFriend),							-- TargetNearestFriend([reverse]) #protected - Targets the nearest friendly unit.
-		action(ACTION.secTargNFrPlayer),						-- TargetNearestFriendPlayer([reverse]) #protected - Selects the nearest friendly player as the current target.
-		action(ACTION.secTargNParty),							-- TargetNearestPartyMember([reverse]) #protected - Selects the nearest Party member as the current target.
-		action(ACTION.secTargNRaid),							-- TargetNearestRaidMember([reverse]) #protected - Selects the nearest Raid member as the current target.
+		action(ACTION.secTargNAny), -- TargetNearest([reverse]) #protected
+		action(ACTION.secTargNEnemy), -- TargetNearestEnemy([reverse]) #protected - Selects the nearest enemy as the current target.
+		action(ACTION.secTargNEnPlayer), -- TargetNearestEnemyPlayer([reverse]) #protected - Selects the nearest enemy player as the current target.
+		action(ACTION.secTargNFriend), -- TargetNearestFriend([reverse]) #protected - Targets the nearest friendly unit.
+		action(ACTION.secTargNFrPlayer), -- TargetNearestFriendPlayer([reverse]) #protected - Selects the nearest friendly player as the current target.
+		action(ACTION.secTargNParty), -- TargetNearestPartyMember([reverse]) #protected - Selects the nearest Party member as the current target.
+		action(ACTION.secTargNRaid), -- TargetNearestRaidMember([reverse]) #protected - Selects the nearest Raid member as the current target.
 		spacer(),
-		action(ACTION.secFocus),								-- FocusUnit([name]) #protected - Sets the focus target.
-		action(ACTION.secClearFocus),							-- ClearFocus() #protected - Clears the focus target.
+		action(ACTION.secFocus),   -- FocusUnit([name]) #protected - Sets the focus target.
+		action(ACTION.secClearFocus), -- ClearFocus() #protected - Clears the focus target.
 	}),
 	selectmenu("Movement", {
 		action(ACTION.FollowUnit),
@@ -275,14 +275,15 @@ local baseMenuList = {
 		spacer(),
 		action(ACTION.ARCCopy),
 	}),
-	selectmenu("UI / Prompts", {
+	selectmenu("Pop-up Prompts", {
 		header("Prompt with Input"),
 		action(ACTION.BoxPromptCommand),
 		action(ACTION.BoxPromptScript),
 		header("Prompt, No Input (Confirmation)"),
 		action(ACTION.BoxPromptCommandNoInput),
 		action(ACTION.BoxPromptScriptNoInput),
-		header("User Interface (UI)"),
+	}),
+	selectmenu("User Interface (UI)", {
 		action(ACTION.HideMostUI),
 		action(ACTION.UnhideMostUI),
 		action(ACTION.FadeOutMainUI),
@@ -293,6 +294,11 @@ local baseMenuList = {
 		spacer(),
 		action(ACTION.TalkingHead),
 		action(ACTION.UnitPowerBar),
+		spacer(),
+		action(ACTION.HideNames),
+		action(ACTION.ShowNames),
+		action(ACTION.ToggleNames),
+		action(ACTION.RestoreNames),
 		spacer(),
 		action(ACTION.TRP3e_Cast_showCastingBar)
 	}),

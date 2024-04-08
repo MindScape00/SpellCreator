@@ -223,6 +223,11 @@ local ACTION_TYPE = {
 	FadeOutMainUI = "FadeOutMainUI",
 	FadeInMainUI = "FadeInMainUI",
 
+	HideNames = "HideNames",
+	ShowNames = "ShowNames",
+	ToggleNames = "ToggleNames",
+	RestoreNames = "RestoreNames",
+
 	-- Location Actions
 	SaveARCLocation = "SaveARCLocation",
 	GotoARCLocation = "GotoARCLocation",
@@ -1101,6 +1106,41 @@ local actionTypeData = {
 		revertDesc = "Fades the UI out.",
 		revert = function(vars) UIFrameFadeOut(UIParent, tonumber(vars), UIParent:GetAlpha(), 0) end,
 	}),
+	--
+
+	--HideNametags = "HideNametags",
+	--ShowNametags = "ShowNametags",
+	--ToggleNametags = "ToggleNametags",
+	[ACTION_TYPE.HideNames] = scriptAction("Hide Names", {
+		command = function() ns.Actions.Data_Scripts.nametags.Disable() end,
+		description = "Hides names above NPCs & Players.\n\r" ..
+			Tooltip.genContrastText("Please use Revert or Restore Names once done, to ensure you are restoring the original settings!"),
+
+		revertDesc = "Restores your non-Arcanum-modified name settings.",
+		revert = function() ns.Actions.Data_Scripts.nametags.Restore() end,
+	}),
+	[ACTION_TYPE.ShowNames] = scriptAction("Show Names", {
+		command = function() ns.Actions.Data_Scripts.nametags.Enable() end,
+		description = "Shows names above NPCs & Players.\n\r" ..
+			Tooltip.genContrastText("Please use Revert or Restore Names once done, to ensure you are restoring the original settings!"),
+
+		revertDesc = "Restores your non-Arcanum-modified name settings.",
+		revert = function() ns.Actions.Data_Scripts.nametags.Restore() end,
+	}),
+	[ACTION_TYPE.ToggleNames] = scriptAction("Toggle Names", {
+		command = function() ns.Actions.Data_Scripts.nametags.Toggle() end,
+		description = "Toggles names above NPCs & Players.\n\r" ..
+			Tooltip.genContrastText("Please use Restore Names once done, to ensure you are restoring the original settings!"),
+
+		revertDesc = "Toggles names again (NOT A RESTORE - This is still another override).",
+		revert = function() ns.Actions.Data_Scripts.nametags.Restore() end,
+	}),
+	[ACTION_TYPE.RestoreNames] = scriptAction("Restore Names", {
+		command = function() ns.Actions.Data_Scripts.nametags.Restore() end,
+		description = "Restores your non-Arcanum-modified name settings.",
+	}),
+
+
 	[ACTION_TYPE.BoxMsg] = scriptAction("Popup Box Message", {
 		command = function(msg)
 			ns.UI.Popups.showCustomGenericConfirmation({
